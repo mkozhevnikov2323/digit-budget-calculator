@@ -4,7 +4,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import { useState } from 'react';
-import { Modal } from 'shared/ui/Modal';
+import { AuthModal } from 'widgets/Modals/AuthModal';
 
 export const Navbar = () => {
   const [openAuthModal, setOpenAuthModal] = useState(false);
@@ -30,7 +30,7 @@ export const Navbar = () => {
           </Button>
         </Toolbar>
       </AppBar>
-      <Modal
+      <AuthModal
         open={openAuthModal}
         onClose={setOpenAuthModal}
       />
