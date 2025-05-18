@@ -1,3 +1,7 @@
+export { AuthButton } from './ui/AuthButton';
+
+export { LogoutButton } from './ui/LogoutButton';
+
 export { logout } from './model/authThunks';
 
 export { AuthModal } from './ui/AuthModal';
@@ -8,5 +12,3 @@ export {
   setAuthenticated,
   reducer as authorizationReducer,
 } from './model/authorizationSlice';
-
-export { AuthForm } from './ui/AuthForm';

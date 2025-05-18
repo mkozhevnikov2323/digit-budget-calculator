@@ -2,59 +2,46 @@ import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import { useSelector } from 'react-redux';
 import { selectUser } from 'entities/User';
-import { AuthModal, logout, openAuthModal } from 'features/Authorization';
-import LogoutIcon from '@mui/icons-material/Logout';
-import { useAppDispatch } from 'app/providers/store/hooks';
-import { useNavigate } from 'react-router';
+import { AuthButton, AuthModal, LogoutButton } from 'features/Authorization';
+import { Navigation } from 'widgets/Navigation';
+import { useMediaQuery, useTheme } from '@mui/material';
+import { MobileMenu } from 'widgets/MobileMenu';
 
 export const Navbar = () => {
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const handleOpenModal = () => dispatch(openAuthModal());
-
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const user = useSelector(selectUser);
-
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate('/');
-  };
 
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
-        <Toolbar>
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{ flexGrow: 1 }}
-          >
-            Калькулятор бюджета
-          </Typography>
-          {user ? (
-            <>
-              <Typography sx={{ marginRight: 2 }}>{user.email}</Typography>
-              <Button
-                color="inherit"
-                startIcon={<LogoutIcon />}
-                onClick={handleLogout}
-                sx={{
-                  border: '1px solid',
-                  backgroundColor: 'grey',
-                }}
-              >
-                Выйти
-              </Button>
-            </>
-          ) : (
-            <Button
-              color="inherit"
-              onClick={handleOpenModal}
+        <Toolbar
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Typography
+              variant="h6"
+              component="div"
             >
-              Вход / Регистрация
-            </Button>
+              Калькулятор бюджета
+            </Typography>
+            <Navigation />
+          </Box>
+
+          {isMobile ? (
+            <MobileMenu />
+          ) : user ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <LogoutButton />
+            </Box>
+          ) : (
+            <AuthButton />
           )}
         </Toolbar>
       </AppBar>
