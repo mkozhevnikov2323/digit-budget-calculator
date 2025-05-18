@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { errorMessageHandler } from 'shared/lib/utils/errorMessageHandler';
+import { useLoginMutation, useRegisterMutation } from '../api/authApi';
+import { closeAuthModal, setAuthenticated } from '../model/authorizationSlice';
+import { useDispatch } from 'react-redux';
+import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { ErrorResponse } from 'shared/types/errorSchema';
 
 interface FormData {
   email: string;
@@ -10,8 +15,13 @@ interface FormData {
 }
 
 export const AuthForm: React.FC = () => {
+  const dispatch = useDispatch();
+
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const [login] = useLoginMutation();
+  const [registerMutation] = useRegisterMutation();
 
   const {
     register,
@@ -27,35 +37,29 @@ export const AuthForm: React.FC = () => {
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     try {
-      setServerError(null);
-
-      const endpoint = isRegisterMode ? '/signup' : '/signin';
-
-      const response = await fetch(`http://localhost:3210${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: data.email, password: data.password }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          errorMessageHandler(result.message) || 'Что-то пошло не так',
-        );
-      }
-
+      let response;
       if (isRegisterMode) {
-        console.log('✅ Пользователь зарегистрирован:', result);
+        response = await registerMutation({
+          email: data.email,
+          password: data.password,
+        }).unwrap();
       } else {
-        console.log('✅ Пользователь вошёл в систему:', result);
-        localStorage.setItem('token', result.token);
+        response = await login({
+          email: data.email,
+          password: data.password,
+        }).unwrap();
       }
+
+      localStorage.setItem('token', response.token);
+
+      dispatch(setAuthenticated(true));
+      dispatch(closeAuthModal());
     } catch (error) {
-      console.error('Ошибка:', error);
-      setServerError((error as Error).message);
+      const errMessage = errorMessageHandler(
+        ((error as FetchBaseQueryError)?.data as ErrorResponse)?.message ??
+          'Что-то пошло не так',
+      );
+      setServerError(errMessage);
     }
   };
 
