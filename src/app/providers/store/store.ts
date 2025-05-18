@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { authorizationReducer } from 'features/Authorization';
 import { userReducer } from 'entities/User';
 import { baseApi } from 'shared/api/baseApi';
-import { incomeApi, incomeReducer } from 'entities/Income';
+import { incomeReducer } from 'entities/Income';
 
 export const store = configureStore({
   reducer: {
@@ -10,10 +10,9 @@ export const store = configureStore({
     user: userReducer,
     income: incomeReducer,
     [baseApi.reducerPath]: baseApi.reducer,
-    [incomeApi.reducerPath]: incomeApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(baseApi.middleware, incomeApi.middleware),
+    getDefaultMiddleware().concat(baseApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

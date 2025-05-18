@@ -1,10 +1,7 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { baseApi } from 'shared/api/baseApi';
 import { IncomeSchema } from '../model/types';
 
-export const incomeApi = createApi({
-  reducerPath: 'incomeApi',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
-  tagTypes: ['Income'],
+export const incomeApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getIncomes: builder.query<IncomeSchema[], void>({
       query: () => '/incomes',
@@ -29,6 +26,7 @@ export const incomeApi = createApi({
       }),
     }),
   }),
+  overrideExisting: false,
 });
 
 export const {
