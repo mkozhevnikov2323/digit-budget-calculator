@@ -33,15 +33,27 @@ export const routeConfig: Record<AppRoutes, RouteObject> = {
   },
   [AppRoutes.INCOME]: {
     path: RoutePath.income,
-    element: <IncomePage />,
+    element: (
+      <Protected>
+        <IncomePage />
+      </Protected>
+    ),
   },
   [AppRoutes.EXPENSES]: {
     path: RoutePath.expenses,
-    element: <ExpensesPage />,
+    element: (
+      <Protected>
+        <ExpensesPage />
+      </Protected>
+    ),
   },
   [AppRoutes.BALANCE]: {
     path: RoutePath.balance,
-    element: <BalancePage />,
+    element: (
+      <Protected>
+        <BalancePage />
+      </Protected>
+    ),
   },
   [AppRoutes.PROFILE]: {
     path: RoutePath.profile,

@@ -8,15 +8,18 @@ import { selectUser } from 'entities/User';
 import { AuthModal, logout, openAuthModal } from 'features/Authorization';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAppDispatch } from 'app/providers/store/hooks';
+import { useNavigate } from 'react-router';
 
 export const Navbar = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const handleOpenModal = () => dispatch(openAuthModal());
 
   const user = useSelector(selectUser);
 
   const handleLogout = () => {
     dispatch(logout());
+    navigate('/');
   };
 
   return (
