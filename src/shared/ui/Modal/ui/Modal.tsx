@@ -8,7 +8,7 @@ import CloseIcon from '@mui/icons-material/Close';
 
 interface ModalProps {
   open: boolean;
-  onClose: (arg: boolean) => void;
+  onClose: () => void;
   children?: ReactNode;
 }
 
@@ -22,14 +22,10 @@ const BootstrapDialog = styled(Dialog)(({ theme }) => ({
 }));
 
 export const Modal = ({ open, onClose, children }: ModalProps) => {
-  const handleClose = () => {
-    onClose(false);
-  };
-
   return (
     <React.Fragment>
       <BootstrapDialog
-        onClose={handleClose}
+        onClose={onClose}
         aria-labelledby="customized-dialog-title"
         open={open}
       >
@@ -41,7 +37,7 @@ export const Modal = ({ open, onClose, children }: ModalProps) => {
         </DialogTitle>
         <IconButton
           aria-label="close"
-          onClick={handleClose}
+          onClick={onClose}
           sx={(theme) => ({
             position: 'absolute',
             right: 8,

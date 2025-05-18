@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { useForm, SubmitHandler } from 'react-hook-form';
+import { errorMessageHandler } from 'shared/lib/utils/errorMessageHandler';
 
 interface FormData {
   email: string;
@@ -10,6 +11,7 @@ interface FormData {
 
 export const AuthForm: React.FC = () => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
@@ -20,13 +22,40 @@ export const AuthForm: React.FC = () => {
 
   const toggleMode = () => {
     setIsRegisterMode((prev) => !prev);
+    setServerError(null);
   };
 
-  const onSubmit: SubmitHandler<FormData> = (data) => {
-    if (isRegisterMode) {
-      console.log('Регистрируем пользователя', data);
-    } else {
-      console.log('Пользователь входит', data);
+  const onSubmit: SubmitHandler<FormData> = async (data) => {
+    try {
+      setServerError(null);
+
+      const endpoint = isRegisterMode ? '/signup' : '/signin';
+
+      const response = await fetch(`http://localhost:3210${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          errorMessageHandler(result.message) || 'Что-то пошло не так',
+        );
+      }
+
+      if (isRegisterMode) {
+        console.log('✅ Пользователь зарегистрирован:', result);
+      } else {
+        console.log('✅ Пользователь вошёл в систему:', result);
+        localStorage.setItem('token', result.token);
+      }
+    } catch (error) {
+      console.error('Ошибка:', error);
+      setServerError((error as Error).message);
     }
   };
 
@@ -74,7 +103,7 @@ export const AuthForm: React.FC = () => {
           margin="normal"
           {...register('password', {
             required: 'Обязательное поле',
-            minLength: { value: 6, message: 'Минимум 6 символов' },
+            minLength: { value: 8, message: 'Минимум 8 символов' },
           })}
           error={!!errors.password}
           helperText={errors.password?.message}
@@ -118,6 +147,12 @@ export const AuthForm: React.FC = () => {
           ? 'Уже есть аккаунт? Войти'
           : 'Нет аккаунта? Зарегистрироваться'}
       </Button>
+
+      {serverError && (
+        <Box sx={{ mb: 2 }}>
+          <Typography color="error">{serverError}</Typography>
+        </Box>
+      )}
     </Box>
   );
 };

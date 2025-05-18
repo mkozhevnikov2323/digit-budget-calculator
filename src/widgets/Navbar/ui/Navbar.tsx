@@ -3,13 +3,15 @@ import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import { useState } from 'react';
-import { AuthModal } from 'widgets/Modals/AuthModal';
+import { useDispatch, useSelector } from 'react-redux';
+import { selectUser } from 'entities/User';
+import { AuthModal, openAuthModal } from 'features/Authorization';
 
 export const Navbar = () => {
-  const [openAuthModal, setOpenAuthModal] = useState(false);
+  const dispatch = useDispatch();
+  const handleOpenModal = () => dispatch(openAuthModal());
 
-  const handleOpenModal = () => setOpenAuthModal(true);
+  const user = useSelector(selectUser);
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -22,18 +24,19 @@ export const Navbar = () => {
           >
             Калькулятор бюджета
           </Typography>
-          <Button
-            color="inherit"
-            onClick={handleOpenModal}
-          >
-            Вход / Регистрация
-          </Button>
+          {user ? (
+            <Typography>{user.email}</Typography>
+          ) : (
+            <Button
+              color="inherit"
+              onClick={handleOpenModal}
+            >
+              Вход / Регистрация
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
-      <AuthModal
-        open={openAuthModal}
-        onClose={setOpenAuthModal}
-      />
+      <AuthModal />
     </Box>
   );
 };
