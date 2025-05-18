@@ -1,3 +1,5 @@
+export { logout } from './model/authThunks';
+
 export { AuthModal } from './ui/AuthModal';
 
 export {
