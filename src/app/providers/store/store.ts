@@ -3,12 +3,14 @@ import { authorizationReducer } from 'features/Authorization';
 import { userReducer } from 'entities/User';
 import { baseApi } from 'shared/api/baseApi';
 import { incomeReducer } from 'entities/Income';
+import { expenseReducer } from 'entities/Expense';
 
 export const store = configureStore({
   reducer: {
     authorization: authorizationReducer,
     user: userReducer,
     income: incomeReducer,
+    expenses: expenseReducer,
     [baseApi.reducerPath]: baseApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
