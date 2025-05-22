@@ -28,7 +28,7 @@ export const IncomeTable = () => {
         </TableHead>
         <TableBody>
           {incomes.map((income, idx) => (
-            <TableRow key={income.id}>
+            <TableRow key={idx}>
               <TableCell>{idx + 1}</TableCell>
               <TableCell>
                 {new Date(income.date).toLocaleDateString()}

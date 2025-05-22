@@ -30,7 +30,7 @@ export const ExpenseTable = () => {
         </TableHead>
         <TableBody>
           {expenses.map((expense, idx) => (
-            <TableRow key={expense.id}>
+            <TableRow key={idx}>
               <TableCell>{idx + 1}</TableCell>
               <TableCell>
                 {new Date(expense.date).toLocaleDateString()}

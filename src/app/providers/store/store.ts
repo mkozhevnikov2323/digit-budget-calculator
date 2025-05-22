@@ -4,6 +4,7 @@ import { userReducer } from 'entities/User';
 import { baseApi } from 'shared/api/baseApi';
 import { incomeReducer } from 'entities/Income';
 import { expenseReducer } from 'entities/Expense';
+import { addIncomeModalReducer } from 'widgets/Modals/AddIncomeModal';
 
 export const store = configureStore({
   reducer: {
@@ -11,6 +12,7 @@ export const store = configureStore({
     user: userReducer,
     income: incomeReducer,
     expenses: expenseReducer,
+    incomeModal: addIncomeModalReducer,
     [baseApi.reducerPath]: baseApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
