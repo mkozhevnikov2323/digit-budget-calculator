@@ -16,9 +16,7 @@ export const UserProvider: React.FC<Props> = ({ children }) => {
     (state: RootState) => state.authorization.isAuthenticated,
   );
 
-  const { data, refetch } = useGetMeQuery(undefined, {
-    skip: !token,
-  });
+  const { data, refetch } = useGetMeQuery(undefined, { skip: !token });
 
   useEffect(() => {
     if (token && isAuthenticated) {
@@ -27,10 +25,10 @@ export const UserProvider: React.FC<Props> = ({ children }) => {
   }, [token, isAuthenticated, refetch]);
 
   useEffect(() => {
-    if (data) {
+    if (data && isAuthenticated) {
       dispatch(setUser(data));
     }
-  }, [data, dispatch]);
+  }, [data, dispatch, token, isAuthenticated]);
 
   return <>{children}</>;
 };
