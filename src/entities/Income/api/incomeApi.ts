@@ -15,23 +15,8 @@ export const incomeApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Income'],
     }),
-    getSources: builder.query<string[], void>({
-      query: () => '/sources',
-    }),
-    addSource: builder.mutation<void, string>({
-      query: (newSource) => ({
-        url: '/sources',
-        method: 'POST',
-        body: { name: newSource },
-      }),
-    }),
   }),
   overrideExisting: false,
 });
 
-export const {
-  useGetIncomesQuery,
-  useAddIncomeMutation,
-  useGetSourcesQuery,
-  useAddSourceMutation,
-} = incomeApi;
+export const { useGetIncomesQuery, useAddIncomeMutation } = incomeApi;

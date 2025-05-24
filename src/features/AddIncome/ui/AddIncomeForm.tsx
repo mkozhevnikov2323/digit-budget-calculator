@@ -1,10 +1,12 @@
-import { Box, Button, TextField, Autocomplete } from '@mui/material';
+import { Box, Button, InputAdornment, TextField } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
+import { useAddIncomeMutation } from 'entities/Income';
 import {
-  useAddIncomeMutation,
-  useAddSourceMutation,
-  useGetSourcesQuery,
-} from 'entities/Income';
+  useAddUserSourceMutation,
+  useGetDefaultSourcesQuery,
+  useGetUserSourcesQuery,
+} from 'entities/IncomeSource';
+import { IncomeSourceField } from 'features/AddIncomeSource';
 
 type FormData = {
   date: string;
@@ -14,7 +16,7 @@ type FormData = {
 };
 
 export const AddIncomeForm = () => {
-  const { control, handleSubmit, setValue, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useForm<FormData>({
     defaultValues: {
       date: new Date().toISOString().slice(0, 10),
       amount: 0,
@@ -22,14 +24,19 @@ export const AddIncomeForm = () => {
       comment: '',
     },
   });
-
-  const { data: sources = [] } = useGetSourcesQuery();
+  const { data: defaultSources = [] } = useGetDefaultSourcesQuery();
+  const { data: userSources = [] } = useGetUserSourcesQuery();
   const [addIncome] = useAddIncomeMutation();
-  const [addSource] = useAddSourceMutation();
+  const [addUserSource] = useAddUserSourceMutation();
+
+  const allSources = [
+    ...defaultSources.map((s) => s.name),
+    ...userSources.map((s) => s.name),
+  ];
 
   const onSubmit = async (data: FormData) => {
-    if (!sources.includes(data.source)) {
-      await addSource(data.source);
+    if (data.source && !allSources.includes(data.source)) {
+      await addUserSource({ name: data.source }).unwrap();
     }
     await addIncome(data);
     reset();
@@ -57,37 +64,48 @@ export const AddIncomeForm = () => {
       <Controller
         name="amount"
         control={control}
-        rules={{ required: true, min: 0.01 }}
+        rules={{
+          required: true,
+          min: 0.01,
+          validate: (value) =>
+            Number(value) > 0 || 'Сумма должна быть больше 0',
+        }}
         render={({ field }) => (
           <TextField
-            type="number"
+            type="text"
             label="Сумма"
             fullWidth
             margin="normal"
+            inputProps={{
+              inputMode: 'decimal',
+              pattern: '[0-9]*[.,]?[0-9]*',
+            }}
+            InputProps={{
+              endAdornment: <InputAdornment position="start">₽</InputAdornment>,
+            }}
             {...field}
+            value={field.value === 0 ? '' : field.value}
+            onChange={(e) => {
+              let val = e.target.value.replace(',', '.');
+
+              if (/^0[0-9]+$/.test(val)) {
+                val = val.replace(/^0+/, '');
+              }
+
+              val = val.replace(/[^0-9.]/g, '');
+
+              const parts = val.split('.');
+              if (parts.length > 2) {
+                val = parts[0] + '.' + parts.slice(1).join('');
+              }
+              field.onChange(val);
+            }}
           />
         )}
       />
-      <Controller
+      <IncomeSourceField
         name="source"
         control={control}
-        rules={{ required: true }}
-        render={({ field }) => (
-          <Autocomplete
-            freeSolo
-            options={sources}
-            onChange={(_, value) => setValue('source', value || '')}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Источник"
-                margin="normal"
-                fullWidth
-                {...field}
-              />
-            )}
-          />
-        )}
       />
       <Controller
         name="comment"

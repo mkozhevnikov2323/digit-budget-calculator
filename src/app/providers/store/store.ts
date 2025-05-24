@@ -1,20 +1,9 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { authorizationReducer } from 'features/Authorization';
-import { userReducer } from 'entities/User';
+import rootReducer from './rootReducer'; // путь до того, что выше
 import { baseApi } from 'shared/api/baseApi';
-import { incomeReducer } from 'entities/Income';
-import { expenseReducer } from 'entities/Expense';
-import { addIncomeModalReducer } from 'widgets/Modals/AddIncomeModal';
 
 export const store = configureStore({
-  reducer: {
-    authorization: authorizationReducer,
-    user: userReducer,
-    income: incomeReducer,
-    expenses: expenseReducer,
-    incomeModal: addIncomeModalReducer,
-    [baseApi.reducerPath]: baseApi.reducer,
-  },
+  reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(baseApi.middleware),
 });
