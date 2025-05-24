@@ -1,6 +1,7 @@
 import { Box, Typography, Divider, Button } from '@mui/material';
 import { IncomeTable } from 'entities/Income';
 import { useDispatch, useSelector } from 'react-redux';
+import { IncomeCharts } from 'widgets/IncomeCharts';
 import {
   AddIncomeModal,
   close,
@@ -39,6 +40,7 @@ const IncomePage = () => {
         onClose={handleCloseModal}
       />
       <Divider sx={{ my: 4 }} />
+      <IncomeCharts />
       <IncomeTable />
     </Box>
   );
