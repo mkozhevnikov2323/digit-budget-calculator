@@ -1,20 +1,30 @@
 import { baseApi } from 'shared/api/baseApi';
+import { ExpenseCategorySchema } from '../model/types';
 
 export const expenseCategoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getCategories: builder.query<string[], void>({
-      query: () => '/categories',
+    getDefaultCategories: builder.query<ExpenseCategorySchema[], void>({
+      query: () => '/categories/default',
+      providesTags: ['ExpenseCategory'],
     }),
-    addCategory: builder.mutation<void, string>({
-      query: (newCategory) => ({
-        url: '/categories',
+    getUserCategories: builder.query<ExpenseCategorySchema[], void>({
+      query: () => '/categories/user',
+      providesTags: ['ExpenseCategory'],
+    }),
+    addUserCategory: builder.mutation<ExpenseCategorySchema, { name: string }>({
+      query: (body) => ({
+        url: '/categories/user',
         method: 'POST',
-        body: { name: newCategory },
+        body,
       }),
+      invalidatesTags: ['ExpenseCategory'],
     }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetCategoriesQuery, useAddCategoryMutation } =
-  expenseCategoryApi;
+export const {
+  useGetDefaultCategoriesQuery,
+  useGetUserCategoriesQuery,
+  useAddUserCategoryMutation,
+} = expenseCategoryApi;

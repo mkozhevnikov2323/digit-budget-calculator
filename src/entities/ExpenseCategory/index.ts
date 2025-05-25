@@ -1,4 +1,5 @@
 export {
-  useGetCategoriesQuery,
-  useAddCategoryMutation,
+  useGetDefaultCategoriesQuery,
+  useGetUserCategoriesQuery,
+  useAddUserCategoryMutation,
 } from './api/expenseCategoryApi';
