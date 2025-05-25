@@ -4,6 +4,8 @@ export interface IncomeSchema {
   amount: number;
   source: string;
   comment?: string;
+
+  [key: string]: string | number | undefined;
 }
 
 export interface IncomeState {

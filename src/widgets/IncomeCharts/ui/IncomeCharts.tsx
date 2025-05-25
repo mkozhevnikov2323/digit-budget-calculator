@@ -10,6 +10,7 @@ export const IncomeCharts = () => (
     sx={{
       display: 'flex',
       flexDirection: { xs: 'column', md: 'row' },
+      alignItems: 'stretch',
       gap: 2,
       mb: 4,
     }}

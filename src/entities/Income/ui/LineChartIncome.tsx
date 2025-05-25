@@ -34,7 +34,7 @@ export const LineChartIncome = () => {
       <LineChart
         xAxis={[{ scaleType: 'point', data: labels, label: 'Дата' }]}
         series={[{ data, label: 'Доход (₽)' }]}
-        height={300}
+        height={400}
       />
     </Paper>
   );

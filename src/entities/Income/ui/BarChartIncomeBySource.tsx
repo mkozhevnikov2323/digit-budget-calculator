@@ -32,7 +32,7 @@ export const BarChartIncomeBySource = () => {
       <BarChart
         xAxis={[{ data: sources, label: 'Источник' }]}
         series={[{ data: values, label: 'Сумма' }]}
-        height={300}
+        height={400}
       />
     </Paper>
   );
