@@ -1,6 +1,7 @@
 import { Box, Typography, Divider, Button } from '@mui/material';
 import { ExpenseTable } from 'entities/Expense';
 import { useDispatch, useSelector } from 'react-redux';
+import { ExpenseCharts } from 'widgets/ExpenseCharts';
 import {
   AddExpenseModal,
   close,
@@ -39,6 +40,7 @@ const ExpensesPage = () => {
         onClose={handleCloseModal}
       />
       <Divider sx={{ my: 4 }} />
+      <ExpenseCharts />
       <ExpenseTable />
     </Box>
   );
