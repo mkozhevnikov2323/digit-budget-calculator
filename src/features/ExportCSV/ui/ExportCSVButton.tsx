@@ -37,6 +37,7 @@ export const ExportCSVButton = ({
       variant="outlined"
       size="small"
       onClick={handleExport}
+      role="button"
     >
       Экспорт в CSV
     </Button>

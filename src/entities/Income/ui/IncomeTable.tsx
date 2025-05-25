@@ -27,7 +27,12 @@ export const IncomeTable = () => {
           alignItems: 'center',
         }}
       >
-        <Typography variant="h6">Таблица доходов</Typography>
+        <Typography
+          datatest-id="Headers table"
+          variant="h6"
+        >
+          Таблица доходов
+        </Typography>
         <ExportCSVButton
           data={incomes}
           filename="incomes.csv"
