@@ -126,6 +126,20 @@ export const AddExpenseForm = () => {
         )}
       />
       <Controller
+        name="title"
+        control={control}
+        rules={{ required: true }}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="Название"
+            fullWidth
+            required
+            sx={{ mt: 2, mb: 1 }}
+          />
+        )}
+      />
+      <Controller
         name="recipient"
         control={control}
         rules={{ required: true }}
@@ -148,19 +162,7 @@ export const AddExpenseForm = () => {
           />
         )}
       />
-      <Controller
-        name="title"
-        control={control}
-        rules={{ required: true }}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Название"
-            fullWidth
-            required
-          />
-        )}
-      />
+
       <ExpenseCategoryField
         name="category"
         control={control}
