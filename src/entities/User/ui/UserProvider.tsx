@@ -3,6 +3,7 @@ import { useGetMeQuery } from '../api/userApi';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser } from '../model/userSlice';
 import { RootState } from 'app/providers/store/store';
+import { useNavigate } from 'react-router';
 
 interface Props {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface Props {
 export const UserProvider: React.FC<Props> = ({ children }) => {
   const token = localStorage.getItem('token');
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const isAuthenticated = useSelector(
     (state: RootState) => state.authorization.isAuthenticated,
@@ -27,8 +29,10 @@ export const UserProvider: React.FC<Props> = ({ children }) => {
   useEffect(() => {
     if (data && isAuthenticated) {
       dispatch(setUser(data));
+    } else {
+      navigate('/');
     }
-  }, [data, dispatch, token, isAuthenticated]);
+  }, [data, dispatch, token, isAuthenticated, navigate]);
 
   return <>{children}</>;
 };
