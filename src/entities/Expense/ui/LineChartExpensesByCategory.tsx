@@ -2,18 +2,13 @@ import { useGetExpensesQuery } from '../api/expenseApi';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { Paper, Typography } from '@mui/material';
 import { ExpenseSchema } from '../model/types';
+import { parseDateString } from 'shared/lib/utils/utils';
 
 type CategoryData = Record<string, number>;
-
-const parseDateString = (dateStr: string) => {
-  const [day, month, year] = dateStr.split('.').map(Number);
-  return new Date(year, month - 1, day);
-};
 
 const groupExpensesByDateAndCategory = (expenses: ExpenseSchema[]) => {
   const grouped: Record<string, CategoryData> = {};
 
-  // Группируем по дате, внутри по категориям
   expenses.forEach((expense) => {
     const dateLabel = new Date(expense.date).toLocaleDateString();
 
@@ -22,7 +17,6 @@ const groupExpensesByDateAndCategory = (expenses: ExpenseSchema[]) => {
       (grouped[dateLabel][expense.category] ?? 0) + expense.amount;
   });
 
-  // Получаем отсортированные по дате метки
   const sortedDates = Object.keys(grouped).sort((a, b) => {
     const dateA = parseDateString(a);
     const dateB = parseDateString(b);
@@ -41,7 +35,6 @@ export const LineChartExpensesByCategory = () => {
 
   const { grouped, sortedDates } = groupExpensesByDateAndCategory(expenses);
 
-  // Собираем все уникальные категории
   const allCategories = Array.from(
     new Set(
       Object.values(grouped).flatMap((categoriesObj) =>
@@ -50,7 +43,6 @@ export const LineChartExpensesByCategory = () => {
     ),
   );
 
-  // Формируем серии для графика
   const series = allCategories.map((category) => ({
     label: category,
     data: sortedDates.map((date) => grouped[date][category] ?? 0),

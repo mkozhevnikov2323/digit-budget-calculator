@@ -2,14 +2,9 @@ import { useGetExpensesQuery } from '../api/expenseApi';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { Paper, Typography } from '@mui/material';
 import { ExpenseSchema } from '../model/types';
+import { parseDateString } from 'shared/lib/utils/utils';
 
 type AccResponse = Record<string, number>;
-
-const parseDateString = (dateStr: string) => {
-  const [day, month, year] = dateStr.split('.').map(Number);
-
-  return new Date(year, month - 1, day);
-};
 
 const groupByDateSorted = (expenses: ExpenseSchema[]) => {
   const grouped = expenses.reduce<AccResponse>((acc, expense) => {

@@ -2,19 +2,28 @@ import { useGetIncomesQuery } from '../api/incomeApi';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { Paper, Typography } from '@mui/material';
 import { IncomeSchema } from '../model/types';
+import { parseDateString } from 'shared/lib/utils/utils';
 
-type SourcesByDate = Record<string, Record<string, number>>;
+type SourcesByDate = Record<string, number>;
 
-const groupByDateAndSource = (incomes: IncomeSchema[]): SourcesByDate => {
-  return incomes.reduce<SourcesByDate>((acc, income) => {
+const groupByDateAndSource = (incomes: IncomeSchema[]) => {
+  const grouped: Record<string, SourcesByDate> = {};
+
+  incomes.forEach((income) => {
     const dateLabel = new Date(income.date).toLocaleDateString();
 
-    if (!acc[dateLabel]) acc[dateLabel] = {};
-    acc[dateLabel][income.source] =
-      (acc[dateLabel][income.source] ?? 0) + income.amount;
+    if (!grouped[dateLabel]) grouped[dateLabel] = {};
+    grouped[dateLabel][income.source] =
+      (grouped[dateLabel][income.source] ?? 0) + income.amount;
+  });
 
-    return acc;
-  }, {});
+  const sortedDates = Object.keys(grouped).sort((a, b) => {
+    const dateA = parseDateString(a);
+    const dateB = parseDateString(b);
+    return dateA.getTime() - dateB.getTime();
+  });
+
+  return { grouped, sortedDates };
 };
 
 export const LineChartIncomeBySource = () => {
@@ -23,25 +32,19 @@ export const LineChartIncomeBySource = () => {
   if (isLoading) return <>Загрузка графика...</>;
   if (!incomes.length) return <>Нет данных для отображения графика</>;
 
-  const groupedBySource = groupByDateAndSource(incomes);
-
-  const labels = Object.keys(groupedBySource).sort((a, b) => {
-    const ad = new Date(a);
-    const bd = new Date(b);
-    return ad.getTime() - bd.getTime();
-  });
+  const { grouped, sortedDates } = groupByDateAndSource(incomes);
 
   const allSources = Array.from(
     new Set(
-      Object.values(groupedBySource).flatMap((sourcesObj) =>
-        Object.keys(sourcesObj),
+      Object.values(grouped).flatMap((categoriesObj) =>
+        Object.keys(categoriesObj),
       ),
     ),
   );
 
-  const series = allSources.map((source) => ({
-    label: source,
-    data: labels.map((date) => groupedBySource[date][source] ?? 0),
+  const series = allSources.map((category) => ({
+    label: category,
+    data: sortedDates.map((date) => grouped[date][category] ?? 0),
   }));
 
   return (
@@ -53,7 +56,13 @@ export const LineChartIncomeBySource = () => {
         Динамика доходов по источникам и датам
       </Typography>
       <LineChart
-        xAxis={[{ scaleType: 'point', data: labels, label: 'Дата' }]}
+        xAxis={[
+          {
+            scaleType: 'point',
+            data: sortedDates,
+            label: 'Дата',
+          },
+        ]}
         series={series}
         height={400}
       />
