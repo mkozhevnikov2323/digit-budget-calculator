@@ -1,11 +1,11 @@
 import {
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
   InputAdornment,
   Snackbar,
   TextField,
+  Typography,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { useAddExpenseMutation } from 'entities/Expense';
@@ -25,6 +25,9 @@ import {
   useAddExpenseTitleMutation,
 } from 'entities/ExpenseTitle';
 import { ExpenseTitleField } from 'features/AddExpenseTitle';
+import { RecipientField } from 'features/AddRecipients';
+import type { ErrorResponse } from 'shared/types/errorSchema';
+import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 
 type FormData = {
   amount: number;
@@ -48,7 +51,6 @@ export const AddExpenseForm = () => {
   const {
     control,
     handleSubmit,
-    setValue,
     reset,
     clearErrors,
     formState: { isSubmitting, errors },
@@ -65,7 +67,7 @@ export const AddExpenseForm = () => {
   const { data: recipients = [] } = useGetRecipientsQuery();
   const { data: expenseTitles = [] } = useGetExpenseTitlesQuery();
 
-  const [addExpense] = useAddExpenseMutation();
+  const [addExpense, { error: serverError }] = useAddExpenseMutation();
   const [addUserCategory] = useAddUserCategoryMutation();
   const [addRecipient] = useAddRecipientMutation();
   const [addExpenseTitle] = useAddExpenseTitleMutation();
@@ -75,6 +77,7 @@ export const AddExpenseForm = () => {
     ...userSources.map((s) => s.name),
   ];
   const userTitles = [...expenseTitles.map((s) => s.name)];
+  const userRecipients = [...recipients.map((s) => s.name)];
 
   const onSubmit = async (data: FormData) => {
     if (data.category && !allSources.includes(data.category)) {
@@ -85,17 +88,15 @@ export const AddExpenseForm = () => {
       await addExpenseTitle({ name: data.title }).unwrap();
     }
 
-    if (!recipients.includes(data.recipient)) {
-      await addRecipient(data.recipient);
+    if (data.recipient && !userRecipients.includes(data.recipient)) {
+      await addRecipient({ name: data.recipient }).unwrap();
     }
 
     await addExpense(data);
     setSuccessOpen(true);
-    reset(defaultValues);
     clearErrors();
+    reset(defaultValues);
   };
-
-  console.log('errors', errors);
 
   return (
     <Box
@@ -112,6 +113,8 @@ export const AddExpenseForm = () => {
             label="Дата"
             fullWidth
             margin="normal"
+            error={!!errors.date}
+            helperText={errors.date?.message}
             {...field}
           />
         )}
@@ -132,6 +135,8 @@ export const AddExpenseForm = () => {
             required
             fullWidth
             margin="normal"
+            error={!!errors.amount}
+            helperText={errors.amount?.message}
             inputProps={{
               inputMode: 'decimal',
               pattern: '[0-9]*[.,]?[0-9]*',
@@ -165,27 +170,9 @@ export const AddExpenseForm = () => {
         control={control}
       />
 
-      <Controller
+      <RecipientField
         name="recipient"
         control={control}
-        render={({ field }) => (
-          <Autocomplete
-            freeSolo
-            options={recipients}
-            onChange={(_, value) => setValue('recipient', value || '')}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Получатель"
-                margin="normal"
-                fullWidth
-                required
-              />
-            )}
-            inputValue={field.value}
-            onInputChange={(_, value) => setValue('recipient', value || '')}
-          />
-        )}
       />
 
       <ExpenseCategoryField
@@ -214,13 +201,25 @@ export const AddExpenseForm = () => {
       >
         Добавить расход
       </Button>
-      <Snackbar
-        open={successOpen}
-        autoHideDuration={2000}
-        onClose={() => setSuccessOpen(false)}
-        message="Расход добавлен!"
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      />
+
+      {serverError && (
+        <Box sx={{ mb: 2 }}>
+          <Typography color="error">
+            {((serverError as FetchBaseQueryError)?.data as ErrorResponse)
+              ?.message ?? 'Что-то пошло не так'}
+          </Typography>
+        </Box>
+      )}
+      <Box position="relative">
+        <Snackbar
+          open={successOpen}
+          autoHideDuration={1000}
+          onClose={() => setSuccessOpen(false)}
+          message="Расход добавлен!"
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          sx={{ position: 'absolute' }}
+        />
+      </Box>
     </Box>
   );
 };

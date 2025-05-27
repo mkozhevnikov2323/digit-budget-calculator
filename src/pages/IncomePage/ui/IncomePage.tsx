@@ -31,6 +31,7 @@ const IncomePage = () => {
       </Typography>
       <Button
         variant="contained"
+        color="success"
         onClick={handleOpenModal}
       >
         Добавить доход

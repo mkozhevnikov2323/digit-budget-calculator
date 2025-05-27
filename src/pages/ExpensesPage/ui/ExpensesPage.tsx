@@ -31,9 +31,10 @@ const ExpensesPage = () => {
       </Typography>
       <Button
         variant="contained"
+        color="warning"
         onClick={handleOpenModal}
       >
-        Добавить доход
+        Добавить расход
       </Button>
       <AddExpenseModal
         open={isOpen}

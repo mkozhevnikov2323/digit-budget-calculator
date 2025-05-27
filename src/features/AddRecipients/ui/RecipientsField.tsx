@@ -9,34 +9,25 @@ import {
 import InfoIcon from '@mui/icons-material/InfoOutlined';
 import { useState } from 'react';
 import { Controller, Control, FieldValues, Path } from 'react-hook-form';
-import {
-  useGetDefaultSourcesQuery,
-  useGetUserSourcesQuery,
-} from 'entities/IncomeSource';
+import { useGetRecipientsQuery } from 'entities/Recipient';
 
 type Props<T extends FieldValues = FieldValues> = {
   name: Path<T>;
   control: Control<T>;
 };
 
-export const IncomeSourceField = <T extends FieldValues = FieldValues>({
+export const RecipientField = <T extends FieldValues = FieldValues>({
   name,
   control,
 }: Props<T>) => {
-  const { data: defaultSources = [] } = useGetDefaultSourcesQuery();
-  const { data: userSources = [] } = useGetUserSourcesQuery();
+  const { data: userRecipients = [] } = useGetRecipientsQuery();
   const [inputValue, setInputValue] = useState('');
 
-  const defaultNames = defaultSources.map((s) => s.name);
-  const userNames = userSources.map((s) => s.name);
+  const userNamesRecipients = userRecipients.map((s) => s.name);
 
   const options = [
-    ...defaultNames.map((n) => ({
-      group: 'Стандартные источники дохода',
-      label: n,
-    })),
-    ...userNames.map((n) => ({
-      group: 'Пользовательские источники дохода',
+    ...userNamesRecipients.map((n) => ({
+      group: 'Используемые ранее получатели',
       label: n,
     })),
   ];
@@ -91,18 +82,18 @@ export const IncomeSourceField = <T extends FieldValues = FieldValues>({
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Источник дохода"
-                placeholder="Выберите подходящий или введите новый"
+                required
+                label="Получатель"
+                placeholder="Выберите подходящего или введите нового"
                 margin="normal"
                 fullWidth
-                required
                 error={!!fieldState.error}
                 helperText={fieldState.error ? 'Поле обязательно' : ''}
                 InputProps={{
                   ...params.InputProps,
                   endAdornment: (
                     <>
-                      <Tooltip title="Выберите подходящую категорию дохода или впишите новую">
+                      <Tooltip title="Выберите подходящего получателя или впишите нового">
                         <InfoIcon sx={{ mr: 0.5 }} />
                       </Tooltip>
                       {params.InputProps.endAdornment}

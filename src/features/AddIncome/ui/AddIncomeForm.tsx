@@ -76,6 +76,7 @@ export const AddIncomeForm = () => {
             label="Сумма"
             fullWidth
             margin="normal"
+            required
             inputProps={{
               inputMode: 'decimal',
               pattern: '[0-9]*[.,]?[0-9]*',

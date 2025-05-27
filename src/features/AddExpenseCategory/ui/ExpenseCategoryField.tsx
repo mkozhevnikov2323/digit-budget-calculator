@@ -95,6 +95,7 @@ export const ExpenseCategoryField = <T extends FieldValues = FieldValues>({
                 placeholder="Выберите подходящую или введите новую"
                 margin="normal"
                 fullWidth
+                required
                 error={!!fieldState.error}
                 helperText={fieldState.error ? 'Поле обязательно' : ''}
                 InputProps={{
