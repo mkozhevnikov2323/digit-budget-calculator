@@ -24,6 +24,7 @@ import {
   useGetExpenseTitlesQuery,
   useAddExpenseTitleMutation,
 } from 'entities/ExpenseTitle';
+import { ExpenseTitleField } from 'features/AddExpenseTitle';
 
 type FormData = {
   amount: number;
@@ -73,14 +74,15 @@ export const AddExpenseForm = () => {
     ...defaultSources.map((s) => s.name),
     ...userSources.map((s) => s.name),
   ];
+  const userTitles = [...expenseTitles.map((s) => s.name)];
 
   const onSubmit = async (data: FormData) => {
     if (data.category && !allSources.includes(data.category)) {
       await addUserCategory({ name: data.category }).unwrap();
     }
 
-    if (!expenseTitles.includes(data.title)) {
-      await addExpenseTitle(data.title);
+    if (data.title && !userTitles.includes(data.title)) {
+      await addExpenseTitle({ name: data.title }).unwrap();
     }
 
     if (!recipients.includes(data.recipient)) {
@@ -157,29 +159,12 @@ export const AddExpenseForm = () => {
           />
         )}
       />
-      <Controller
+
+      <ExpenseTitleField
         name="title"
         control={control}
-        // rules={{ required: 'Обязательное поле' }}
-        render={({ field }) => (
-          <Autocomplete
-            freeSolo
-            options={expenseTitles}
-            onChange={(_, value) => setValue('title', value || '')}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Наименование"
-                margin="normal"
-                fullWidth
-                required
-              />
-            )}
-            inputValue={field.value}
-            onInputChange={(_, value) => setValue('title', value || '')}
-          />
-        )}
       />
+
       <Controller
         name="recipient"
         control={control}
