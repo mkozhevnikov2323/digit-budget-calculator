@@ -2,7 +2,9 @@ import {
   Autocomplete,
   Box,
   Button,
+  CircularProgress,
   InputAdornment,
+  Snackbar,
   TextField,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
@@ -17,6 +19,11 @@ import {
   useGetRecipientsQuery,
   useAddRecipientMutation,
 } from 'entities/Recipient';
+import { useState } from 'react';
+import {
+  useGetExpenseTitlesQuery,
+  useAddExpenseTitleMutation,
+} from 'entities/ExpenseTitle';
 
 type FormData = {
   amount: number;
@@ -28,23 +35,39 @@ type FormData = {
 };
 
 export const AddExpenseForm = () => {
-  const { control, handleSubmit, setValue, reset } = useForm<FormData>({
+  const defaultValues = {
+    date: new Date().toISOString().slice(0, 10),
+    amount: 0,
+    title: '',
+    category: '',
+    recipient: '',
+    comment: '',
+  };
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    reset,
+    clearErrors,
+    formState: { isSubmitting, errors },
+  } = useForm<FormData>({
     defaultValues: {
-      date: new Date().toISOString().slice(0, 10),
-      amount: 0,
-      title: '',
-      category: '',
-      recipient: '',
-      comment: '',
+      ...defaultValues,
     },
   });
+
+  const [successOpen, setSuccessOpen] = useState(false);
+
   const { data: defaultSources = [] } = useGetDefaultCategoriesQuery();
   const { data: userSources = [] } = useGetUserCategoriesQuery();
   const { data: recipients = [] } = useGetRecipientsQuery();
+  const { data: expenseTitles = [] } = useGetExpenseTitlesQuery();
 
   const [addExpense] = useAddExpenseMutation();
   const [addUserCategory] = useAddUserCategoryMutation();
   const [addRecipient] = useAddRecipientMutation();
+  const [addExpenseTitle] = useAddExpenseTitleMutation();
 
   const allSources = [
     ...defaultSources.map((s) => s.name),
@@ -56,13 +79,21 @@ export const AddExpenseForm = () => {
       await addUserCategory({ name: data.category }).unwrap();
     }
 
+    if (!expenseTitles.includes(data.title)) {
+      await addExpenseTitle(data.title);
+    }
+
     if (!recipients.includes(data.recipient)) {
       await addRecipient(data.recipient);
     }
 
     await addExpense(data);
-    reset();
+    setSuccessOpen(true);
+    reset(defaultValues);
+    clearErrors();
   };
+
+  console.log('errors', errors);
 
   return (
     <Box
@@ -87,7 +118,7 @@ export const AddExpenseForm = () => {
         name="amount"
         control={control}
         rules={{
-          required: true,
+          required: 'Обязательное поле',
           min: 0.01,
           validate: (value) =>
             Number(value) > 0 || 'Сумма должна быть больше 0',
@@ -96,6 +127,7 @@ export const AddExpenseForm = () => {
           <TextField
             type="text"
             label="Сумма"
+            required
             fullWidth
             margin="normal"
             inputProps={{
@@ -128,21 +160,29 @@ export const AddExpenseForm = () => {
       <Controller
         name="title"
         control={control}
-        rules={{ required: true }}
+        // rules={{ required: 'Обязательное поле' }}
         render={({ field }) => (
-          <TextField
-            {...field}
-            label="Название"
-            fullWidth
-            required
-            sx={{ mt: 2, mb: 1 }}
+          <Autocomplete
+            freeSolo
+            options={expenseTitles}
+            onChange={(_, value) => setValue('title', value || '')}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Наименование"
+                margin="normal"
+                fullWidth
+                required
+              />
+            )}
+            inputValue={field.value}
+            onInputChange={(_, value) => setValue('title', value || '')}
           />
         )}
       />
       <Controller
         name="recipient"
         control={control}
-        rules={{ required: true }}
         render={({ field }) => (
           <Autocomplete
             freeSolo
@@ -183,10 +223,19 @@ export const AddExpenseForm = () => {
         type="submit"
         variant="contained"
         color="primary"
+        disabled={isSubmitting}
+        endIcon={isSubmitting ? <CircularProgress size={20} /> : null}
         sx={{ mt: 2 }}
       >
         Добавить расход
       </Button>
+      <Snackbar
+        open={successOpen}
+        autoHideDuration={2000}
+        onClose={() => setSuccessOpen(false)}
+        message="Расход добавлен!"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 };
