@@ -4,6 +4,7 @@ export const recipientApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getRecipients: builder.query<string[], void>({
       query: () => '/recipients',
+      providesTags: ['Recipients'],
     }),
     addRecipient: builder.mutation<void, string>({
       query: (newRecipient) => ({
@@ -11,6 +12,7 @@ export const recipientApi = baseApi.injectEndpoints({
         method: 'POST',
         body: { name: newRecipient },
       }),
+      invalidatesTags: ['Recipients'],
     }),
   }),
   overrideExisting: false,

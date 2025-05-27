@@ -22,5 +22,6 @@ export const baseApi = createApi({
     'Expense',
     'Balance',
     'ExpenseCategory',
+    'Recipients',
   ],
 });
