@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { BalanceCard } from 'entities/Balance';
+import { BarChartBalance } from 'widgets/BalanceCharts';
 
 const BalancePage = () => {
   return (
@@ -10,6 +11,7 @@ const BalancePage = () => {
       >
         Ваш финансовый баланс
       </Typography>
+      <BarChartBalance />
       <BalanceCard />
     </Box>
   );
