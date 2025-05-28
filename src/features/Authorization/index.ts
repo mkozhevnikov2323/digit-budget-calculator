@@ -1,3 +1,5 @@
+export { selectIsAuthenticated } from './model/selectors';
+
 export { AuthButton } from './ui/AuthButton';
 
 export { LogoutButton } from './ui/LogoutButton';

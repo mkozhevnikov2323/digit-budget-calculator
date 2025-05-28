@@ -4,7 +4,12 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useSelector } from 'react-redux';
 import { selectUser } from 'entities/User';
-import { AuthButton, AuthModal, LogoutButton } from 'features/Authorization';
+import {
+  AuthButton,
+  AuthModal,
+  LogoutButton,
+  selectIsAuthenticated,
+} from 'features/Authorization';
 import { Navigation } from 'widgets/Navigation';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { MobileMenu } from 'widgets/MobileMenu';
@@ -13,6 +18,7 @@ export const Navbar = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const user = useSelector(selectUser);
+  const isAuth = useSelector(selectIsAuthenticated);
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -31,7 +37,7 @@ export const Navbar = () => {
             >
               Калькулятор бюджета
             </Typography>
-            <Navigation />
+            {isAuth && <Navigation />}
           </Box>
 
           {isMobile ? (

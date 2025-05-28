@@ -7,6 +7,7 @@ import { closeAuthModal, setAuthenticated } from '../model/authorizationSlice';
 import { useDispatch } from 'react-redux';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { ErrorResponse } from 'shared/types/errorSchema';
+import { useNavigate } from 'react-router';
 
 interface FormData {
   email: string;
@@ -16,6 +17,7 @@ interface FormData {
 
 export const AuthForm: React.FC = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -43,6 +45,10 @@ export const AuthForm: React.FC = () => {
           email: data.email,
           password: data.password,
         }).unwrap();
+        response = await login({
+          email: data.email,
+          password: data.password,
+        }).unwrap();
       } else {
         response = await login({
           email: data.email,
@@ -53,6 +59,7 @@ export const AuthForm: React.FC = () => {
       localStorage.setItem('token', response.token);
 
       dispatch(setAuthenticated(true));
+      navigate('/income');
       dispatch(closeAuthModal());
     } catch (error) {
       const errMessage = errorMessageHandler(
