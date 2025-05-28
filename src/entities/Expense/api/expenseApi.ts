@@ -13,7 +13,7 @@ export const expenseApi = baseApi.injectEndpoints({
         method: 'POST',
         body: newExpense,
       }),
-      invalidatesTags: ['Expense'],
+      invalidatesTags: ['Expense', 'Balance'],
     }),
   }),
   overrideExisting: false,

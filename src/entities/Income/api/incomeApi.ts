@@ -13,7 +13,7 @@ export const incomeApi = baseApi.injectEndpoints({
         method: 'POST',
         body: newIncome,
       }),
-      invalidatesTags: ['Income'],
+      invalidatesTags: ['Income', 'Balance'],
     }),
   }),
   overrideExisting: false,
