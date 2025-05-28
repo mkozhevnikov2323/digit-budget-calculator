@@ -1,8 +1,12 @@
 import { Button } from '@mui/material';
+import { ExpenseSchema } from 'entities/Expense';
 import { IncomeSchema } from 'entities/Income';
 
 export interface ExportCSVButtonProps {
-  data?: IncomeSchema[];
+  data?:
+    | IncomeSchema[]
+    | ExpenseSchema[]
+    | Record<string, Date | string | number>[];
   filename?: string;
 }
 

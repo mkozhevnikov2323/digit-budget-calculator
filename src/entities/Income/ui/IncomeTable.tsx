@@ -11,11 +11,24 @@ import {
   Box,
   Typography,
 } from '@mui/material';
+import { sortByDate } from 'shared/lib/utils/utils';
 
 export const IncomeTable = () => {
   const { data: incomes = [], isLoading } = useGetIncomesQuery();
 
   if (isLoading) return <>Loading...</>;
+
+  const sortedIncomes = sortByDate(incomes);
+
+  const incomesMappedForExport =
+    sortedIncomes &&
+    sortedIncomes?.map((income, index) => ({
+      Номер: index + 1,
+      Дата: new Date(income.date).toLocaleDateString(),
+      Сумма: income.amount,
+      Источник: income.source,
+      Комментарий: income.comment || '',
+    }));
 
   return (
     <Box>
@@ -34,7 +47,7 @@ export const IncomeTable = () => {
           Таблица доходов
         </Typography>
         <ExportCSVButton
-          data={incomes}
+          data={incomesMappedForExport}
           filename="incomes.csv"
         />
       </Box>
@@ -51,7 +64,7 @@ export const IncomeTable = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {incomes.map((income, idx) => (
+            {sortedIncomes.map((income, idx) => (
               <TableRow key={idx}>
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>

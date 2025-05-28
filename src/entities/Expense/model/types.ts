@@ -5,7 +5,9 @@ export interface ExpenseSchema {
   title: string;
   recipient: string;
   category: string;
-  comment?: string | null;
+  comment?: string;
+
+  [key: string]: string | number | undefined;
 }
 
 export interface ExpenseState {
