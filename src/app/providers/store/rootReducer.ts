@@ -7,6 +7,7 @@ import { expenseReducer } from 'entities/Expense';
 import { addIncomeModalReducer } from 'widgets/Modals/AddIncomeModal';
 import { incomeSourceReducer } from 'entities/IncomeSource';
 import { addExpenseModalReducer } from 'widgets/Modals/AddExpenseModal';
+import { editIncomeModalReducer } from 'widgets/Modals/EditIncomeModal';
 
 const appReducer = combineReducers({
   authorization: authorizationReducer,
@@ -14,6 +15,7 @@ const appReducer = combineReducers({
   income: incomeReducer,
   expenses: expenseReducer,
   incomeModal: addIncomeModalReducer,
+  editIncomeModal: editIncomeModalReducer,
   expenseModal: addExpenseModalReducer,
   incomeSource: incomeSourceReducer,
   [baseApi.reducerPath]: baseApi.reducer,

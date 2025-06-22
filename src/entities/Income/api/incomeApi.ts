@@ -15,8 +15,28 @@ export const incomeApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Income', 'Balance'],
     }),
+    updateIncome: builder.mutation<void, IncomeSchema>({
+      query: ({ id, ...data }) => ({
+        url: `/incomes/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['Income'],
+    }),
+    deleteIncome: builder.mutation<void, { id: string | number }>({
+      query: ({ id }) => ({
+        url: `/incomes/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Income'],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetIncomesQuery, useAddIncomeMutation } = incomeApi;
+export const {
+  useGetIncomesQuery,
+  useAddIncomeMutation,
+  useUpdateIncomeMutation,
+  useDeleteIncomeMutation,
+} = incomeApi;

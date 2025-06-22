@@ -1,5 +1,4 @@
 import { ExportCSVButton } from 'features/ExportCSV';
-import { useGetIncomesQuery } from '../api/incomeApi';
 import {
   Table,
   TableHead,
@@ -10,15 +9,28 @@ import {
   TableContainer,
   Box,
   Typography,
+  Button,
 } from '@mui/material';
-import { sortByDate } from 'shared/lib/utils/utils';
+import { useSelector } from 'react-redux';
+import { selectAllIncomes } from '../model/selectors';
+import { useState } from 'react';
+import { EditIncomeModal } from 'widgets/Modals/EditIncomeModal';
 
 export const IncomeTable = () => {
-  const { data: incomes = [], isLoading } = useGetIncomesQuery();
+  const [editId, setEditId] = useState<string | number | undefined>(undefined);
 
-  if (isLoading) return <>Loading...</>;
+  const incomes = useSelector(selectAllIncomes);
 
-  const sortedIncomes = sortByDate(incomes);
+  if (!incomes)
+    return <Typography variant="h6">Нет данных для таблицы доходов</Typography>;
+
+  const sortedIncomes = incomes
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.date as string).getTime() -
+        new Date(b.date as string).getTime(),
+    );
 
   const incomesMappedForExport =
     sortedIncomes &&
@@ -65,7 +77,7 @@ export const IncomeTable = () => {
           </TableHead>
           <TableBody>
             {sortedIncomes.map((income, idx) => (
-              <TableRow key={idx}>
+              <TableRow key={income._id}>
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   {new Date(income.date).toLocaleDateString()}
@@ -73,11 +85,28 @@ export const IncomeTable = () => {
                 <TableCell>{income.amount}</TableCell>
                 <TableCell>{income.source}</TableCell>
                 <TableCell>{income.comment}</TableCell>
+                <TableCell>
+                  <Button
+                    onClick={() => setEditId(income._id)}
+                    variant="outlined"
+                  >
+                    Редактировать
+                  </Button>
+                  {/* ... */}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {editId && (
+        <EditIncomeModal
+          open={!!editId}
+          onClose={() => setEditId(undefined)}
+          incomeId={editId}
+        />
+      )}
     </Box>
   );
 };

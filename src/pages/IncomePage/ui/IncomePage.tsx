@@ -1,5 +1,5 @@
 import { Box, Typography, Divider, Button } from '@mui/material';
-import { IncomeTable } from 'entities/Income';
+import { IncomeTable, useSyncIncomeWithStore } from 'entities/Income';
 import { useDispatch, useSelector } from 'react-redux';
 import { IncomeCharts } from 'widgets/IncomeCharts';
 import {
@@ -11,6 +11,7 @@ import {
 
 const IncomePage = () => {
   const dispatch = useDispatch();
+  const { isLoading } = useSyncIncomeWithStore();
 
   const isOpen = useSelector(selectIsOpenIncomeModal);
 
@@ -20,6 +21,8 @@ const IncomePage = () => {
   const handleCloseModal = () => {
     dispatch(close());
   };
+
+  if (isLoading) return <Typography variant="h5">Loading...</Typography>;
 
   return (
     <Box p={2}>
