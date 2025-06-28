@@ -95,7 +95,7 @@ export const AddExpenseForm = () => {
     await addExpense(data);
     setSuccessOpen(true);
     clearErrors();
-    reset(defaultValues);
+    reset({ ...defaultValues, date: data.date });
   };
 
   return (
