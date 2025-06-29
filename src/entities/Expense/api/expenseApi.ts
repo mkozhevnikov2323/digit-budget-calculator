@@ -15,8 +15,28 @@ export const expenseApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Expense', 'Balance'],
     }),
+    updateExpense: builder.mutation<void, ExpenseSchema>({
+      query: ({ id, ...data }) => ({
+        url: `/expenses/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['Expense', 'Balance'],
+    }),
+    deleteExpense: builder.mutation<void, { id: string | number }>({
+      query: ({ id }) => ({
+        url: `/expenses/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Expense', 'Balance'],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetExpensesQuery, useAddExpenseMutation } = expenseApi;
+export const {
+  useGetExpensesQuery,
+  useAddExpenseMutation,
+  useUpdateExpenseMutation,
+  useDeleteExpenseMutation,
+} = expenseApi;

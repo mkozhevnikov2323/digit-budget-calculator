@@ -15,6 +15,10 @@ import { useSelector } from 'react-redux';
 import { selectAllIncomes } from '../model/selectors';
 import { useState } from 'react';
 import { EditIncomeModal } from 'widgets/Modals/EditIncomeModal';
+import {
+  COLORS,
+  getRowColorIndexesByDate,
+} from 'shared/lib/utils/getRowColorByDate';
 
 export const IncomeTable = () => {
   const [editId, setEditId] = useState<string | number | undefined>(undefined);
@@ -41,6 +45,8 @@ export const IncomeTable = () => {
       Источник: income.source,
       Комментарий: income.comment || '',
     }));
+
+  const rowColorIndexes = getRowColorIndexesByDate(sortedIncomes);
 
   return (
     <Box>
@@ -73,11 +79,17 @@ export const IncomeTable = () => {
               <TableCell>Сумма</TableCell>
               <TableCell>Источник</TableCell>
               <TableCell>Комментарий</TableCell>
+              <TableCell>Управление</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sortedIncomes.map((income, idx) => (
-              <TableRow key={income._id}>
+              <TableRow
+                key={income._id || idx}
+                sx={{
+                  backgroundColor: COLORS[rowColorIndexes[idx]],
+                }}
+              >
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   {new Date(income.date).toLocaleDateString()}
@@ -88,11 +100,10 @@ export const IncomeTable = () => {
                 <TableCell>
                   <Button
                     onClick={() => setEditId(income._id)}
-                    variant="outlined"
+                    variant="text"
                   >
                     Редактировать
                   </Button>
-                  {/* ... */}
                 </TableCell>
               </TableRow>
             ))}

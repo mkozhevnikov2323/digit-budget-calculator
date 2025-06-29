@@ -1,5 +1,5 @@
 export interface ExpenseSchema {
-  id: string;
+  id: string | number;
   amount: number;
   date: string; // ISO-строка
   title: string;

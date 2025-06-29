@@ -1,5 +1,5 @@
 import { Box, Typography, Divider, Button } from '@mui/material';
-import { ExpenseTable } from 'entities/Expense';
+import { ExpenseTable, useSyncExpensesWithStore } from 'entities/Expense';
 import { useDispatch, useSelector } from 'react-redux';
 import { ExpenseCharts } from 'widgets/ExpenseCharts';
 import {
@@ -11,6 +11,7 @@ import {
 
 const ExpensesPage = () => {
   const dispatch = useDispatch();
+  const { isLoading } = useSyncExpensesWithStore();
 
   const isOpen = useSelector(selectIsOpenExpenseModal);
 
@@ -20,6 +21,8 @@ const ExpensesPage = () => {
   const handleCloseModal = () => {
     dispatch(close());
   };
+
+  if (isLoading) return <Typography variant="h5">Loading...</Typography>;
 
   return (
     <Box p={2}>

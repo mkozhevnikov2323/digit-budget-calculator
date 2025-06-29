@@ -8,12 +8,20 @@ import {
   Paper,
   Box,
   Typography,
+  Button,
 } from '@mui/material';
 import { useGetExpensesQuery } from '../api/expenseApi';
 import { ExportCSVButton } from 'features/ExportCSV';
 import { sortByDate } from 'shared/lib/utils/utils';
+import { useState } from 'react';
+import {
+  COLORS,
+  getRowColorIndexesByDate,
+} from 'shared/lib/utils/getRowColorByDate';
+import { EditExpenseModal } from 'widgets/Modals/EditExpenseModal';
 
 export const ExpenseTable = () => {
+  const [editId, setEditId] = useState<string | number | undefined>(undefined);
   const { data: expenses = [], isLoading } = useGetExpensesQuery();
 
   if (isLoading) return <>Загрузка...</>;
@@ -31,6 +39,8 @@ export const ExpenseTable = () => {
       'Категория расхода': expense.category,
       Комментарий: expense.comment || '',
     }));
+
+  const rowColorIndexes = getRowColorIndexesByDate(sortedExpenses);
 
   return (
     <Box>
@@ -65,11 +75,17 @@ export const ExpenseTable = () => {
               <TableCell>Категория</TableCell>
               <TableCell>Получатель</TableCell>
               <TableCell>Комментарий</TableCell>
+              <TableCell>Управление</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {expenses.map((expense, idx) => (
-              <TableRow key={idx}>
+            {sortedExpenses.map((expense, idx) => (
+              <TableRow
+                key={expense._id || idx}
+                sx={{
+                  backgroundColor: COLORS[rowColorIndexes[idx]],
+                }}
+              >
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   {new Date(expense.date).toLocaleDateString()}
@@ -79,11 +95,27 @@ export const ExpenseTable = () => {
                 <TableCell>{expense.category}</TableCell>
                 <TableCell>{expense.recipient}</TableCell>
                 <TableCell>{expense.comment}</TableCell>
+                <TableCell>
+                  <Button
+                    onClick={() => setEditId(expense._id)}
+                    variant="text"
+                  >
+                    Редактировать
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {editId && (
+        <EditExpenseModal
+          open={!!editId}
+          onClose={() => setEditId(undefined)}
+          expenseId={editId}
+        />
+      )}
     </Box>
   );
 };
