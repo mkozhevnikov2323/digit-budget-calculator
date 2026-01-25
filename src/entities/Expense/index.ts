@@ -1,3 +1,6 @@
+export { groupLoansByRecipient } from './lib/groupLoansByRecipient';
+
+export { useLoanIssuedExpenses } from './hooks/useLoanIssuedExpenses';
 export { useSyncExpensesWithStore } from './hooks/useSyncExpensesWithStore';
 
 export { selectExpenseById } from './model/selectors';
@@ -9,6 +12,7 @@ export { LineChartExpenses } from './ui/LineChartExpenses';
 export { ExpenseTable } from './ui/ExpenseTable';
 
 export {
+  useGetExpensesQuery,
   useAddExpenseMutation,
   useUpdateExpenseMutation,
   useDeleteExpenseMutation,
@@ -16,6 +20,8 @@ export {
 } from './api/expenseApi';
 
 export type { ExpenseSchema } from './model/types';
+export type { LoanGroup } from './lib/groupLoansByRecipient';
+
 export {
   setExpenses,
   resetExpenses,

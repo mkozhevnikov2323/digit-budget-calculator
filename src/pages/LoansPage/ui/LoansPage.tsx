@@ -1,54 +1,60 @@
-import { Box, Typography } from '@mui/material';
-import {
-  useGetMonthlySummaryQuery,
-  useSyncExpensesWithStore,
-} from 'entities/Expense';
-import { selectExpensesState } from 'entities/Expense/model/selectors';
-import { useDispatch, useSelector } from 'react-redux';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import { groupLoansByRecipient, useLoanIssuedExpenses } from 'entities/Expense';
+import { useMemo } from 'react';
+import { LoanRecipientAccordion } from 'widgets/Loans/LoanRecipientAccordion';
 
 const LoansPage = () => {
-  const dispatch = useDispatch();
-  const { isLoading } = useSyncExpensesWithStore();
-  const { year, month /*page, limit*/ } = useSelector(selectExpensesState);
+  const { data, isLoading, error } = useLoanIssuedExpenses();
 
-  // const isOpen = useSelector(selectIsOpenExpenseModal);
+  const loanGroups = useMemo(() => {
+    if (!data?.expenses) return [];
+    return groupLoansByRecipient(data.expenses);
+  }, [data]);
 
-  // const handleOpenModal = () => {
-  //   dispatch(open());
-  // };
-  // const handleCloseModal = () => {
-  //   dispatch(close());
-  // };
+  if (isLoading) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        p={4}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-  // const totalSum =
-  //   monthlySummary?.expenses?.reduce(
-  //     (sum, expense) => sum + expense.amount,
-  //     0,
-  //   ) || 0;
+  if (error) {
+    return (
+      <Box p={2}>
+        <Typography color="error">
+          Не удалось загрузить данные о займах.
+        </Typography>
+      </Box>
+    );
+  }
 
-  if (isLoading) return <Typography variant="h5">Loading...</Typography>;
+  if (loanGroups.length === 0) {
+    return (
+      <Box p={2}>
+        <Typography>Нет выданных займов.</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Box p={2}>
-      <Box
-        sx={{
-          position: 'sticky',
-          top: '0',
-          zIndex: 1000,
-          backgroundColor: 'background.paper',
-          padding: 2,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        }}
+    <Box sx={{ p: 2, maxWidth: 1200, mx: 'auto' }}>
+      <Typography
+        variant="h5"
+        gutterBottom
       >
-        <Box>
-          <Typography
-            variant="h4"
-            gutterBottom
-          >
-            Займы и Кредиты
-          </Typography>
-        </Box>
-      </Box>
+        Выданные займы
+      </Typography>
+      {loanGroups.map((group) => (
+        <LoanRecipientAccordion
+          key={group.recipient}
+          group={group}
+        />
+      ))}
     </Box>
   );
 };
