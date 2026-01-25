@@ -18,6 +18,19 @@ export interface ExpenseQueryPapams {
   month?: number;
   page?: number;
   limit?: number;
+  startDate?: string;
+  endDate?: string;
+  noPagination?: boolean;
+  title?: string;
+  recipient?: string;
+  category?: string;
+}
+
+export interface MonthlySummaryQuery {
+  year?: number;
+  month?: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface ExpenseResponse {

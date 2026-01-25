@@ -87,6 +87,7 @@ export const ExpenseTable = () => {
         >
           <MenuItem value={2024}>2024</MenuItem>
           <MenuItem value={2025}>2025</MenuItem>
+          <MenuItem value={2025}>2026</MenuItem>
         </Select>
 
         <Select
@@ -139,7 +140,11 @@ export const ExpenseTable = () => {
                 <TableCell>
                   <Button
                     onClick={() => setEditId(expense._id)}
-                    variant="text"
+                    variant="outlined"
+                    sx={{
+                      py: 0,
+                      textTransform: 'capitalize',
+                    }}
                   >
                     Редактировать
                   </Button>

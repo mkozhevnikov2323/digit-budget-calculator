@@ -12,6 +12,7 @@ export {
   useAddExpenseMutation,
   useUpdateExpenseMutation,
   useDeleteExpenseMutation,
+  useGetMonthlySummaryQuery,
 } from './api/expenseApi';
 
 export type { ExpenseSchema } from './model/types';
