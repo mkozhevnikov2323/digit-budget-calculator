@@ -8,6 +8,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { label: 'Доходы', path: RoutePath.income },
   { label: 'Расходы', path: RoutePath.expenses },
+  { label: 'Займы', path: RoutePath.loans },
   { label: 'Баланс', path: RoutePath.balance },
   { label: 'Профиль', path: RoutePath.profile },
 ];
