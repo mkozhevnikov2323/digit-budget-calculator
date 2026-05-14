@@ -1,7 +1,8 @@
 import { Box, Typography, Divider, Button } from '@mui/material';
-import { IncomeTable, useSyncIncomeWithStore } from 'entities/Income';
+import { useSyncIncomeWithStore } from 'entities/Income';
 import { useDispatch, useSelector } from 'react-redux';
 import { IncomeCharts } from 'widgets/IncomeCharts';
+import { IncomeTable } from 'widgets/IncomeTable';
 import {
   AddIncomeModal,
   close,

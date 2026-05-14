@@ -1,11 +1,11 @@
 import { Box, Typography, Button } from '@mui/material';
 import {
-  ExpenseTable,
   useGetMonthlySummaryQuery,
   useSyncExpensesWithStore,
 } from 'entities/Expense';
 import { selectExpensesState } from 'entities/Expense/model/selectors';
 import { useDispatch, useSelector } from 'react-redux';
+import { ExpenseTable } from 'widgets/Expenses/ExpenseTable';
 import { MonthlySummaryExpenseTable } from 'widgets/Expenses/MonthlySummaryExpenseTable';
 import {
   AddExpenseModal,

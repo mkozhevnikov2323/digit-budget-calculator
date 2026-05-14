@@ -18,8 +18,6 @@ export {
 
 export type { IncomeSchema } from './model/types';
 
-export { IncomeTable } from './ui/IncomeTable';
-
 export {
   setIncome,
   resetIncome,
