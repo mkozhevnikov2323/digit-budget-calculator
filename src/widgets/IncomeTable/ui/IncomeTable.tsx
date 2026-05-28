@@ -1,34 +1,53 @@
+import {
+  Table,
+  TableContainer,
+  Paper,
+  Box,
+  Typography,
+  Pagination,
+} from '@mui/material';
 import { ExportCSVButton } from 'features/ExportCSV';
-import { Table, TableContainer, Paper, Box, Typography } from '@mui/material';
-import { useSelector } from 'react-redux';
 import { useState } from 'react';
-import { EditIncomeModal } from 'widgets/Modals/EditIncomeModal';
 import { getRowColorIndexesByDate } from 'shared/lib/utils/getRowColorByDate';
+import { EditIncomeModal } from 'widgets/Modals/EditIncomeModal';
+import { useDispatch, useSelector } from 'react-redux';
+
+import { MonthSelector } from 'shared/ui/MonthSelector';
+import { YearSelector } from 'shared/ui/YearSelector';
 import { IncomeTableHeader } from './IncomeTableHeader';
 import { IncomeTableBody } from './IncomeTableBody';
-import { selectAllIncomes } from 'entities/Income';
+import {
+  selectAllIncomes,
+  selectIncomeFilters,
+  selectIncomePagination,
+  setMonth,
+  setPage,
+  setYear,
+  useSyncIncomesWithStore,
+} from 'entities/Income';
 
 export const IncomeTable = () => {
   const [editId, setEditId] = useState<string | number | undefined>(undefined);
-  const incomes = useSelector(selectAllIncomes);
+  const dispatch = useDispatch();
 
-  if (!incomes) {
-    return <Typography variant="h6">Нет данных для таблицы доходов</Typography>;
+  const incomes = useSelector(selectAllIncomes) ?? [];
+  const { total, page, limit } = useSelector(selectIncomePagination);
+  const { year, month } = useSelector(selectIncomeFilters);
+  const { isLoading } = useSyncIncomesWithStore();
+
+  if (isLoading) {
+    return <Typography>Загрузка...</Typography>;
   }
 
-  const sortedIncomes = [...incomes].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-  );
-
-  const incomesMappedForExport = sortedIncomes.map((income, index) => ({
-    Номер: index + 1,
+  const incomesMappedForExport = incomes.map((income, index) => ({
+    Номер: (page - 1) * limit + index + 1,
     Дата: new Date(income.date).toLocaleDateString(),
     Сумма: income.amount,
     Источник: income.source,
     Комментарий: income.comment || '',
   }));
 
-  const rowColorIndexes = getRowColorIndexesByDate(sortedIncomes);
+  const rowColorIndexes = getRowColorIndexesByDate(incomes);
 
   return (
     <Box>
@@ -38,17 +57,29 @@ export const IncomeTable = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: 2,
         }}
       >
-        <Typography
-          data-testid="income-table-header"
-          variant="h6"
-        >
-          Таблица доходов
-        </Typography>
+        <Typography variant="h6">Таблица доходов</Typography>
         <ExportCSVButton
           data={incomesMappedForExport}
           filename="incomes.csv"
+        />
+      </Box>
+
+      <Box
+        mb={2}
+        sx={{ display: 'flex', gap: 2 }}
+      >
+        <YearSelector
+          currentYear={year}
+          onChangeYear={(y) => dispatch(setYear(y))}
+          sx={{ minWidth: 120 }}
+        />
+        <MonthSelector
+          currentMonth={month}
+          onChangeMonth={(m) => dispatch(setMonth(m))}
+          sx={{ minWidth: 150 }}
         />
       </Box>
 
@@ -56,12 +87,27 @@ export const IncomeTable = () => {
         <Table>
           <IncomeTableHeader />
           <IncomeTableBody
-            incomes={sortedIncomes}
+            incomes={incomes}
             rowColorIndexes={rowColorIndexes}
+            page={page}
+            limit={limit}
             onEdit={setEditId}
           />
         </Table>
       </TableContainer>
+
+      <Box
+        mt={2}
+        display="flex"
+        justifyContent="center"
+      >
+        <Pagination
+          count={Math.ceil(total / limit)}
+          page={page}
+          onChange={(_, value) => dispatch(setPage(value))}
+          color="primary"
+        />
+      </Box>
 
       {editId && (
         <EditIncomeModal

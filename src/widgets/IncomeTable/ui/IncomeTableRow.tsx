@@ -6,27 +6,29 @@ interface IncomeTableRowProps {
   income: IncomeSchema;
   index: number;
   colorIndex: number;
-  onEdit: (id: string | number) => void;
+  globalIndex: number;
+  onEdit: (id: string) => void;
 }
 
 export const IncomeTableRow = ({
   income,
   index,
   colorIndex,
+  globalIndex,
   onEdit,
 }: IncomeTableRowProps) => (
   <TableRow
-    key={income._id ?? index}
+    key={income._id || index}
     sx={{ backgroundColor: COLORS[colorIndex] }}
   >
-    <TableCell>{index + 1}</TableCell>
+    <TableCell>{globalIndex}</TableCell>
     <TableCell>{new Date(income.date).toLocaleDateString()}</TableCell>
     <TableCell>{income.amount}</TableCell>
     <TableCell>{income.source}</TableCell>
     <TableCell>{income.comment}</TableCell>
     <TableCell>
       <Button
-        onClick={() => onEdit(income._id ?? index)}
+        onClick={() => onEdit(income._id)}
         variant="text"
       >
         Редактировать

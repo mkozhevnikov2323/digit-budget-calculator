@@ -1,5 +1,5 @@
 import { Box, Typography, Divider, Button } from '@mui/material';
-import { useSyncIncomeWithStore } from 'entities/Income';
+import { useSyncIncomesWithStore } from 'entities/Income';
 import { useDispatch, useSelector } from 'react-redux';
 import { IncomeCharts } from 'widgets/IncomeCharts';
 import { IncomeTable } from 'widgets/IncomeTable';
@@ -12,7 +12,7 @@ import {
 
 const IncomePage = () => {
   const dispatch = useDispatch();
-  const { isLoading } = useSyncIncomeWithStore();
+  const { isLoading } = useSyncIncomesWithStore();
 
   const isOpen = useSelector(selectIsOpenIncomeModal);
 

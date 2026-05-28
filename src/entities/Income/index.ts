@@ -1,6 +1,11 @@
-export { selectAllIncomes, selectIncomeById } from './model/selectors';
+export {
+  selectAllIncomes,
+  selectIncomePagination,
+  selectIncomeFilters,
+  selectIncomeById,
+} from './model/selectors';
 
-export { useSyncIncomeWithStore } from './hooks/useSyncIncomeWithStore';
+export { useSyncIncomesWithStore } from './hooks/useSyncIncomeWithStore';
 
 export { BarChartIncomeBySource } from './ui/BarChartIncomeBySource';
 
@@ -20,6 +25,9 @@ export type { IncomeSchema } from './model/types';
 
 export {
   setIncome,
+  setYear,
+  setMonth,
+  setPage,
   resetIncome,
   reducer as incomeReducer,
 } from './model/incomeSlice';
