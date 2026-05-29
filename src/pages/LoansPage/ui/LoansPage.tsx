@@ -1,15 +1,9 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { groupLoansByRecipient, useLoanIssuedExpenses } from 'entities/Expense';
-import { useMemo } from 'react';
+import { useLoanHistory } from 'entities/Expense';
 import { LoanRecipientAccordion } from 'widgets/Loans/LoanRecipientAccordion';
 
 const LoansPage = () => {
-  const { data, isLoading, error } = useLoanIssuedExpenses();
-
-  const loanGroups = useMemo(() => {
-    if (!data?.expenses) return [];
-    return groupLoansByRecipient(data.expenses);
-  }, [data]);
+  const { loanGroups, isLoading, error } = useLoanHistory();
 
   if (isLoading) {
     return (

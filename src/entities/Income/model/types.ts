@@ -3,6 +3,7 @@ export interface IncomeSchema {
   date: string;
   amount: number;
   source: string;
+  category?: string;
   comment?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -50,3 +50,21 @@ export interface ExpenseState {
   year: number;
   month: number;
 }
+
+export type LoanOperationType = 'issued' | 'returned';
+
+export interface LoanOperation {
+  _id: string;
+  date: string;
+  amount: number;
+  type: LoanOperationType;
+  title?: string;
+  comment?: string;
+  source?: string;
+}
+
+export interface LoanGroup {
+  recipient: string;
+  totalAmount: number;
+  operations: LoanOperation[];
+}

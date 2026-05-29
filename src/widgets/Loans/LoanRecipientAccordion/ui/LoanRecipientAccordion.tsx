@@ -10,51 +10,80 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { LoanGroup } from 'entities/Expense';
+import { LoanOperationRow } from 'widgets/Loans/LoanOperationRow';
 
-export const LoanRecipientAccordion = ({ group }: { group: LoanGroup }) => {
-  const { recipient, totalAmount, loans } = group;
+interface LoanRecipientAccordionProps {
+  group: LoanGroup;
+}
+
+export const LoanRecipientAccordion = ({
+  group,
+}: LoanRecipientAccordionProps) => {
+  const { recipient, totalAmount, operations } = group;
+  const isDebtClosed = totalAmount <= 0;
 
   return (
     <Accordion
       disableGutters
       elevation={0}
-      sx={{ '&:before': { display: 'none' } }}
+      sx={{
+        '&:before': { display: 'none' },
+        border: '1px solid #eee',
+        borderRadius: 1,
+        mb: 1,
+      }}
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Typography
           variant="subtitle1"
           fontWeight="600"
         >
-          {recipient} — <strong>{totalAmount.toLocaleString()} ₽</strong>
+          {recipient}
+          {' — '}
+          <Typography
+            component="span"
+            color={isDebtClosed ? 'success.main' : 'error.main'}
+            fontWeight="700"
+          >
+            {totalAmount.toLocaleString()} ₽
+          </Typography>
+          {isDebtClosed && (
+            <Chip
+              label="Закрыт"
+              color="success"
+              size="small"
+              sx={{ ml: 1, height: 20 }}
+            />
+          )}
         </Typography>
       </AccordionSummary>
+
       <AccordionDetails>
         <TableContainer
           component={Paper}
-          sx={{ boxShadow: 'none', border: '1px solid #eee' }}
+          sx={{ boxShadow: 'none' }}
         >
           <Table size="small">
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ backgroundColor: 'action.hover' }}>
                 <TableCell>Дата</TableCell>
+                <TableCell>Тип</TableCell>
                 <TableCell>Сумма</TableCell>
                 <TableCell>Название</TableCell>
                 <TableCell>Комментарий</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {loans.map((loan, idx) => (
-                <TableRow key={loan._id || idx}>
-                  <TableCell>
-                    {new Date(loan.date).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>{loan.amount.toLocaleString()}</TableCell>
-                  <TableCell>{loan.title}</TableCell>
-                  <TableCell>{loan.comment || '—'}</TableCell>
-                </TableRow>
+              {operations.map((op, idx) => (
+                <LoanOperationRow
+                  key={op._id}
+                  operation={op}
+                  index={idx}
+                />
               ))}
             </TableBody>
           </Table>

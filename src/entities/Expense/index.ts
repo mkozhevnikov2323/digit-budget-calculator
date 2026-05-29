@@ -1,7 +1,7 @@
 export { groupLoansByRecipient } from './lib/groupLoansByRecipient';
 
-export { useLoanIssuedExpenses } from './hooks/useLoanIssuedExpenses';
 export { useSyncExpensesWithStore } from './hooks/useSyncExpensesWithStore';
+export { useLoanHistory } from './hooks/useLoanHistory';
 
 export { selectExpenseById, selectExpensesState } from './model/selectors';
 
@@ -17,8 +17,12 @@ export {
   useGetMonthlySummaryQuery,
 } from './api/expenseApi';
 
-export type { ExpenseSchema } from './model/types';
-export type { LoanGroup } from './lib/groupLoansByRecipient';
+export type {
+  ExpenseSchema,
+  LoanOperationType,
+  LoanOperation,
+  LoanGroup,
+} from './model/types';
 
 export {
   setExpenses,
