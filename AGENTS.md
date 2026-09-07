@@ -29,7 +29,7 @@ explicit approval and a migration plan.
 ## AI features
 
 AI/OCR must never automatically persist a recognized
-financial transaction.codex
+financial transaction
 
 Required flow:
 
