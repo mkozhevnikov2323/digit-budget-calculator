@@ -29,7 +29,7 @@ explicit approval and a migration plan.
 ## AI features
 
 AI/OCR must never automatically persist a recognized
-financial transaction.
+financial transaction.codex
 
 Required flow:
 
@@ -49,3 +49,9 @@ Before finishing a change:
 npm test
 npm run lint
 npm run build
+
+## Communication
+
+- Always respond to the user in Russian.
+- Use English for code, identifiers, filenames, API names, commands, and commit messages.
+- Technical explanations should be concise and in Russian.
