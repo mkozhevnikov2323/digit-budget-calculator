@@ -52,7 +52,7 @@ export const EditIncomeForm: React.FC<EditIncomeFormProps> = ({
 
     await updateIncome({
       ...data,
-      id: String(income._id),
+      _id: String(income._id),
     } as IncomeSchema);
     onClose();
   };
