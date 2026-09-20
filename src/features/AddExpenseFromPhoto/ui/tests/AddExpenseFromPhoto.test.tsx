@@ -260,6 +260,38 @@ describe('AddExpenseFromPhoto', () => {
     expect(addExpenseTitle).not.toHaveBeenCalled();
   });
 
+  it('normalizes a partial recognized draft before review', async () => {
+    const recognize = jest.fn().mockResolvedValue({
+      amount: Number.POSITIVE_INFINITY,
+      date: 'invalid-date',
+      title: 'Свободный текст',
+    });
+
+    render(
+      <AddExpenseFromPhoto
+        onCancel={jest.fn()}
+        recognize={recognize}
+      />,
+    );
+
+    selectImage();
+
+    await waitFor(() =>
+      expect(getInput('Наименование').value).toBe('Свободный текст'),
+    );
+    expect(getInput('Сумма').value).toBe('');
+    expect(getInput('Дата').value).toBe(
+      new Date().toISOString().slice(0, 10),
+    );
+    expect(getInput('Получатель').value).toBe('');
+    expect(getInput('Категория расхода').value).toBe('');
+    expect(getInput('Комментарий').value).toBe('');
+    expect(addExpense).not.toHaveBeenCalled();
+    expect(addUserCategory).not.toHaveBeenCalled();
+    expect(addRecipient).not.toHaveBeenCalled();
+    expect(addExpenseTitle).not.toHaveBeenCalled();
+  });
+
   it('discards the local file and draft when cancelled', async () => {
     const recognize = jest.fn().mockResolvedValue(recognizedDraft);
 
