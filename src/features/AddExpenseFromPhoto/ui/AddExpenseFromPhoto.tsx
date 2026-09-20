@@ -22,6 +22,8 @@ export const AddExpenseFromPhoto = ({
   const recognitionRequestId = useRef(0);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (status === 'recognizing') return;
+
     const file = event.target.files?.[0];
     event.target.value = '';
 
@@ -94,6 +96,8 @@ export const AddExpenseFromPhoto = ({
 
       {status === 'recognizing' && (
         <Box
+          role="status"
+          aria-live="polite"
           display="flex"
           alignItems="center"
           gap={1}

@@ -275,6 +275,36 @@ describe('AddExpenseFromPhoto', () => {
     expect(addExpenseTitle).not.toHaveBeenCalled();
   });
 
+  it('does not start another recognition while one is pending', () => {
+    const deferred = createDeferred<ExpenseDraft>();
+    const recognize = jest.fn().mockReturnValue(deferred.promise);
+
+    render(
+      <AddExpenseFromPhoto
+        onCancel={jest.fn()}
+        recognize={recognize}
+      />,
+    );
+
+    selectImage();
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Распознаём изображение…',
+    );
+    expect(screen.getByTestId('expense-photo-input')).toBeDisabled();
+
+    const secondFile = new File(['second image'], 'second.png', {
+      type: 'image/png',
+    });
+    fireEvent.change(screen.getByTestId('expense-photo-input'), {
+      target: { files: [secondFile] },
+    });
+
+    expect(recognize).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText(/Сумма/)).not.toBeInTheDocument();
+    expect(addExpense).not.toHaveBeenCalled();
+  });
+
   it('shows an error and allows retry without persistence', async () => {
     const recognize = jest
       .fn()
