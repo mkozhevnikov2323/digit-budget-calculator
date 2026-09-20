@@ -242,4 +242,72 @@ describe('AddExpenseFromPhoto', () => {
     expect(addRecipient).not.toHaveBeenCalled();
     expect(addExpenseTitle).not.toHaveBeenCalled();
   });
+
+  it('ignores a pending recognition result after cancellation', async () => {
+    const deferred = createDeferred<ExpenseDraft>();
+    const recognize = jest.fn().mockReturnValue(deferred.promise);
+    const onCancel = jest.fn();
+
+    render(
+      <AddExpenseFromPhoto
+        onCancel={onCancel}
+        recognize={recognize}
+      />,
+    );
+
+    selectImage();
+    expect(screen.getByText('Распознаём изображение…')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      deferred.resolve(recognizedDraft);
+      await deferred.promise;
+    });
+
+    expect(screen.queryByLabelText(/Сумма/)).not.toBeInTheDocument();
+    expect(screen.queryByText('receipt.png')).not.toBeInTheDocument();
+    expect(screen.queryByText('Распознаём изображение…')).not.toBeInTheDocument();
+    expect(addExpense).not.toHaveBeenCalled();
+    expect(addUserCategory).not.toHaveBeenCalled();
+    expect(addRecipient).not.toHaveBeenCalled();
+    expect(addExpenseTitle).not.toHaveBeenCalled();
+  });
+
+  it('shows an error and allows retry without persistence', async () => {
+    const recognize = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('Recognition failed'))
+      .mockResolvedValueOnce(recognizedDraft);
+
+    render(
+      <AddExpenseFromPhoto
+        onCancel={jest.fn()}
+        recognize={recognize}
+      />,
+    );
+
+    selectImage();
+
+    expect(
+      await screen.findByText(
+        'Не удалось распознать изображение. Выберите другой файл.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Сумма/)).not.toBeInTheDocument();
+
+    selectImage();
+
+    await waitFor(() =>
+      expect(getInput('Наименование').value).toBe(
+        'Распознанная покупка',
+      ),
+    );
+    expect(recognize).toHaveBeenCalledTimes(2);
+    expect(addExpense).not.toHaveBeenCalled();
+    expect(addUserCategory).not.toHaveBeenCalled();
+    expect(addRecipient).not.toHaveBeenCalled();
+    expect(addExpenseTitle).not.toHaveBeenCalled();
+  });
 });

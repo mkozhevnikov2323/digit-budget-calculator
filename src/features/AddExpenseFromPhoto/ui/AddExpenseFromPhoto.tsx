@@ -1,5 +1,5 @@
 import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
-import { useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { AddExpenseForm, type ExpenseDraft } from 'features/AddExpense';
 import { recognizeExpenseFromImage } from '../model/recognizeExpenseFromImage';
 
@@ -17,6 +17,7 @@ export const AddExpenseFromPhoto = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [draft, setDraft] = useState<ExpenseDraft>();
   const [status, setStatus] = useState<RecognitionStatus>('idle');
+  const recognitionRequestId = useRef(0);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -24,6 +25,7 @@ export const AddExpenseFromPhoto = ({
 
     if (!file) return;
 
+    const requestId = ++recognitionRequestId.current;
     setDraft(undefined);
 
     if (!file.type.startsWith('image/')) {
@@ -37,15 +39,20 @@ export const AddExpenseFromPhoto = ({
 
     try {
       const recognizedDraft = await recognize(file);
+      if (recognitionRequestId.current !== requestId) return;
+
       setDraft(recognizedDraft);
       setStatus('success');
     } catch {
+      if (recognitionRequestId.current !== requestId) return;
+
       setDraft(undefined);
       setStatus('error');
     }
   };
 
   const handleCancel = () => {
+    recognitionRequestId.current += 1;
     setSelectedFile(null);
     setDraft(undefined);
     setStatus('idle');
