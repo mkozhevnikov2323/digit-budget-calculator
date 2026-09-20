@@ -1,4 +1,5 @@
 import { Box, Typography, Button } from '@mui/material';
+import { useState } from 'react';
 import {
   useGetMonthlySummaryQuery,
   useSyncExpensesWithStore,
@@ -13,9 +14,12 @@ import {
   open,
   selectIsOpenExpenseModal,
 } from 'widgets/Modals/AddExpenseModal';
+import { AddExpenseFromPhoto } from 'features/AddExpenseFromPhoto';
+import { Modal } from 'shared/ui/Modal';
 
 const ExpensesPage = () => {
   const dispatch = useDispatch();
+  const [isPhotoOpen, setIsPhotoOpen] = useState(false);
   const { isLoading } = useSyncExpensesWithStore();
   const { year, month /*page, limit*/ } = useSelector(selectExpensesState);
   const {
@@ -69,6 +73,14 @@ const ExpensesPage = () => {
           >
             Добавить расход
           </Button>
+          <Button
+            variant="outlined"
+            color="warning"
+            onClick={() => setIsPhotoOpen(true)}
+            sx={{ ml: 2 }}
+          >
+            Добавить по фото
+          </Button>
         </Box>
       </Box>
       {/* <ExpenseCharts /> */}
@@ -96,6 +108,14 @@ const ExpensesPage = () => {
         open={isOpen}
         onClose={handleCloseModal}
       />
+      {isPhotoOpen && (
+        <Modal
+          open
+          onClose={() => setIsPhotoOpen(false)}
+        >
+          <AddExpenseFromPhoto onCancel={() => setIsPhotoOpen(false)} />
+        </Modal>
+      )}
     </Box>
   );
 };
