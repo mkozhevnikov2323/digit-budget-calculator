@@ -55,3 +55,20 @@ npm run build
 - Always respond to the user in Russian.
 - Use English for code, identifiers, filenames, API names, commands, and commit messages.
 - Technical explanations should be concise and in Russian.
+
+## Autonomous workflow
+
+Codex may implement, test, commit, and push small approved changes
+without asking for confirmation.
+
+Codex must stop and request approval before:
+
+- significant refactoring;
+- public API changes;
+- MongoDB schema changes;
+- choosing or changing OCR/AI providers;
+- sending financial data to third-party services;
+- adding paid services;
+- persisting uploaded images.
+
+Each commit must contain one logical change and related tests.
