@@ -89,7 +89,7 @@ const submitForm = () => {
   fireEvent.submit(screen.getByRole('button', { name: 'Добавить расход' }).closest('form')!);
 };
 
-describe('AddExpenseForm submit', () => {
+describe('AddExpenseForm', () => {
   const addExpense = jest.fn();
   const addUserCategory = jest.fn();
   const addRecipient = jest.fn();
@@ -99,14 +99,23 @@ describe('AddExpenseForm submit', () => {
     jest.clearAllMocks();
 
     mockUseGetDefaultCategoriesQuery.mockReturnValue({
-      data: [{ id: 'category-1', name: 'Еда' }],
+      data: [
+        { id: 'category-1', name: 'Еда' },
+        { id: 'category-2', name: 'Транспорт' },
+      ],
     });
     mockUseGetUserCategoriesQuery.mockReturnValue({ data: [] });
     mockUseGetRecipientsQuery.mockReturnValue({
-      data: [{ id: 'recipient-1', name: 'Магазин' }],
+      data: [
+        { id: 'recipient-1', name: 'Магазин' },
+        { id: 'recipient-2', name: 'Кафе' },
+      ],
     });
     mockUseGetExpenseTitlesQuery.mockReturnValue({
-      data: [{ id: 'title-1', name: 'Продукты' }],
+      data: [
+        { id: 'title-1', name: 'Продукты' },
+        { id: 'title-2', name: 'Обед' },
+      ],
     });
 
     mockUseAddExpenseMutation.mockReturnValue([
@@ -116,6 +125,128 @@ describe('AddExpenseForm submit', () => {
     mockUseAddUserCategoryMutation.mockReturnValue([addUserCategory]);
     mockUseAddRecipientMutation.mockReturnValue([addRecipient]);
     mockUseAddExpenseTitleMutation.mockReturnValue([addExpenseTitle]);
+  });
+
+  it('keeps the existing defaults without an initial draft', () => {
+    render(<AddExpenseForm />);
+
+    expect(getInput('Дата').value).toBe(
+      new Date().toISOString().slice(0, 10),
+    );
+    expect(getInput('Сумма').value).toBe('');
+    expect(getInput('Наименование').value).toBe('');
+    expect(getInput('Получатель').value).toBe('');
+    expect(getInput('Категория расхода').value).toBe('');
+    expect(getInput('Комментарий').value).toBe('');
+  });
+
+  it('prefills only values supplied by a partial draft', () => {
+    render(
+      <AddExpenseForm
+        initialDraft={{
+          amount: 42.5,
+          title: 'Такси',
+          comment: 'Поездка домой',
+        }}
+      />,
+    );
+
+    expect(getInput('Сумма').value).toBe('42.5');
+    expect(getInput('Наименование').value).toBe('Такси');
+    expect(getInput('Комментарий').value).toBe('Поездка домой');
+    expect(getInput('Получатель').value).toBe('');
+    expect(getInput('Категория расхода').value).toBe('');
+  });
+
+  it('normalizes amount and date before initializing the form', () => {
+    render(
+      <AddExpenseForm
+        initialDraft={{ amount: Number.POSITIVE_INFINITY, date: 'invalid' }}
+      />,
+    );
+
+    expect(getInput('Сумма').value).toBe('');
+    expect(getInput('Дата').value).toBe(
+      new Date().toISOString().slice(0, 10),
+    );
+  });
+
+  it('visibly prefills free-text Autocomplete values outside the option lists', () => {
+    render(
+      <AddExpenseForm
+        initialDraft={{
+          amount: 275.4,
+          date: '2024-02-29',
+          title: 'Билет в музей',
+          recipient: 'Городской музей',
+          category: 'Досуг',
+          comment: 'Выходной',
+        }}
+      />,
+    );
+
+    expect(getInput('Сумма').value).toBe('275.4');
+    expect(getInput('Дата').value).toBe('2024-02-29');
+    expect(getInput('Наименование').value).toBe('Билет в музей');
+    expect(getInput('Получатель').value).toBe('Городской музей');
+    expect(getInput('Категория расхода').value).toBe('Досуг');
+    expect(getInput('Комментарий').value).toBe('Выходной');
+
+    fireEvent.change(getInput('Наименование'), {
+      target: { value: 'Два билета' },
+    });
+    expect(getInput('Наименование').value).toBe('Два билета');
+
+    expect(addExpense).not.toHaveBeenCalled();
+    expect(addUserCategory).not.toHaveBeenCalled();
+    expect(addRecipient).not.toHaveBeenCalled();
+    expect(addExpenseTitle).not.toHaveBeenCalled();
+  });
+
+  it('persists edited draft values only after explicit submit', async () => {
+    const unwrap = jest.fn().mockResolvedValue(undefined);
+    addExpense.mockReturnValue({ unwrap });
+
+    render(
+      <AddExpenseForm
+        initialDraft={{
+          amount: 100,
+          date: '2024-03-10',
+          title: 'Продукты',
+          recipient: 'Магазин',
+          category: 'Еда',
+          comment: 'Черновик',
+        }}
+      />,
+    );
+
+    expect(addExpense).not.toHaveBeenCalled();
+
+    fireEvent.change(getInput('Сумма'), { target: { value: '250' } });
+    fireEvent.change(getInput('Дата'), { target: { value: '2024-03-11' } });
+    fireEvent.change(getInput('Наименование'), {
+      target: { value: 'Обед' },
+    });
+    fireEvent.change(getInput('Получатель'), { target: { value: 'Кафе' } });
+    fireEvent.change(getInput('Категория расхода'), {
+      target: { value: 'Транспорт' },
+    });
+    fireEvent.change(getInput('Комментарий'), {
+      target: { value: 'Исправлено пользователем' },
+    });
+
+    expect(addExpense).not.toHaveBeenCalled();
+    submitForm();
+
+    await waitFor(() => expect(unwrap).toHaveBeenCalledTimes(1));
+    expect(addExpense).toHaveBeenCalledWith({
+      amount: '250',
+      date: '2024-03-11',
+      title: 'Обед',
+      category: 'Транспорт',
+      recipient: 'Кафе',
+      comment: 'Исправлено пользователем',
+    });
   });
 
   it('does not run success handling when expense creation rejects', async () => {

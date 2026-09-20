@@ -255,40 +255,22 @@ import type { ErrorResponse } from 'shared/types/errorSchema';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { DateField } from 'shared/ui/DateField';
 import { AmountField } from 'shared/ui/AmountField';
-import {
-  getTodayDateString,
-  buildResetValuesKeepingDate,
-} from 'shared/lib/utils/date';
+import { buildExpenseInitialValues } from '../model/buildExpenseInitialValues';
+import type { ExpenseDraft, ExpenseFormValues } from '../model/types';
 
-type FormData = {
-  amount: number;
-  date: string;
-  title: string;
-  category: string;
-  recipient: string;
-  comment?: string;
+type AddExpenseFormProps = {
+  initialDraft?: ExpenseDraft;
 };
 
-const emptyValues: Omit<FormData, 'date'> = {
-  amount: 0,
-  title: '',
-  category: '',
-  recipient: '',
-  comment: '',
-};
-
-export const AddExpenseForm = () => {
+export const AddExpenseForm = ({ initialDraft }: AddExpenseFormProps) => {
   const {
     control,
     handleSubmit,
     reset,
     clearErrors,
     formState: { isSubmitting },
-  } = useForm<FormData>({
-    defaultValues: {
-      ...emptyValues,
-      date: getTodayDateString(),
-    },
+  } = useForm<ExpenseFormValues>({
+    defaultValues: buildExpenseInitialValues(initialDraft),
   });
 
   const [successOpen, setSuccessOpen] = useState(false);
@@ -310,7 +292,7 @@ export const AddExpenseForm = () => {
   const userTitles = [...expenseTitles.map((s) => s.name)];
   const userRecipients = [...recipients.map((s) => s.name)];
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: ExpenseFormValues) => {
     try {
       if (data.category && !allSources.includes(data.category)) {
         await addUserCategory({ name: data.category }).unwrap();
@@ -327,7 +309,7 @@ export const AddExpenseForm = () => {
       await addExpense(data).unwrap();
       setSuccessOpen(true);
       clearErrors();
-      reset(buildResetValuesKeepingDate(emptyValues, data.date));
+      reset(buildExpenseInitialValues({ date: data.date }));
     } catch {
       return;
     }

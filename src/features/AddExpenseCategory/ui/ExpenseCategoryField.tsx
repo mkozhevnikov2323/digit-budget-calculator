@@ -7,7 +7,6 @@ import {
   Divider,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/InfoOutlined';
-import { useState } from 'react';
 import { Controller, Control, FieldValues, Path } from 'react-hook-form';
 import {
   useGetDefaultCategoriesQuery,
@@ -25,7 +24,6 @@ export const ExpenseCategoryField = <T extends FieldValues = FieldValues>({
 }: Props<T>) => {
   const { data: defaultCategories = [] } = useGetDefaultCategoriesQuery();
   const { data: userCategories = [] } = useGetUserCategoriesQuery();
-  const [inputValue, setInputValue] = useState('');
 
   const defaultNames = defaultCategories.map((s) => s.name);
   const userNames = userCategories.map((s) => s.name);
@@ -47,6 +45,7 @@ export const ExpenseCategoryField = <T extends FieldValues = FieldValues>({
       control={control}
       rules={{ required: true }}
       render={({ field: { value, onChange }, fieldState }) => {
+        const inputValue = typeof value === 'string' ? value : '';
         const allOptions =
           inputValue && !options.some((opt) => opt.label === inputValue)
             ? [...options, { group: 'Новое', label: inputValue }]
@@ -73,7 +72,6 @@ export const ExpenseCategoryField = <T extends FieldValues = FieldValues>({
             value={currentOption}
             inputValue={inputValue}
             onInputChange={(_, newInputValue) => {
-              setInputValue(newInputValue);
               if (newInputValue !== value) {
                 onChange(newInputValue);
               }
@@ -86,7 +84,6 @@ export const ExpenseCategoryField = <T extends FieldValues = FieldValues>({
                 newVal = newValue.label;
               }
               onChange(newVal);
-              setInputValue(newVal);
             }}
             renderInput={(params) => (
               <TextField

@@ -7,7 +7,6 @@ import {
   Divider,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/InfoOutlined';
-import { useState } from 'react';
 import { Controller, Control, FieldValues, Path } from 'react-hook-form';
 import { useGetExpenseTitlesQuery } from 'entities/ExpenseTitle';
 
@@ -21,7 +20,6 @@ export const ExpenseTitleField = <T extends FieldValues = FieldValues>({
   control,
 }: Props<T>) => {
   const { data: userExpenseTitles = [] } = useGetExpenseTitlesQuery();
-  const [inputValue, setInputValue] = useState('');
 
   const userTitles = userExpenseTitles.map((s) => s.name);
 
@@ -38,6 +36,7 @@ export const ExpenseTitleField = <T extends FieldValues = FieldValues>({
       control={control}
       rules={{ required: true }}
       render={({ field: { value, onChange }, fieldState }) => {
+        const inputValue = typeof value === 'string' ? value : '';
         const allOptions =
           inputValue && !options.some((opt) => opt.label === inputValue)
             ? [...options, { group: 'Новое', label: inputValue }]
@@ -64,7 +63,6 @@ export const ExpenseTitleField = <T extends FieldValues = FieldValues>({
             value={currentOption}
             inputValue={inputValue}
             onInputChange={(_, newInputValue) => {
-              setInputValue(newInputValue);
               if (newInputValue !== value) {
                 onChange(newInputValue);
               }
@@ -77,7 +75,6 @@ export const ExpenseTitleField = <T extends FieldValues = FieldValues>({
                 newVal = newValue.label;
               }
               onChange(newVal);
-              setInputValue(newVal);
             }}
             renderInput={(params) => (
               <TextField
