@@ -1,8 +1,6 @@
-import type { ExpenseDraft } from 'features/AddExpense';
+import type { ExpenseRecognizer } from './types';
 
-export const recognizeExpenseFromImage = async (
-  file: File,
-): Promise<ExpenseDraft> => {
+export const recognizeExpenseFromImage: ExpenseRecognizer = async (file) => {
   if (!file.type.startsWith('image/')) {
     throw new Error('Selected file is not an image');
   }

@@ -2,12 +2,13 @@ import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material'
 import { useRef, useState, type ChangeEvent } from 'react';
 import { AddExpenseForm, type ExpenseDraft } from 'features/AddExpense';
 import { recognizeExpenseFromImage } from '../model/recognizeExpenseFromImage';
+import type { ExpenseRecognizer } from '../model/types';
 
 type RecognitionStatus = 'idle' | 'recognizing' | 'success' | 'error';
 
 type AddExpenseFromPhotoProps = {
   onCancel: () => void;
-  recognize?: (file: File) => Promise<ExpenseDraft>;
+  recognize?: ExpenseRecognizer;
 };
 
 export const AddExpenseFromPhoto = ({
