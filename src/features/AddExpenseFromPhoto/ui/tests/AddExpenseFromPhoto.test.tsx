@@ -310,4 +310,80 @@ describe('AddExpenseFromPhoto', () => {
     expect(addRecipient).not.toHaveBeenCalled();
     expect(addExpenseTitle).not.toHaveBeenCalled();
   });
+
+  it('rejects a non-image file locally without recognition or persistence', () => {
+    const recognize = jest.fn();
+
+    render(
+      <AddExpenseFromPhoto
+        onCancel={jest.fn()}
+        recognize={recognize}
+      />,
+    );
+
+    const file = new File(['text'], 'receipt.txt', { type: 'text/plain' });
+    fireEvent.change(screen.getByTestId('expense-photo-input'), {
+      target: { files: [file] },
+    });
+
+    expect(screen.getByText('Выберите файл изображения.')).toBeInTheDocument();
+    expect(screen.queryByText('receipt.txt')).not.toBeInTheDocument();
+    expect(recognize).not.toHaveBeenCalled();
+    expect(addExpense).not.toHaveBeenCalled();
+    expect(addUserCategory).not.toHaveBeenCalled();
+    expect(addRecipient).not.toHaveBeenCalled();
+    expect(addExpenseTitle).not.toHaveBeenCalled();
+  });
+
+  it('replaces the selected image and removes the previous draft while recognizing', async () => {
+    const nextRecognition = createDeferred<ExpenseDraft>();
+    const recognize = jest
+      .fn()
+      .mockResolvedValueOnce(recognizedDraft)
+      .mockReturnValueOnce(nextRecognition.promise);
+
+    render(
+      <AddExpenseFromPhoto
+        onCancel={jest.fn()}
+        recognize={recognize}
+      />,
+    );
+
+    selectImage();
+    await waitFor(() =>
+      expect(getInput('Наименование').value).toBe(
+        'Распознанная покупка',
+      ),
+    );
+
+    const replacement = new File(['new image'], 'replacement.jpg', {
+      type: 'image/jpeg',
+    });
+    fireEvent.change(screen.getByTestId('expense-photo-input'), {
+      target: { files: [replacement] },
+    });
+
+    expect(screen.getByText('replacement.jpg')).toBeInTheDocument();
+    expect(screen.queryByText('receipt.png')).not.toBeInTheDocument();
+    expect(screen.getByText('Распознаём изображение…')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Сумма/)).not.toBeInTheDocument();
+    expect(addExpense).not.toHaveBeenCalled();
+
+    const replacementDraft = {
+      ...recognizedDraft,
+      title: 'Новая распознанная покупка',
+    };
+    await act(async () => {
+      nextRecognition.resolve(replacementDraft);
+      await nextRecognition.promise;
+    });
+
+    await waitFor(() =>
+      expect(getInput('Наименование').value).toBe(
+        'Новая распознанная покупка',
+      ),
+    );
+    expect(recognize).toHaveBeenNthCalledWith(2, replacement);
+    expect(addExpense).not.toHaveBeenCalled();
+  });
 });

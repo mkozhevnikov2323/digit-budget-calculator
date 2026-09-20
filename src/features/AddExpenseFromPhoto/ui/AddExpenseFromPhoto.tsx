@@ -18,6 +18,7 @@ export const AddExpenseFromPhoto = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [draft, setDraft] = useState<ExpenseDraft>();
   const [status, setStatus] = useState<RecognitionStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>();
   const recognitionRequestId = useRef(0);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -28,9 +29,11 @@ export const AddExpenseFromPhoto = ({
 
     const requestId = ++recognitionRequestId.current;
     setDraft(undefined);
+    setErrorMessage(undefined);
 
     if (!file.type.startsWith('image/')) {
       setSelectedFile(null);
+      setErrorMessage('Выберите файл изображения.');
       setStatus('error');
       return;
     }
@@ -48,6 +51,9 @@ export const AddExpenseFromPhoto = ({
       if (recognitionRequestId.current !== requestId) return;
 
       setDraft(undefined);
+      setErrorMessage(
+        'Не удалось распознать изображение. Выберите другой файл.',
+      );
       setStatus('error');
     }
   };
@@ -56,6 +62,7 @@ export const AddExpenseFromPhoto = ({
     recognitionRequestId.current += 1;
     setSelectedFile(null);
     setDraft(undefined);
+    setErrorMessage(undefined);
     setStatus('idle');
     onCancel();
   };
@@ -102,7 +109,7 @@ export const AddExpenseFromPhoto = ({
           severity="error"
           sx={{ mt: 2 }}
         >
-          Не удалось распознать изображение. Выберите другой файл.
+          {errorMessage}
         </Alert>
       )}
 
