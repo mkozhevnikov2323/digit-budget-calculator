@@ -189,7 +189,10 @@ describe('AddExpenseFromPhoto', () => {
       screen.getByRole('button', { name: 'Добавить расход' }).closest('form')!,
     );
 
-    await waitFor(() => expect(unwrap).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByText('Расход добавлен!')).toBeInTheDocument(),
+    );
+    expect(unwrap).toHaveBeenCalledTimes(1);
     expect(addExpense).toHaveBeenCalledWith({
       amount: '200',
       date: '2026-09-20',
@@ -198,6 +201,63 @@ describe('AddExpenseFromPhoto', () => {
       category: 'Еда',
       comment: 'Проверено',
     });
+    expect(getInput('Сумма').value).toBe('');
+    expect(getInput('Дата').value).toBe('2026-09-20');
+  });
+
+  it('keeps reviewed values and skips success handling when submit rejects', async () => {
+    const recognize = jest.fn().mockResolvedValue(recognizedDraft);
+    const unwrap = jest.fn().mockRejectedValue(new Error('Request failed'));
+    addExpense.mockReturnValue({ unwrap });
+
+    render(
+      <AddExpenseFromPhoto
+        onCancel={jest.fn()}
+        recognize={recognize}
+      />,
+    );
+
+    selectImage();
+    await waitFor(() =>
+      expect(getInput('Наименование').value).toBe(
+        'Распознанная покупка',
+      ),
+    );
+
+    fireEvent.change(getInput('Сумма'), { target: { value: '321' } });
+    fireEvent.change(getInput('Наименование'), {
+      target: { value: 'Обед' },
+    });
+    fireEvent.change(getInput('Получатель'), { target: { value: 'Кафе' } });
+    fireEvent.change(getInput('Категория расхода'), {
+      target: { value: 'Еда' },
+    });
+    fireEvent.change(getInput('Комментарий'), {
+      target: { value: 'Оставить после ошибки' },
+    });
+
+    fireEvent.submit(
+      screen.getByRole('button', { name: 'Добавить расход' }).closest('form')!,
+    );
+
+    await waitFor(() => expect(unwrap).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Добавить расход' }),
+      ).not.toBeDisabled(),
+    );
+
+    expect(addExpense).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Расход добавлен!')).not.toBeInTheDocument();
+    expect(getInput('Сумма').value).toBe('321');
+    expect(getInput('Дата').value).toBe('2026-09-20');
+    expect(getInput('Наименование').value).toBe('Обед');
+    expect(getInput('Получатель').value).toBe('Кафе');
+    expect(getInput('Категория расхода').value).toBe('Еда');
+    expect(getInput('Комментарий').value).toBe('Оставить после ошибки');
+    expect(addUserCategory).not.toHaveBeenCalled();
+    expect(addRecipient).not.toHaveBeenCalled();
+    expect(addExpenseTitle).not.toHaveBeenCalled();
   });
 
   it('discards the local file and draft when cancelled', async () => {
