@@ -25,5 +25,5 @@ export const useSyncIncomesWithStore = () => {
     }
   }, [data, dispatch]);
 
-  return { isLoading: isLoading || isFetching, refetch };
+  return { isLoading, isFetching, refetch };
 };
