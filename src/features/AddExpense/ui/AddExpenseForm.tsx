@@ -311,22 +311,26 @@ export const AddExpenseForm = () => {
   const userRecipients = [...recipients.map((s) => s.name)];
 
   const onSubmit = async (data: FormData) => {
-    if (data.category && !allSources.includes(data.category)) {
-      await addUserCategory({ name: data.category }).unwrap();
-    }
+    try {
+      if (data.category && !allSources.includes(data.category)) {
+        await addUserCategory({ name: data.category }).unwrap();
+      }
 
-    if (data.title && !userTitles.includes(data.title)) {
-      await addExpenseTitle({ name: data.title }).unwrap();
-    }
+      if (data.title && !userTitles.includes(data.title)) {
+        await addExpenseTitle({ name: data.title }).unwrap();
+      }
 
-    if (data.recipient && !userRecipients.includes(data.recipient)) {
-      await addRecipient({ name: data.recipient }).unwrap();
-    }
+      if (data.recipient && !userRecipients.includes(data.recipient)) {
+        await addRecipient({ name: data.recipient }).unwrap();
+      }
 
-    await addExpense(data);
-    setSuccessOpen(true);
-    clearErrors();
-    reset(buildResetValuesKeepingDate(emptyValues, data.date));
+      await addExpense(data).unwrap();
+      setSuccessOpen(true);
+      clearErrors();
+      reset(buildResetValuesKeepingDate(emptyValues, data.date));
+    } catch {
+      return;
+    }
   };
 
   return (
