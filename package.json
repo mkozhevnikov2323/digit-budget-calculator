@@ -19,6 +19,7 @@
     "@mui/x-charts": "^8.4.0",
     "@paddleocr/paddleocr-js": "^0.4.2",
     "@reduxjs/toolkit": "^2.8.2",
+    "@zxing/browser": "^0.1.5",
     "jest-fixed-jsdom": "^0.0.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
