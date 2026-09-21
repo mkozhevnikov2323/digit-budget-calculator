@@ -55,6 +55,14 @@ describe('parseReceiptLines', () => {
     );
   });
 
+  it.each([
+    ['23.08.26', '2026-08-23'],
+    ['28.08.26', '2026-08-28'],
+    ['29.08.26', '2026-08-29'],
+  ])('normalizes the DD.MM.YY date %s', (value, expectedDate) => {
+    expect(parseReceiptLines(lines(`Дата: ${value}`)).date).toBe(expectedDate);
+  });
+
   it('keeps an ISO date', () => {
     expect(parseReceiptLines(lines('2026-02-28')).date).toBe('2026-02-28');
   });
@@ -65,7 +73,22 @@ describe('parseReceiptLines', () => {
 
   it('does not return an invalid or missing date', () => {
     expect(parseReceiptLines(lines('Дата: 31.02.2026')).date).toBeUndefined();
+    expect(parseReceiptLines(lines('Дата: 31.02.26')).date).toBeUndefined();
     expect(parseReceiptLines(lines('Дата отсутствует')).date).toBeUndefined();
+  });
+
+  it('prefers a clear store name over a legal entity line', () => {
+    expect(
+      parseReceiptLines(
+        lines('ООО "Ромашка-Финанс"', 'МАГАЗИН Ромашка'),
+      ).recipient,
+    ).toBe('МАГАЗИН Ромашка');
+  });
+
+  it('does not use a cashier line as the recipient', () => {
+    expect(
+      parseReceiptLines(lines('ИП ИВАНОВ КАССИР', 'КАССОВЫЙ ЧЕК')).recipient,
+    ).toBeUndefined();
   });
 
   it('ignores empty, noisy, and low-confidence lines', () => {

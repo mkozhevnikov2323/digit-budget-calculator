@@ -81,10 +81,14 @@ const findDate = (lines: readonly RecognizedLine[]): string | undefined => {
     }
 
     const receiptDateMatch = text.match(
-      /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/u,
+      /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})\b/u,
     );
     if (receiptDateMatch) {
-      const [, day, month, year] = receiptDateMatch.map(Number);
+      const [, dayText, monthText, yearText] = receiptDateMatch;
+      const day = Number(dayText);
+      const month = Number(monthText);
+      const year =
+        yearText.length === 2 ? 2000 + Number(yearText) : Number(yearText);
       if (isValidDate(year, month, day)) return formatDate(year, month, day);
     }
   }
@@ -95,14 +99,22 @@ const findDate = (lines: readonly RecognizedLine[]): string | undefined => {
 const findRecipient = (lines: readonly RecognizedLine[]): string | undefined => {
   const recipientLabel =
     /^(?:ПРОДАВЕЦ|ОРГАНИЗАЦИЯ|ТОРГОВАЯ\s+ТОЧКА)\s*[:-]\s*(.+)$/iu;
-  const merchantLine =
-    /^(?:ООО|ИП|АО|ПАО|МАГАЗИН|СУПЕРМАРКЕТ|КАФЕ|РЕСТОРАН|АПТЕКА)\s+.+/iu;
+  const storeLine =
+    /^(?:МАГАЗИН|СУПЕРМАРКЕТ|КАФЕ|РЕСТОРАН|АПТЕКА)\s+.+/iu;
+  const legalEntityLine = /^(?:ООО|ИП|АО|ПАО)\s+.+/iu;
+  const isCashierLine = (text: string) => /КАССИР/iu.test(text);
 
   for (const { text } of lines) {
     const labelledRecipient = text.match(recipientLabel)?.[1]?.trim();
-    if (labelledRecipient) return labelledRecipient;
+    if (labelledRecipient && !isCashierLine(text)) return labelledRecipient;
+  }
 
-    if (merchantLine.test(text)) return text;
+  for (const { text } of lines) {
+    if (storeLine.test(text) && !isCashierLine(text)) return text;
+  }
+
+  for (const { text } of lines) {
+    if (legalEntityLine.test(text) && !isCashierLine(text)) return text;
   }
 
   return undefined;
