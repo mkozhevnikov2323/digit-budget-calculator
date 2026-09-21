@@ -1,17 +1,43 @@
 import type { BrowserQRCodeReader } from '@zxing/browser';
+import type { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import {
+  createGrayscalePixels,
   createHighContrastGrayscalePixels,
-  fitImageWithin,
+  createReceiptQrCropRegions,
+  scaleCropDimensions,
+  type ReceiptQrCropRegion,
 } from './receiptQrImagePreprocessing';
 
 export type ReceiptQrDecoder = (file: File) => Promise<string | undefined>;
+
+type DecodeAttemptType =
+  | 'original'
+  | 'color'
+  | 'grayscale'
+  | 'high-contrast';
 
 let qrReaderPromise: Promise<BrowserQRCodeReader> | undefined;
 
 const getQrReader = () => {
   if (!qrReaderPromise) {
-    qrReaderPromise = import('@zxing/browser')
-      .then(({ BrowserQRCodeReader }) => new BrowserQRCodeReader())
+    qrReaderPromise = Promise.all([
+      import('@zxing/browser'),
+      import('@zxing/library'),
+    ])
+      .then(
+        ([{ BrowserQRCodeReader }, { BarcodeFormat, DecodeHintType }]) => {
+          const hints = new Map<
+            DecodeHintType,
+            BarcodeFormat[] | boolean
+          >();
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+            BarcodeFormat.QR_CODE,
+          ]);
+          hints.set(DecodeHintType.TRY_HARDER, true);
+
+          return new BrowserQRCodeReader(hints);
+        },
+      )
       .catch((error) => {
         qrReaderPromise = undefined;
         throw error;
@@ -19,6 +45,25 @@ const getQrReader = () => {
   }
 
   return qrReaderPromise;
+};
+
+const logDecodeAttempt = (
+  attemptType: DecodeAttemptType,
+  regionName: 'original' | ReceiptQrCropRegion['name'],
+  decoded: boolean,
+  canvas?: HTMLCanvasElement,
+) => {
+  if (process.env.NODE_ENV === 'production') return;
+
+  console.info('[Receipt QR decode]', {
+    attemptType,
+    regionName,
+    ...(canvas && {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+    }),
+    decoded,
+  });
 };
 
 const getDecodedText = (result: { getText: () => string }) =>
@@ -33,8 +78,11 @@ const loadImage = (imageUrl: string): Promise<HTMLImageElement> =>
     image.src = imageUrl;
   });
 
-const createResizedCanvas = (image: HTMLImageElement): HTMLCanvasElement => {
-  const dimensions = fitImageWithin(image.naturalWidth, image.naturalHeight);
+const createCropCanvas = (
+  image: HTMLImageElement,
+  region: ReceiptQrCropRegion,
+): HTMLCanvasElement => {
+  const dimensions = scaleCropDimensions(region.width, region.height);
   const canvas = document.createElement('canvas');
   canvas.width = dimensions.width;
   canvas.height = dimensions.height;
@@ -42,28 +90,66 @@ const createResizedCanvas = (image: HTMLImageElement): HTMLCanvasElement => {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D context is unavailable');
 
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  context.drawImage(
+    image,
+    region.x,
+    region.y,
+    region.width,
+    region.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
   return canvas;
 };
 
-const enhanceCanvas = (canvas: HTMLCanvasElement) => {
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Canvas 2D context is unavailable');
-
-  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-  imageData.data.set(createHighContrastGrayscalePixels(imageData.data));
-  context.putImageData(imageData, 0, 0);
-};
-
-const decodeCanvas = (
+const decodeCanvasVariant = (
   reader: BrowserQRCodeReader,
   canvas: HTMLCanvasElement,
+  region: ReceiptQrCropRegion,
+  attemptType: Exclude<DecodeAttemptType, 'original'>,
 ): string | undefined => {
+  let decodedText: string | undefined;
+
   try {
-    return getDecodedText(reader.decodeFromCanvas(canvas));
+    decodedText = getDecodedText(reader.decodeFromCanvas(canvas));
   } catch {
-    return undefined;
+    decodedText = undefined;
   }
+
+  logDecodeAttempt(attemptType, region.name, Boolean(decodedText), canvas);
+  return decodedText;
+};
+
+const decodeCrop = (
+  reader: BrowserQRCodeReader,
+  image: HTMLImageElement,
+  region: ReceiptQrCropRegion,
+): string | undefined => {
+  const canvas = createCropCanvas(image, region);
+  const colorText = decodeCanvasVariant(reader, canvas, region, 'color');
+  if (colorText) return colorText;
+
+  const context = canvas.getContext('2d');
+  if (!context) return undefined;
+
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const originalPixels = new Uint8ClampedArray(imageData.data);
+
+  imageData.data.set(createGrayscalePixels(originalPixels));
+  context.putImageData(imageData, 0, 0);
+  const grayscaleText = decodeCanvasVariant(
+    reader,
+    canvas,
+    region,
+    'grayscale',
+  );
+  if (grayscaleText) return grayscaleText;
+
+  imageData.data.set(createHighContrastGrayscalePixels(originalPixels));
+  context.putImageData(imageData, 0, 0);
+  return decodeCanvasVariant(reader, canvas, region, 'high-contrast');
 };
 
 export const decodeReceiptQr: ReceiptQrDecoder = async (file) => {
@@ -71,22 +157,33 @@ export const decodeReceiptQr: ReceiptQrDecoder = async (file) => {
 
   try {
     const reader = await getQrReader();
+    let originalText: string | undefined;
 
     try {
-      const originalResult = await reader.decodeFromImageUrl(imageUrl);
-      const originalText = getDecodedText(originalResult);
-      if (originalText) return originalText;
+      originalText = getDecodedText(await reader.decodeFromImageUrl(imageUrl));
     } catch {
-      // Continue with bounded local preprocessing attempts.
+      originalText = undefined;
     }
 
-    const image = await loadImage(imageUrl);
-    const resizedCanvas = createResizedCanvas(image);
-    const resizedText = decodeCanvas(reader, resizedCanvas);
-    if (resizedText) return resizedText;
+    logDecodeAttempt('original', 'original', Boolean(originalText));
+    if (originalText) return originalText;
 
-    enhanceCanvas(resizedCanvas);
-    return decodeCanvas(reader, resizedCanvas);
+    const image = await loadImage(imageUrl);
+    const regions = createReceiptQrCropRegions(
+      image.naturalWidth,
+      image.naturalHeight,
+    );
+
+    for (const region of regions) {
+      try {
+        const decodedText = decodeCrop(reader, image, region);
+        if (decodedText) return decodedText;
+      } catch {
+        // Continue with the next bounded crop candidate.
+      }
+    }
+
+    return undefined;
   } catch {
     return undefined;
   } finally {

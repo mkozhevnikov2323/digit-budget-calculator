@@ -5,6 +5,15 @@ jest.mock('@zxing/browser', () => ({
   BrowserQRCodeReader: jest.fn(),
 }));
 
+jest.mock('@zxing/library', () => ({
+  BarcodeFormat: { QR_CODE: 'QR_CODE' },
+  DecodeHintType: {
+    POSSIBLE_FORMATS: 'POSSIBLE_FORMATS',
+    TRY_HARDER: 'TRY_HARDER',
+  },
+}));
+
+const FISCAL_QR = 't=20260828T2046&s=249.99&fn=1&i=2&fp=3&n=1';
 const mockBrowserQRCodeReader = BrowserQRCodeReader as unknown as jest.Mock;
 const decodeFromImageUrl = jest.fn();
 const decodeFromCanvas = jest.fn();
@@ -17,6 +26,7 @@ describe('decodeReceiptQr', () => {
   const putImageData = jest.fn();
   const originalImage = globalThis.Image;
   let getContextSpy: jest.SpyInstance;
+  let consoleInfo: jest.SpyInstance;
 
   beforeAll(() => {
     Object.defineProperty(URL, 'createObjectURL', {
@@ -28,8 +38,8 @@ describe('decodeReceiptQr', () => {
       value: revokeObjectURL,
     });
     class MockImage {
-      naturalWidth = 3200;
-      naturalHeight = 2400;
+      naturalWidth = 576;
+      naturalHeight = 1280;
       onload: (() => void) | null = null;
 
       set src(_value: string) {
@@ -48,9 +58,9 @@ describe('decodeReceiptQr', () => {
     decodeFromCanvas.mockReset();
     getImageData.mockReset();
     createObjectURL.mockReturnValue('blob:receipt-image');
-    getImageData.mockReturnValue({
+    getImageData.mockImplementation(() => ({
       data: new Uint8ClampedArray([40, 80, 120, 255]),
-    });
+    }));
     mockBrowserQRCodeReader.mockImplementation(() => ({
       decodeFromImageUrl,
       decodeFromCanvas,
@@ -62,10 +72,12 @@ describe('decodeReceiptQr', () => {
         getImageData,
         putImageData,
       } as unknown as CanvasRenderingContext2D);
+    consoleInfo = jest.spyOn(console, 'info').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     getContextSpy.mockRestore();
+    consoleInfo.mockRestore();
   });
 
   afterAll(() => {
@@ -75,63 +87,156 @@ describe('decodeReceiptQr', () => {
     });
   });
 
-  it('decodes a QR from a local object URL and releases it', async () => {
-    decodeFromImageUrl.mockResolvedValue({
-      getText: () => 't=20260828T2046&s=249.99&fn=1&i=2&fp=3&n=1',
-    });
+  it('uses QR-only TRY_HARDER hints', async () => {
+    decodeFromImageUrl.mockResolvedValue({ getText: () => FISCAL_QR });
+
+    await decodeReceiptQr(
+      new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
+    );
+
+    const hints = mockBrowserQRCodeReader.mock.calls[0][0] as Map<
+      string,
+      unknown
+    >;
+    expect([...hints.entries()]).toEqual([
+      ['POSSIBLE_FORMATS', ['QR_CODE']],
+      ['TRY_HARDER', true],
+    ]);
+  });
+
+  it('stops after the original image succeeds and revokes its URL', async () => {
+    decodeFromImageUrl.mockResolvedValue({ getText: () => FISCAL_QR });
     const file = new File(['image'], 'receipt.jpg', { type: 'image/jpeg' });
 
-    await expect(decodeReceiptQr(file)).resolves.toBe(
-      't=20260828T2046&s=249.99&fn=1&i=2&fp=3&n=1',
-    );
+    await expect(decodeReceiptQr(file)).resolves.toBe(FISCAL_QR);
 
     expect(createObjectURL).toHaveBeenCalledWith(file);
     expect(decodeFromImageUrl).toHaveBeenCalledWith('blob:receipt-image');
     expect(decodeFromCanvas).not.toHaveBeenCalled();
+    expect(drawImage).not.toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:receipt-image');
   });
 
-  it('tries a resized canvas after the original image', async () => {
+  it('tries the upscaled full-image crop after the original fails', async () => {
     decodeFromImageUrl.mockRejectedValue(new Error('No QR code found'));
-    decodeFromCanvas.mockReturnValue({
-      getText: () => 't=20260828T2046&s=249.99&fn=1&i=2&fp=3&n=1',
-    });
+    decodeFromCanvas.mockReturnValue({ getText: () => FISCAL_QR });
 
     await expect(
       decodeReceiptQr(
         new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
       ),
-    ).resolves.toBe('t=20260828T2046&s=249.99&fn=1&i=2&fp=3&n=1');
+    ).resolves.toBe(FISCAL_QR);
 
-    const canvas = decodeFromCanvas.mock.calls[0][0] as HTMLCanvasElement;
-    expect(canvas.width).toBe(1600);
-    expect(canvas.height).toBe(1200);
-    expect(drawImage).toHaveBeenCalled();
+    expect(decodeFromCanvas).toHaveBeenCalledTimes(1);
+    expect(drawImage).toHaveBeenCalledWith(
+      expect.anything(),
+      0,
+      0,
+      576,
+      1280,
+      0,
+      0,
+      810,
+      1800,
+    );
     expect(getImageData).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenCalledWith('[Receipt QR decode]', {
+      attemptType: 'color',
+      regionName: 'full',
+      canvasWidth: 810,
+      canvasHeight: 1800,
+      decoded: true,
+    });
   });
 
-  it('tries a high-contrast grayscale canvas last', async () => {
+  it('stops after a later crop succeeds', async () => {
     decodeFromImageUrl.mockRejectedValue(new Error('No QR code found'));
     decodeFromCanvas
       .mockImplementationOnce(() => {
-        throw new Error('No QR code found');
+        throw new Error('Color failed');
       })
-      .mockReturnValueOnce({
-        getText: () => 't=20260828T2046&s=249.99&fn=1&i=2&fp=3&n=1',
-      });
+      .mockImplementationOnce(() => {
+        throw new Error('Grayscale failed');
+      })
+      .mockImplementationOnce(() => {
+        throw new Error('Contrast failed');
+      })
+      .mockReturnValueOnce({ getText: () => FISCAL_QR });
 
     await expect(
       decodeReceiptQr(
         new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
       ),
-    ).resolves.toBe('t=20260828T2046&s=249.99&fn=1&i=2&fp=3&n=1');
+    ).resolves.toBe(FISCAL_QR);
+
+    expect(decodeFromCanvas).toHaveBeenCalledTimes(4);
+    expect(drawImage).toHaveBeenCalledTimes(2);
+    expect(drawImage).toHaveBeenLastCalledWith(
+      expect.anything(),
+      0,
+      384,
+      576,
+      896,
+      0,
+      0,
+      1157,
+      1800,
+    );
+  });
+
+  it('tries grayscale only after the color variant fails', async () => {
+    decodeFromImageUrl.mockRejectedValue(new Error('No QR code found'));
+    decodeFromCanvas
+      .mockImplementationOnce(() => {
+        throw new Error('Color failed');
+      })
+      .mockReturnValueOnce({ getText: () => FISCAL_QR });
+
+    await decodeReceiptQr(
+      new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
+    );
 
     expect(decodeFromCanvas).toHaveBeenCalledTimes(2);
     expect(getImageData).toHaveBeenCalledTimes(1);
     expect(putImageData).toHaveBeenCalledTimes(1);
+    expect(consoleInfo).toHaveBeenCalledWith(
+      '[Receipt QR decode]',
+      expect.objectContaining({
+        attemptType: 'grayscale',
+        regionName: 'full',
+        decoded: true,
+      }),
+    );
   });
 
-  it('returns undefined and releases the URL after all attempts fail', async () => {
+  it('tries high contrast only after color and grayscale fail', async () => {
+    decodeFromImageUrl.mockRejectedValue(new Error('No QR code found'));
+    decodeFromCanvas
+      .mockImplementationOnce(() => {
+        throw new Error('Color failed');
+      })
+      .mockImplementationOnce(() => {
+        throw new Error('Grayscale failed');
+      })
+      .mockReturnValueOnce({ getText: () => FISCAL_QR });
+
+    await decodeReceiptQr(
+      new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
+    );
+
+    expect(decodeFromCanvas).toHaveBeenCalledTimes(3);
+    expect(putImageData).toHaveBeenCalledTimes(2);
+    expect(consoleInfo).toHaveBeenCalledWith(
+      '[Receipt QR decode]',
+      expect.objectContaining({
+        attemptType: 'high-contrast',
+        regionName: 'full',
+        decoded: true,
+      }),
+    );
+  });
+
+  it('tries all bounded candidates and revokes the URL when none decode', async () => {
     decodeFromImageUrl.mockRejectedValue(new Error('No QR code found'));
     decodeFromCanvas.mockImplementation(() => {
       throw new Error('No QR code found');
@@ -143,7 +248,8 @@ describe('decodeReceiptQr', () => {
       ),
     ).resolves.toBeUndefined();
 
-    expect(decodeFromCanvas).toHaveBeenCalledTimes(2);
+    expect(drawImage).toHaveBeenCalledTimes(5);
+    expect(decodeFromCanvas).toHaveBeenCalledTimes(15);
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:receipt-image');
   });
 });
