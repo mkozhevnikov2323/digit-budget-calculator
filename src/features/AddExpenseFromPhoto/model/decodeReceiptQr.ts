@@ -4,6 +4,7 @@ import {
   createGrayscalePixels,
   createHighContrastGrayscalePixels,
   createReceiptQrCropRegions,
+  removeColoredAnnotations,
   scaleCropDimensions,
   type ReceiptQrCropRegion,
 } from './receiptQrImagePreprocessing';
@@ -14,7 +15,8 @@ type DecodeAttemptType =
   | 'original'
   | 'color'
   | 'grayscale'
-  | 'high-contrast';
+  | 'high-contrast'
+  | 'annotation-suppressed';
 
 let qrReaderPromise: Promise<BrowserQRCodeReader> | undefined;
 
@@ -90,6 +92,7 @@ const createCropCanvas = (
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D context is unavailable');
 
+  context.imageSmoothingEnabled = false;
   context.drawImage(
     image,
     region.x,
@@ -149,7 +152,23 @@ const decodeCrop = (
 
   imageData.data.set(createHighContrastGrayscalePixels(originalPixels));
   context.putImageData(imageData, 0, 0);
-  return decodeCanvasVariant(reader, canvas, region, 'high-contrast');
+  const highContrastText = decodeCanvasVariant(
+    reader,
+    canvas,
+    region,
+    'high-contrast',
+  );
+  if (highContrastText) return highContrastText;
+
+  const annotationSuppressedPixels = removeColoredAnnotations(originalPixels);
+  imageData.data.set(createGrayscalePixels(annotationSuppressedPixels));
+  context.putImageData(imageData, 0, 0);
+  return decodeCanvasVariant(
+    reader,
+    canvas,
+    region,
+    'annotation-suppressed',
+  );
 };
 
 export const decodeReceiptQr: ReceiptQrDecoder = async (file) => {

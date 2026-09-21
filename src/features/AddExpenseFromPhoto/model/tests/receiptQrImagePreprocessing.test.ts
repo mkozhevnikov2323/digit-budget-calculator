@@ -2,6 +2,7 @@ import {
   createGrayscalePixels,
   createHighContrastGrayscalePixels,
   createReceiptQrCropRegions,
+  removeColoredAnnotations,
   scaleCropDimensions,
 } from '../receiptQrImagePreprocessing';
 
@@ -53,5 +54,29 @@ describe('receiptQrImagePreprocessing', () => {
       new Uint8ClampedArray([50, 50, 50, 255]),
     );
     expect(source).toEqual(before);
+  });
+
+  it.each([
+    ['black', [0, 0, 0, 255], [0, 0, 0, 255]],
+    ['white', [255, 255, 255, 255], [255, 255, 255, 255]],
+    ['neutral gray', [90, 90, 90, 255], [90, 90, 90, 255]],
+    ['saturated blue', [20, 70, 220, 255], [255, 255, 255, 255]],
+    ['saturated red', [210, 35, 45, 255], [255, 255, 255, 255]],
+  ])('handles %s pixels when suppressing colored annotations', (_, input, expected) => {
+    expect(removeColoredAnnotations(new Uint8ClampedArray(input))).toEqual(
+      new Uint8ClampedArray(expected),
+    );
+  });
+
+  it('does not mutate the source when suppressing colored annotations', () => {
+    const source = new Uint8ClampedArray([
+      20, 70, 220, 255, 40, 40, 40, 200,
+    ]);
+    const before = new Uint8ClampedArray(source);
+
+    const result = removeColoredAnnotations(source);
+
+    expect(source).toEqual(before);
+    expect(result).not.toBe(source);
   });
 });

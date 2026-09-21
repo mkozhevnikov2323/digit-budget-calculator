@@ -27,6 +27,10 @@ describe('decodeReceiptQr', () => {
   const originalImage = globalThis.Image;
   let getContextSpy: jest.SpyInstance;
   let consoleInfo: jest.SpyInstance;
+  let canvasContext: Pick<
+    CanvasRenderingContext2D,
+    'drawImage' | 'getImageData' | 'putImageData' | 'imageSmoothingEnabled'
+  >;
 
   beforeAll(() => {
     Object.defineProperty(URL, 'createObjectURL', {
@@ -65,13 +69,15 @@ describe('decodeReceiptQr', () => {
       decodeFromImageUrl,
       decodeFromCanvas,
     }));
+    canvasContext = {
+      drawImage,
+      getImageData,
+      putImageData,
+      imageSmoothingEnabled: true,
+    };
     getContextSpy = jest
       .spyOn(HTMLCanvasElement.prototype, 'getContext')
-      .mockReturnValue({
-        drawImage,
-        getImageData,
-        putImageData,
-      } as unknown as CanvasRenderingContext2D);
+      .mockReturnValue(canvasContext as CanvasRenderingContext2D);
     consoleInfo = jest.spyOn(console, 'info').mockImplementation(() => undefined);
   });
 
@@ -140,6 +146,7 @@ describe('decodeReceiptQr', () => {
       1800,
     );
     expect(getImageData).not.toHaveBeenCalled();
+    expect(canvasContext.imageSmoothingEnabled).toBe(false);
     expect(consoleInfo).toHaveBeenCalledWith('[Receipt QR decode]', {
       attemptType: 'color',
       regionName: 'full',
@@ -161,6 +168,9 @@ describe('decodeReceiptQr', () => {
       .mockImplementationOnce(() => {
         throw new Error('Contrast failed');
       })
+      .mockImplementationOnce(() => {
+        throw new Error('Annotation suppression failed');
+      })
       .mockReturnValueOnce({ getText: () => FISCAL_QR });
 
     await expect(
@@ -169,7 +179,7 @@ describe('decodeReceiptQr', () => {
       ),
     ).resolves.toBe(FISCAL_QR);
 
-    expect(decodeFromCanvas).toHaveBeenCalledTimes(4);
+    expect(decodeFromCanvas).toHaveBeenCalledTimes(5);
     expect(drawImage).toHaveBeenCalledTimes(2);
     expect(drawImage).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -236,6 +246,43 @@ describe('decodeReceiptQr', () => {
     );
   });
 
+  it('tries annotation suppression only after all normal variants fail', async () => {
+    decodeFromImageUrl.mockRejectedValue(new Error('No QR code found'));
+    decodeFromCanvas
+      .mockImplementationOnce(() => {
+        throw new Error('Color failed');
+      })
+      .mockImplementationOnce(() => {
+        throw new Error('Grayscale failed');
+      })
+      .mockImplementationOnce(() => {
+        throw new Error('High contrast failed');
+      })
+      .mockReturnValueOnce({ getText: () => FISCAL_QR });
+
+    await expect(
+      decodeReceiptQr(
+        new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
+      ),
+    ).resolves.toBe(FISCAL_QR);
+
+    expect(decodeFromCanvas).toHaveBeenCalledTimes(4);
+    expect(getImageData).toHaveBeenCalledTimes(1);
+    expect(putImageData).toHaveBeenCalledTimes(3);
+    expect(putImageData.mock.calls[2][0].data).toEqual(
+      new Uint8ClampedArray([255, 255, 255, 255]),
+    );
+    expect(consoleInfo).toHaveBeenLastCalledWith(
+      '[Receipt QR decode]',
+      expect.objectContaining({
+        attemptType: 'annotation-suppressed',
+        regionName: 'full',
+        decoded: true,
+      }),
+    );
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:receipt-image');
+  });
+
   it('tries all bounded candidates and revokes the URL when none decode', async () => {
     decodeFromImageUrl.mockRejectedValue(new Error('No QR code found'));
     decodeFromCanvas.mockImplementation(() => {
@@ -249,7 +296,7 @@ describe('decodeReceiptQr', () => {
     ).resolves.toBeUndefined();
 
     expect(drawImage).toHaveBeenCalledTimes(5);
-    expect(decodeFromCanvas).toHaveBeenCalledTimes(15);
+    expect(decodeFromCanvas).toHaveBeenCalledTimes(20);
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:receipt-image');
   });
 });

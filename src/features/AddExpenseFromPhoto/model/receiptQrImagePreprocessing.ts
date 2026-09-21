@@ -115,3 +115,34 @@ export const createGrayscalePixels = (
 export const createHighContrastGrayscalePixels = (
   source: Uint8ClampedArray,
 ): Uint8ClampedArray => transformToGrayscale(source, 1.5);
+
+const COLORED_PIXEL_MIN_CHANNEL_DIFFERENCE = 40;
+const COLORED_PIXEL_MIN_SATURATION = 0.25;
+
+export const removeColoredAnnotations = (
+  source: Uint8ClampedArray,
+): Uint8ClampedArray => {
+  const result = new Uint8ClampedArray(source);
+
+  for (let index = 0; index < result.length; index += 4) {
+    const red = result[index];
+    const green = result[index + 1];
+    const blue = result[index + 2];
+    const maximumChannel = Math.max(red, green, blue);
+    const minimumChannel = Math.min(red, green, blue);
+    const channelDifference = maximumChannel - minimumChannel;
+    const saturation =
+      maximumChannel === 0 ? 0 : channelDifference / maximumChannel;
+
+    if (
+      channelDifference >= COLORED_PIXEL_MIN_CHANNEL_DIFFERENCE &&
+      saturation >= COLORED_PIXEL_MIN_SATURATION
+    ) {
+      result[index] = 255;
+      result[index + 1] = 255;
+      result[index + 2] = 255;
+    }
+  }
+
+  return result;
+};
