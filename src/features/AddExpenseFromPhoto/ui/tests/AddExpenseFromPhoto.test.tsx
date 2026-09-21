@@ -18,6 +18,12 @@ import type { ExpenseDraft } from 'features/AddExpense';
 import { AddExpenseFromPhoto } from '../AddExpenseFromPhoto';
 
 jest.mock(
+  '@paddleocr/paddleocr-js',
+  () => ({ PaddleOCR: { create: jest.fn() } }),
+  { virtual: true },
+);
+
+jest.mock(
   'entities/Expense',
   () => ({ useAddExpenseMutation: jest.fn() }),
   { virtual: true },

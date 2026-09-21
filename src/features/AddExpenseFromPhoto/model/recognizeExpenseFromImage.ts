@@ -1,18 +1,13 @@
 import type { ExpenseRecognizer } from './types';
+import { parseReceiptLines } from './parseReceiptLines';
+import { recognizeLinesWithPaddleOcr } from './paddleOcrAdapter';
 
 export const recognizeExpenseFromImage: ExpenseRecognizer = async (file) => {
   if (!file.type.startsWith('image/')) {
     throw new Error('Selected file is not an image');
   }
 
-  await Promise.resolve();
+  const recognizedLines = await recognizeLinesWithPaddleOcr(file);
 
-  return {
-    amount: 123.45,
-    date: '2026-09-20',
-    title: 'Распознанная покупка',
-    recipient: 'Тестовый магазин',
-    category: '',
-    comment: '',
-  };
+  return parseReceiptLines(recognizedLines);
 };
