@@ -1,6 +1,12 @@
-import { recognizeExpenseFromImage } from '../recognizeExpenseFromImage';
 import { decodeReceiptQr } from '../decodeReceiptQr';
 import { recognizeLinesWithPaddleOcr } from '../paddleOcrAdapter';
+import { parseReceiptLines } from '../parseReceiptLines';
+import {
+  INVALID_FISCAL_QR_MESSAGE,
+  QR_NOT_FOUND_MESSAGE,
+  ReceiptQrRecognitionError,
+  recognizeExpenseFromImage,
+} from '../recognizeExpenseFromImage';
 
 jest.mock('../decodeReceiptQr', () => ({
   decodeReceiptQr: jest.fn(),
@@ -10,120 +16,124 @@ jest.mock('../paddleOcrAdapter', () => ({
   recognizeLinesWithPaddleOcr: jest.fn(),
 }));
 
+jest.mock('../parseReceiptLines', () => ({
+  parseReceiptLines: jest.fn(),
+}));
+
+const mockDecodeReceiptQr = decodeReceiptQr as jest.Mock;
 const mockRecognizeLinesWithPaddleOcr =
   recognizeLinesWithPaddleOcr as jest.Mock;
-const mockDecodeReceiptQr = decodeReceiptQr as jest.Mock;
+const mockParseReceiptLines = parseReceiptLines as jest.Mock;
 
 describe('recognizeExpenseFromImage', () => {
+  let consoleInfo: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDecodeReceiptQr.mockResolvedValue(undefined);
+    consoleInfo = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
   });
 
-  it('parses PaddleOCR lines into an ExpenseDraft', async () => {
-    mockRecognizeLinesWithPaddleOcr.mockResolvedValue([
-      { text: 'ООО "Ромашка"', score: 0.99 },
-      { text: 'Дата 20.09.2026', score: 0.98 },
-      { text: 'К ОПЛАТЕ 123,45', score: 0.97 },
-    ]);
-    const file = new File(['image'], 'receipt.png', { type: 'image/png' });
+  afterEach(() => {
+    consoleInfo.mockRestore();
+  });
+
+  it('builds an ExpenseDraft only from a valid fiscal QR', async () => {
+    const rawQr =
+      't=20260828T2046&s=249.99&fn=9287440300991111&i=109331&fp=1234567890&n=1';
+    mockDecodeReceiptQr.mockResolvedValue(rawQr);
+    const file = new File(['image'], 'receipt.jpg', { type: 'image/jpeg' });
 
     await expect(recognizeExpenseFromImage(file)).resolves.toEqual({
-      amount: 123.45,
-      date: '2026-09-20',
-      title: '',
-      recipient: 'ООО "Ромашка"',
-      category: '',
-      comment: '',
-    });
-    expect(mockRecognizeLinesWithPaddleOcr).toHaveBeenCalledWith(file);
-  });
-
-  it('falls back to PaddleOCR when QR decoding fails', async () => {
-    mockDecodeReceiptQr.mockRejectedValue(new Error('No QR code found'));
-    mockRecognizeLinesWithPaddleOcr.mockResolvedValue([
-      { text: 'Дата 23.08.26', score: 0.99 },
-      { text: 'ИТОГ 321,50', score: 0.99 },
-    ]);
-
-    await expect(
-      recognizeExpenseFromImage(
-        new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
-      ),
-    ).resolves.toEqual(
-      expect.objectContaining({ amount: 321.5, date: '2026-08-23' }),
-    );
-  });
-
-  it('keeps valid fiscal QR fields when optional OCR enrichment fails', async () => {
-    mockDecodeReceiptQr.mockResolvedValue(
-      't=20260828T2046&s=249.99&fn=9287440300991111&i=109331&fp=1234567890&n=1',
-    );
-    mockRecognizeLinesWithPaddleOcr.mockRejectedValue(
-      new Error('OCR initialization failed'),
-    );
-
-    await expect(
-      recognizeExpenseFromImage(
-        new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
-      ),
-    ).resolves.toEqual({
       amount: 249.99,
       date: '2026-08-28',
       title: '',
-      recipient: undefined,
+      recipient: '',
       category: '',
       comment: '',
     });
+
+    expect(mockDecodeReceiptQr).toHaveBeenCalledWith(file);
+    expect(mockRecognizeLinesWithPaddleOcr).not.toHaveBeenCalled();
+    expect(mockParseReceiptLines).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenNthCalledWith(1, '[Receipt QR]', {
+      event: 'decode-started',
+    });
+    expect(consoleInfo).toHaveBeenNthCalledWith(2, '[Receipt QR]', {
+      event: 'found',
+    });
+    expect(consoleInfo).toHaveBeenNthCalledWith(3, '[Receipt QR]', {
+      event: 'fiscal-valid',
+      date: '2026-08-28',
+      amount: 249.99,
+    });
+    expect(JSON.stringify(consoleInfo.mock.calls)).not.toContain(rawQr);
+    expect(JSON.stringify(consoleInfo.mock.calls)).not.toContain(
+      '9287440300991111',
+    );
+    expect(JSON.stringify(consoleInfo.mock.calls)).not.toContain('109331');
+    expect(JSON.stringify(consoleInfo.mock.calls)).not.toContain('1234567890');
   });
 
-  it('prefers fiscal QR amount and date while keeping OCR recipient', async () => {
-    mockDecodeReceiptQr.mockResolvedValue(
-      't=20260828T2046&s=249.99&fn=9287440300991111&i=109331&fp=1234567890&n=1',
-    );
-    mockRecognizeLinesWithPaddleOcr.mockResolvedValue([
-      { text: 'МАГАЗИН У ДОМА', score: 0.99 },
-      { text: 'Дата 20.09.2025', score: 0.99 },
-      { text: 'ИТОГ 999,99', score: 0.99 },
-    ]);
+  it.each([
+    ['an unreadable QR', undefined],
+    ['a decoder failure', new Error('QR decoder failed')],
+  ])('returns a safe recognition error for %s', async (_case, result) => {
+    if (result instanceof Error) {
+      mockDecodeReceiptQr.mockRejectedValue(result);
+    } else {
+      mockDecodeReceiptQr.mockResolvedValue(result);
+    }
 
     await expect(
       recognizeExpenseFromImage(
         new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
       ),
-    ).resolves.toEqual({
-      amount: 249.99,
-      date: '2026-08-28',
-      title: '',
-      recipient: 'МАГАЗИН У ДОМА',
-      category: '',
-      comment: '',
+    ).rejects.toEqual(new ReceiptQrRecognitionError(QR_NOT_FOUND_MESSAGE));
+
+    expect(mockRecognizeLinesWithPaddleOcr).not.toHaveBeenCalled();
+    expect(mockParseReceiptLines).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenNthCalledWith(1, '[Receipt QR]', {
+      event: 'decode-started',
+    });
+    expect(consoleInfo).toHaveBeenNthCalledWith(2, '[Receipt QR]', {
+      event: 'not-found',
     });
   });
 
-  it('ignores a non-fiscal QR and uses OCR values', async () => {
+  it('returns a distinct error for a non-fiscal QR', async () => {
     mockDecodeReceiptQr.mockResolvedValue('https://example.com');
-    mockRecognizeLinesWithPaddleOcr.mockResolvedValue([
-      { text: 'Дата 29.08.26', score: 0.99 },
-      { text: 'К ОПЛАТЕ 500,00', score: 0.99 },
-    ]);
 
     await expect(
       recognizeExpenseFromImage(
         new File(['image'], 'receipt.jpg', { type: 'image/jpeg' }),
       ),
-    ).resolves.toEqual(
-      expect.objectContaining({ amount: 500, date: '2026-08-29' }),
+    ).rejects.toEqual(
+      new ReceiptQrRecognitionError(INVALID_FISCAL_QR_MESSAGE),
     );
+
+    expect(mockRecognizeLinesWithPaddleOcr).not.toHaveBeenCalled();
+    expect(mockParseReceiptLines).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenNthCalledWith(1, '[Receipt QR]', {
+      event: 'decode-started',
+    });
+    expect(consoleInfo).toHaveBeenNthCalledWith(2, '[Receipt QR]', {
+      event: 'found',
+    });
+    expect(consoleInfo).toHaveBeenNthCalledWith(3, '[Receipt QR]', {
+      event: 'fiscal-invalid',
+    });
   });
 
-  it('rejects a non-image file', async () => {
+  it('rejects a non-image file before QR decoding', async () => {
     const file = new File(['text'], 'receipt.txt', { type: 'text/plain' });
 
     await expect(recognizeExpenseFromImage(file)).rejects.toThrow(
       'Selected file is not an image',
     );
-    expect(mockRecognizeLinesWithPaddleOcr).not.toHaveBeenCalled();
     expect(mockDecodeReceiptQr).not.toHaveBeenCalled();
+    expect(mockRecognizeLinesWithPaddleOcr).not.toHaveBeenCalled();
+    expect(mockParseReceiptLines).not.toHaveBeenCalled();
   });
 });

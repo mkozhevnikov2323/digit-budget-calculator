@@ -15,6 +15,11 @@ import {
   useGetExpenseTitlesQuery,
 } from 'entities/ExpenseTitle';
 import type { ExpenseDraft } from 'features/AddExpense';
+import {
+  INVALID_FISCAL_QR_MESSAGE,
+  QR_NOT_FOUND_MESSAGE,
+  ReceiptQrRecognitionError,
+} from '../../model/recognizeExpenseFromImage';
 import { AddExpenseFromPhoto } from '../AddExpenseFromPhoto';
 
 jest.mock(
@@ -438,6 +443,31 @@ describe('AddExpenseFromPhoto', () => {
     expect(addRecipient).not.toHaveBeenCalled();
     expect(addExpenseTitle).not.toHaveBeenCalled();
   });
+
+  it.each([QR_NOT_FOUND_MESSAGE, INVALID_FISCAL_QR_MESSAGE])(
+    'shows the safe QR recognition error: %s',
+    async (message) => {
+      const recognize = jest
+        .fn()
+        .mockRejectedValue(new ReceiptQrRecognitionError(message));
+
+      render(
+        <AddExpenseFromPhoto
+          onCancel={jest.fn()}
+          recognize={recognize}
+        />,
+      );
+
+      selectImage();
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Сумма/)).not.toBeInTheDocument();
+      expect(addExpense).not.toHaveBeenCalled();
+      expect(addUserCategory).not.toHaveBeenCalled();
+      expect(addRecipient).not.toHaveBeenCalled();
+      expect(addExpenseTitle).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects a non-image file locally without recognition or persistence', () => {
     const recognize = jest.fn();

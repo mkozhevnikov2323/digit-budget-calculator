@@ -1,7 +1,10 @@
 import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
 import { useRef, useState, type ChangeEvent } from 'react';
 import { AddExpenseForm, type ExpenseDraft } from 'features/AddExpense';
-import { recognizeExpenseFromImage } from '../model/recognizeExpenseFromImage';
+import {
+  ReceiptQrRecognitionError,
+  recognizeExpenseFromImage,
+} from '../model/recognizeExpenseFromImage';
 import type { ExpenseRecognizer } from '../model/types';
 
 type RecognitionStatus = 'idle' | 'recognizing' | 'success' | 'error';
@@ -49,12 +52,14 @@ export const AddExpenseFromPhoto = ({
 
       setDraft(recognizedDraft);
       setStatus('success');
-    } catch {
+    } catch (error) {
       if (recognitionRequestId.current !== requestId) return;
 
       setDraft(undefined);
       setErrorMessage(
-        'Не удалось распознать изображение. Выберите другой файл.',
+        error instanceof ReceiptQrRecognitionError
+          ? error.message
+          : 'Не удалось распознать изображение. Выберите другой файл.',
       );
       setStatus('error');
     }
