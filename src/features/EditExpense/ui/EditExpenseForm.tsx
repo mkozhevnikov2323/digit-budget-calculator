@@ -27,13 +27,16 @@ type EditExpenseFormProps = {
   onClose: () => void;
 };
 
-type ExpenseFormData = Omit<ExpenseSchema, 'id' | '_id'>;
+type ExpenseFormData = Pick<
+  ExpenseSchema,
+  'amount' | 'date' | 'title' | 'category' | 'recipient' | 'comment'
+>;
 
 export const EditExpenseForm: React.FC<EditExpenseFormProps> = ({
   expenseId,
   onClose,
 }) => {
-  const expense = useSelector(selectExpenseById(expenseId));
+  const expense = useSelector(selectExpenseById(String(expenseId)));
 
   const [updateExpense] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
@@ -52,20 +55,27 @@ export const EditExpenseForm: React.FC<EditExpenseFormProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const onSubmit: SubmitHandler<ExpenseFormData> = async (data) => {
-    console.log('data', data);
     if (!expense) return;
-    await updateExpense({
-      ...data,
-      id: String(expense._id),
-    } as ExpenseSchema);
-    onClose();
+    try {
+      await updateExpense({
+        ...data,
+        _id: expense._id,
+      }).unwrap();
+      onClose();
+    } catch {
+      return;
+    }
   };
 
   const handleDelete = async () => {
     if (!expense) return;
-    await deleteExpense({ id: String(expense._id) });
-    setDeleteDialogOpen(false);
-    onClose();
+    try {
+      await deleteExpense({ id: expense._id }).unwrap();
+      setDeleteDialogOpen(false);
+      onClose();
+    } catch {
+      return;
+    }
   };
 
   if (!expense) return null;

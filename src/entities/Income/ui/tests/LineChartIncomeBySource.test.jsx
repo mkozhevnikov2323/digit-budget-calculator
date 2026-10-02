@@ -4,7 +4,9 @@ import { LineChartIncomeBySource } from '../LineChartIncomeBySource';
 import { useGetIncomesQuery } from '../../api/incomeApi';
 
 // Мокаем хук useGetIncomesQuery
-jest.mock('../../api/incomeApi');
+jest.mock('../../api/incomeApi', () => ({
+  useGetIncomesQuery: jest.fn(),
+}));
 
 describe('LineChartIncomeBySource компонент', () => {
   const mockIncomes = [
@@ -40,7 +42,7 @@ describe('LineChartIncomeBySource компонент', () => {
 
   test('отображает сообщение о загрузке при isLoading', () => {
     useGetIncomesQuery.mockReturnValue({
-      data: [],
+      data: { total: 0, page: 1, limit: 20, incomes: [] },
       isLoading: true,
     });
 
@@ -50,7 +52,7 @@ describe('LineChartIncomeBySource компонент', () => {
 
   test('отображает сообщение, если данных нет', () => {
     useGetIncomesQuery.mockReturnValue({
-      data: [],
+      data: { total: 0, page: 1, limit: 20, incomes: [] },
       isLoading: false,
     });
 
@@ -62,7 +64,7 @@ describe('LineChartIncomeBySource компонент', () => {
 
   test('отображает график с правильной группировкой по датам и источникам', () => {
     useGetIncomesQuery.mockReturnValue({
-      data: mockIncomes,
+      data: { total: mockIncomes.length, page: 1, limit: 20, incomes: mockIncomes },
       isLoading: false,
     });
 

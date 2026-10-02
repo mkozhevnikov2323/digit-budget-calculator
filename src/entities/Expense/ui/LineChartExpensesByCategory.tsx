@@ -27,7 +27,8 @@ const groupExpensesByDateAndCategory = (expenses: ExpenseSchema[]) => {
 };
 
 export const LineChartExpensesByCategory = () => {
-  const { data: expenses = [], isLoading } = useGetExpensesQuery();
+  const { data: response, isLoading } = useGetExpensesQuery({ noPagination: true });
+  const expenses = response?.expenses ?? [];
 
   if (isLoading) return <>Загрузка графика расходов по категориям...</>;
   if (!expenses.length)

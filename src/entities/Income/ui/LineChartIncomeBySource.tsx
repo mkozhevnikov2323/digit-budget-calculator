@@ -27,7 +27,8 @@ const groupByDateAndSource = (incomes: IncomeSchema[]) => {
 };
 
 export const LineChartIncomeBySource = () => {
-  const { data: incomes = [], isLoading } = useGetIncomesQuery();
+  const { data: response, isLoading } = useGetIncomesQuery({ noPagination: true });
+  const incomes = response?.incomes ?? [];
 
   if (isLoading) return <>Загрузка графика...</>;
   if (!incomes.length) return <>Нет данных для отображения графика</>;

@@ -11,7 +11,8 @@ const groupByCategory = (expenses: ExpenseSchema[]): Record<string, number> => {
 };
 
 export const BarChartExpensesByCategory = () => {
-  const { data: expenses = [], isLoading } = useGetExpensesQuery();
+  const { data: response, isLoading } = useGetExpensesQuery({ noPagination: true });
+  const expenses = response?.expenses ?? [];
 
   if (isLoading) return <>Загрузка графика...</>;
   if (!expenses.length) return <>Нет данных для отображения графика</>;

@@ -179,11 +179,19 @@ export const AddIncomeForm = () => {
   ];
 
   const onSubmit = async (data: FormData) => {
-    if (data.source && !allSources.includes(data.source)) {
-      await addUserSource({ name: data.source }).unwrap();
+    try {
+      await addIncome(data).unwrap();
+    } catch {
+      return;
     }
-    await addIncome(data);
+
     reset(buildResetValuesKeepingDate(emptyValues, data.date));
+
+    const auxiliaryWrites: Promise<unknown>[] = [];
+    if (data.source && !allSources.includes(data.source)) {
+      auxiliaryWrites.push(addUserSource({ name: data.source }).unwrap());
+    }
+    await Promise.allSettled(auxiliaryWrites);
   };
 
   return (
