@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { useGetMeQuery } from '../api/userApi';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
+import type { AppDispatch } from 'app/providers/store/store';
 import { setUser } from '../model/userSlice';
-import { RootState } from 'app/providers/store/store';
 import { useNavigate } from 'react-router';
+import { logout } from 'features/Authorization/model/authThunks';
 
 interface Props {
   children: React.ReactNode;
@@ -11,28 +12,27 @@ interface Props {
 
 export const UserProvider: React.FC<Props> = ({ children }) => {
   const token = localStorage.getItem('token');
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
 
-  const isAuthenticated = useSelector(
-    (state: RootState) => state.authorization.isAuthenticated,
-  );
-
-  const { data, refetch } = useGetMeQuery(undefined, { skip: !token });
+  const { data, error } = useGetMeQuery(undefined, { skip: !token });
 
   useEffect(() => {
-    if (token && isAuthenticated) {
-      refetch();
-    }
-  }, [token, isAuthenticated, refetch]);
-
-  useEffect(() => {
-    if (data && isAuthenticated) {
+    if (data) {
       dispatch(setUser(data));
-    } else {
-      navigate('/');
     }
-  }, [data, dispatch, token, isAuthenticated, navigate]);
+  }, [data, dispatch]);
+
+  useEffect(() => {
+    if (
+      error &&
+      'status' in error &&
+      (error.status === 401 || error.status === 403)
+    ) {
+      dispatch(logout());
+      navigate('/', { replace: true });
+    }
+  }, [dispatch, error, navigate]);
 
   return <>{children}</>;
 };
