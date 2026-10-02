@@ -23,7 +23,8 @@ const groupByDateSorted = (expenses: ExpenseSchema[]) => {
 };
 
 export const LineChartExpenses = () => {
-  const { data: expenses = [], isLoading } = useGetExpensesQuery();
+  const { data: response, isLoading } = useGetExpensesQuery({ noPagination: true });
+  const expenses = response?.expenses ?? [];
 
   if (isLoading) return <>Загрузка графика расходов...</>;
   if (!expenses.length) return <>Нет данных для отображения графика расходов</>;

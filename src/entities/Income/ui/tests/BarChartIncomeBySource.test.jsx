@@ -4,7 +4,9 @@ import { BarChartIncomeBySource } from '../BarChartIncomeBySource';
 import { useGetIncomesQuery } from '../../api/incomeApi';
 
 // Мокаем хук useGetIncomesQuery
-jest.mock('../../api/incomeApi');
+jest.mock('../../api/incomeApi', () => ({
+  useGetIncomesQuery: jest.fn(),
+}));
 
 describe('BarChartIncomeBySource компонент', () => {
   const mockIncomes = [
@@ -34,7 +36,7 @@ describe('BarChartIncomeBySource компонент', () => {
 
   test('отображает сообщение о загрузке при isLoading', () => {
     useGetIncomesQuery.mockReturnValue({
-      data: [],
+      data: { total: 0, page: 1, limit: 20, incomes: [] },
       isLoading: true,
     });
 
@@ -44,7 +46,7 @@ describe('BarChartIncomeBySource компонент', () => {
 
   test('отображает сообщение, если данных нет', () => {
     useGetIncomesQuery.mockReturnValue({
-      data: [],
+      data: { total: 0, page: 1, limit: 20, incomes: [] },
       isLoading: false,
     });
 
@@ -56,7 +58,7 @@ describe('BarChartIncomeBySource компонент', () => {
 
   test('отображает график с группированными данными', () => {
     useGetIncomesQuery.mockReturnValue({
-      data: mockIncomes,
+      data: { total: mockIncomes.length, page: 1, limit: 20, incomes: mockIncomes },
       isLoading: false,
     });
 
