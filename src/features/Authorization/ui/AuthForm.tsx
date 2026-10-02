@@ -106,8 +106,8 @@ export const AuthForm: React.FC = () => {
       localStorage.setItem('token', response.token);
 
       dispatch(setAuthenticated(true));
-      navigate('/income');
       dispatch(closeAuthModal());
+      navigate('/expenses');
     } catch (error) {
       const errMessage = errorMessageHandler(
         ((error as FetchBaseQueryError)?.data as ErrorResponse)?.message ??
