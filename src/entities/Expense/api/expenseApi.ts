@@ -67,8 +67,8 @@ export const expenseApi = baseApi.injectEndpoints({
       invalidatesTags: ['Expense', 'Balance'],
     }),
     updateExpense: builder.mutation<void, ExpenseSchema>({
-      query: ({ id, ...data }) => ({
-        url: `/expenses/${id}`,
+      query: ({ _id, ...data }) => ({
+        url: `/expenses/${_id}`,
         method: 'PATCH',
         body: data,
       }),

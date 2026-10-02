@@ -25,7 +25,10 @@ type EditIncomeFormProps = {
   onClose: () => void;
 };
 
-type IncomeFormData = Omit<IncomeSchema, 'id'>;
+type IncomeFormData = Pick<
+  IncomeSchema,
+  'amount' | 'date' | 'source' | 'comment'
+>;
 
 export const EditIncomeForm: React.FC<EditIncomeFormProps> = ({
   incomeId,
@@ -50,18 +53,26 @@ export const EditIncomeForm: React.FC<EditIncomeFormProps> = ({
   const onSubmit: SubmitHandler<IncomeFormData> = async (data) => {
     if (!income) return;
 
-    await updateIncome({
-      ...data,
-      _id: String(income._id),
-    } as IncomeSchema);
-    onClose();
+    try {
+      await updateIncome({
+        ...data,
+        _id: income._id,
+      }).unwrap();
+      onClose();
+    } catch {
+      return;
+    }
   };
 
   const handleDelete = async () => {
     if (!income) return;
-    await deleteIncome({ id: String(income._id) });
-    setDeleteDialogOpen(false);
-    onClose();
+    try {
+      await deleteIncome({ id: income._id }).unwrap();
+      setDeleteDialogOpen(false);
+      onClose();
+    } catch {
+      return;
+    }
   };
 
   if (!income) return null;

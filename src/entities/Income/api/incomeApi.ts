@@ -42,7 +42,7 @@ export const incomeApi = baseApi.injectEndpoints({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: ['Income'],
+      invalidatesTags: ['Income', 'Balance'],
     }),
 
     deleteIncome: builder.mutation<void, { id: string }>({
@@ -50,7 +50,7 @@ export const incomeApi = baseApi.injectEndpoints({
         url: `/incomes/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Income'],
+      invalidatesTags: ['Income', 'Balance'],
     }),
   }),
   overrideExisting: false,
