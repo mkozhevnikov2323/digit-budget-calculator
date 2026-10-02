@@ -55,7 +55,6 @@ export const EditExpenseForm: React.FC<EditExpenseFormProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const onSubmit: SubmitHandler<ExpenseFormData> = async (data) => {
-    console.log('data', data);
     if (!expense) return;
     try {
       await updateExpense({
