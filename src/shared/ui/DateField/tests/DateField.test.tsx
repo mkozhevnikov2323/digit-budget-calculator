@@ -1,9 +1,9 @@
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
 import {
-  getTodayDateString,
   buildResetValuesKeepingDate,
+  getTodayDateString,
 } from 'shared/lib/utils/date';
 import { DateField } from '../ui/DateField';
 
@@ -14,17 +14,10 @@ type FormData = {
 
 const emptyValues: Omit<FormData, 'date'> = { amount: 0 };
 
-/**
- * Тестовая форма, повторяющая ровно тот же паттерн, что используется
- * в AddExpenseForm / AddIncomeForm:
- * - при монтировании дата по умолчанию — сегодняшняя (getTodayDateString)
- * - после сабмита дата НЕ сбрасывается на "сегодня", а остаётся той,
- *   что ввёл пользователь (buildResetValuesKeepingDate)
- */
 const TestDateForm = ({
   onSubmitSpy,
 }: {
-  onSubmitSpy?: (d: FormData) => void;
+  onSubmitSpy?: (data: FormData) => void;
 }) => {
   const { control, handleSubmit, reset } = useForm<FormData>({
     defaultValues: { ...emptyValues, date: getTodayDateString() },
@@ -36,7 +29,10 @@ const TestDateForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form
+      noValidate
+      onSubmit={handleSubmit(onSubmit)}
+    >
       <DateField<FormData>
         name="date"
         control={control}
@@ -47,61 +43,67 @@ const TestDateForm = ({
 };
 
 describe('DateField', () => {
-  it('при первом открытии формы (без предыдущего ввода) показывает сегодняшнюю дату', () => {
+  it('при первом открытии формы показывает сегодняшнюю дату', () => {
     render(<TestDateForm />);
-    const input = screen.getByLabelText('Дата') as HTMLInputElement;
-    expect(input.value).toBe(getTodayDateString());
+
+    expect(screen.getByLabelText('Дата')).toHaveValue(getTodayDateString());
   });
 
-  it('после сабмита с изменённой датой поле сохраняет именно введённую пользователем дату, а не сегодняшнюю', () => {
+  it('после сабмита сохраняет введённую пользователем дату', async () => {
     const userEnteredDate = '2023-03-08';
     const onSubmitSpy = jest.fn();
+    const user = userEvent.setup();
     render(<TestDateForm onSubmitSpy={onSubmitSpy} />);
 
-    const input = screen.getByLabelText('Дата') as HTMLInputElement;
-
+    const input = screen.getByLabelText('Дата');
     fireEvent.change(input, { target: { value: userEnteredDate } });
-    expect(input.value).toBe(userEnteredDate);
 
-    fireEvent.click(screen.getByText('submit'));
+    await user.click(screen.getByRole('button', { name: 'submit' }));
 
-    expect(onSubmitSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ date: userEnteredDate }),
+    await waitFor(() =>
+      expect(onSubmitSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ date: userEnteredDate }),
+      ),
     );
-
-    // Ключевая проверка из бага: после сабмита поле должно остаться
-    // на дате, которую ввёл пользователь, а НЕ переключиться на сегодня.
-    expect(input.value).toBe(userEnteredDate);
-    expect(input.value).not.toBe(getTodayDateString());
+    expect(input).toHaveValue(userEnteredDate);
+    expect(input).not.toHaveValue(getTodayDateString());
   });
 
-  it('позволяет добавить несколько записей подряд за один и тот же прошедший день без повторного ввода даты', () => {
+  it('позволяет отправить несколько записей за один прошедший день', async () => {
     const pastDate = '2022-11-20';
     const onSubmitSpy = jest.fn();
+    const user = userEvent.setup();
     render(<TestDateForm onSubmitSpy={onSubmitSpy} />);
 
-    const input = screen.getByLabelText('Дата') as HTMLInputElement;
-
+    const input = screen.getByLabelText('Дата');
     fireEvent.change(input, { target: { value: pastDate } });
-    fireEvent.click(screen.getByText('submit'));
-    expect(input.value).toBe(pastDate);
 
-    fireEvent.click(screen.getByText('submit'));
+    await user.click(screen.getByRole('button', { name: 'submit' }));
+    await waitFor(() => expect(onSubmitSpy).toHaveBeenCalledTimes(1));
+    expect(input).toHaveValue(pastDate);
 
-    expect(onSubmitSpy).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ date: pastDate }),
+    await user.click(screen.getByRole('button', { name: 'submit' }));
+
+    await waitFor(() =>
+      expect(onSubmitSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ date: pastDate }),
+      ),
     );
-    expect(input.value).toBe(pastDate);
+    expect(input).toHaveValue(pastDate);
   });
 
-  it('поддерживает required с сообщением об ошибке, если явно указано', () => {
+  it('показывает RHF required-ошибку, если required указан явно', async () => {
     const RequiredForm = () => {
       const { control, handleSubmit } = useForm<FormData>({
         defaultValues: { ...emptyValues, date: '' },
       });
+
       return (
-        <form onSubmit={handleSubmit(() => {})}>
+        <form
+          noValidate
+          onSubmit={handleSubmit(() => {})}
+        >
           <DateField<FormData>
             name="date"
             control={control}
@@ -112,9 +114,11 @@ describe('DateField', () => {
       );
     };
 
+    const user = userEvent.setup();
     render(<RequiredForm />);
-    fireEvent.click(screen.getByText('submit'));
 
-    expect(screen.findByText('Обязательное поле')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'submit' }));
+
+    expect(await screen.findByText('Обязательное поле')).toBeInTheDocument();
   });
 });

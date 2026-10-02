@@ -1,5 +1,5 @@
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
 import { AmountField } from '../ui/AmountField';
 
@@ -10,14 +10,17 @@ type FormData = {
 const TestAmountForm = ({
   onSubmitSpy,
 }: {
-  onSubmitSpy?: (d: FormData) => void;
+  onSubmitSpy?: (data: FormData) => void;
 }) => {
   const { control, handleSubmit } = useForm<FormData>({
     defaultValues: { amount: '' },
   });
 
   return (
-    <form onSubmit={handleSubmit((data) => onSubmitSpy?.(data))}>
+    <form
+      noValidate
+      onSubmit={handleSubmit((data) => onSubmitSpy?.(data))}
+    >
       <AmountField<FormData>
         name="amount"
         control={control}
@@ -28,50 +31,56 @@ const TestAmountForm = ({
 };
 
 describe('AmountField', () => {
-  const getInput = () => screen.getByLabelText('Сумма') as HTMLInputElement;
+  const getInput = () =>
+    screen.getByRole('textbox', { name: /Сумма/ }) as HTMLInputElement;
 
   it('заменяет запятую на точку', () => {
     render(<TestAmountForm />);
     fireEvent.change(getInput(), { target: { value: '10,5' } });
-    expect(getInput().value).toBe('10.5');
+    expect(getInput()).toHaveValue('10.5');
   });
 
   it('срезает ведущие нули', () => {
     render(<TestAmountForm />);
     fireEvent.change(getInput(), { target: { value: '007' } });
-    expect(getInput().value).toBe('7');
+    expect(getInput()).toHaveValue('7');
   });
 
   it('удаляет все нецифровые символы, кроме точки', () => {
     render(<TestAmountForm />);
     fireEvent.change(getInput(), { target: { value: '1a2b3c' } });
-    expect(getInput().value).toBe('123');
+    expect(getInput()).toHaveValue('123');
   });
 
   it('не допускает больше одной точки', () => {
     render(<TestAmountForm />);
     fireEvent.change(getInput(), { target: { value: '1.2.3' } });
-    expect(getInput().value).toBe('1.23');
+    expect(getInput()).toHaveValue('1.23');
   });
 
-  it('показывает ошибку валидации при сумме 0 или пустом поле', async () => {
+  it('показывает RHF validation error для пустого поля', async () => {
     const onSubmitSpy = jest.fn();
+    const user = userEvent.setup();
     render(<TestAmountForm onSubmitSpy={onSubmitSpy} />);
-    fireEvent.click(screen.getByText('submit'));
+
+    await user.click(screen.getByRole('button', { name: 'submit' }));
 
     expect(await screen.findByText('Обязательное поле')).toBeInTheDocument();
     expect(onSubmitSpy).not.toHaveBeenCalled();
   });
 
-  it('успешно отправляет форму с корректной положительной суммой', async () => {
+  it('отправляет корректную положительную сумму', async () => {
     const onSubmitSpy = jest.fn();
+    const user = userEvent.setup();
     render(<TestAmountForm onSubmitSpy={onSubmitSpy} />);
 
     fireEvent.change(getInput(), { target: { value: '150.50' } });
-    fireEvent.click(screen.getByText('submit'));
+    await user.click(screen.getByRole('button', { name: 'submit' }));
 
-    expect(onSubmitSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: '150.50' }),
+    await waitFor(() =>
+      expect(onSubmitSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: '150.50' }),
+      ),
     );
   });
 });
