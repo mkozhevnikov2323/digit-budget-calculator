@@ -196,25 +196,7 @@ Commit messages should be concise and written in English.
 
 ## Testing and verification
 
-Before finishing a frontend task, run the relevant targeted tests first.
-
-Then run:
-
-```bash
-npm run build
-npm test -- --runInBand
-npm run lint
-```
-
-The current frontend baseline is expected to be green.
-
-Do not ignore new failures.
-
-If failures are unrelated and clearly pre-existing, report them separately and do not silently fix them outside task scope.
-
-Do not delete tests or weaken meaningful assertions just to make the suite pass.
-
-Prefer regression tests that reproduce the bug before the fix and pass after the fix.
+Follow the single verification policy in [Verification and token efficiency](#verification-and-token-efficiency) for required tests and all verification commands.
 
 ## Frontend-specific guidance
 
@@ -341,11 +323,10 @@ When in doubt, prefer the smaller and safer change.
   explicitly authorized in the current task prompt.
 - Verification modes: NONE, TARGETED and FULL.
   Default to NONE when no mode is specified.
-- TARGETED: run only the explicitly listed commands.
-- FULL: run only the complete checks listed in the prompt.
-- New features and business-logic fixes must include
-  focused tests; request clarification if required
-  verification was not authorized.
+- NONE: run no tests, lint, builds, type checks or other verification commands.
+- TARGETED: run only the checks explicitly authorized in the current task prompt.
+- FULL: run only the full checks explicitly authorized in the current task prompt.
+- New features and business-logic fixes must include focused tests. If a test is required but running it was not authorized, ask the user for permission.
 - Do not repeatedly run successful checks.
 - Do not investigate unrelated test failures.
 - Avoid repository-wide searches and unnecessary reads.
