@@ -1,410 +1,210 @@
-// import {
-//   Box,
-//   Button,
-//   CircularProgress,
-//   InputAdornment,
-//   Snackbar,
-//   TextField,
-//   Typography,
-// } from '@mui/material';
-// import { useForm, Controller } from 'react-hook-form';
-// import { useAddExpenseMutation } from 'entities/Expense';
-// import {
-//   useGetDefaultCategoriesQuery,
-//   useGetUserCategoriesQuery,
-//   useAddUserCategoryMutation,
-// } from 'entities/ExpenseCategory';
-// import { ExpenseCategoryField } from 'features/AddExpenseCategory';
-// import {
-//   useGetRecipientsQuery,
-//   useAddRecipientMutation,
-// } from 'entities/Recipient';
-// import { useState } from 'react';
-// import {
-//   useGetExpenseTitlesQuery,
-//   useAddExpenseTitleMutation,
-// } from 'entities/ExpenseTitle';
-// import { ExpenseTitleField } from 'features/AddExpenseTitle';
-// import { RecipientField } from 'features/AddRecipients';
-// import type { ErrorResponse } from 'shared/types/errorSchema';
-// import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
-
-// type FormData = {
-//   amount: number;
-//   date: string;
-//   title: string;
-//   category: string;
-//   recipient: string;
-//   comment?: string;
-// };
-
-// export const AddExpenseForm = () => {
-//   const defaultValues = {
-//     date: new Date().toISOString().slice(0, 10),
-//     amount: 0,
-//     title: '',
-//     category: '',
-//     recipient: '',
-//     comment: '',
-//   };
-
-//   const {
-//     control,
-//     handleSubmit,
-//     reset,
-//     clearErrors,
-//     formState: { isSubmitting, errors },
-//   } = useForm<FormData>({
-//     defaultValues: {
-//       ...defaultValues,
-//     },
-//   });
-
-//   const [successOpen, setSuccessOpen] = useState(false);
-
-//   const { data: defaultSources = [] } = useGetDefaultCategoriesQuery();
-//   const { data: userSources = [] } = useGetUserCategoriesQuery();
-//   const { data: recipients = [] } = useGetRecipientsQuery();
-//   const { data: expenseTitles = [] } = useGetExpenseTitlesQuery();
-
-//   const [addExpense, { error: serverError }] = useAddExpenseMutation();
-//   const [addUserCategory] = useAddUserCategoryMutation();
-//   const [addRecipient] = useAddRecipientMutation();
-//   const [addExpenseTitle] = useAddExpenseTitleMutation();
-
-//   const allSources = [
-//     ...defaultSources.map((s) => s.name),
-//     ...userSources.map((s) => s.name),
-//   ];
-//   const userTitles = [...expenseTitles.map((s) => s.name)];
-//   const userRecipients = [...recipients.map((s) => s.name)];
-
-//   const onSubmit = async (data: FormData) => {
-//     if (data.category && !allSources.includes(data.category)) {
-//       await addUserCategory({ name: data.category }).unwrap();
-//     }
-
-//     if (data.title && !userTitles.includes(data.title)) {
-//       await addExpenseTitle({ name: data.title }).unwrap();
-//     }
-
-//     if (data.recipient && !userRecipients.includes(data.recipient)) {
-//       await addRecipient({ name: data.recipient }).unwrap();
-//     }
-
-//     await addExpense(data);
-//     setSuccessOpen(true);
-//     clearErrors();
-//     reset({ ...defaultValues, date: data.date });
-//   };
-
-//   return (
-//     <Box
-//       component="form"
-//       onSubmit={handleSubmit(onSubmit)}
-//       sx={{ mb: 4 }}
-//     >
-//       <Controller
-//         name="date"
-//         control={control}
-//         render={({ field }) => (
-//           <TextField
-//             type="date"
-//             label="Дата"
-//             fullWidth
-//             margin="normal"
-//             error={!!errors.date}
-//             helperText={errors.date?.message}
-//             {...field}
-//           />
-//         )}
-//       />
-//       <Controller
-//         name="amount"
-//         control={control}
-//         rules={{
-//           required: 'Обязательное поле',
-//           min: 0.01,
-//           validate: (value) =>
-//             Number(value) > 0 || 'Сумма должна быть больше 0',
-//         }}
-//         render={({ field }) => (
-//           <TextField
-//             type="text"
-//             label="Сумма"
-//             required
-//             fullWidth
-//             margin="normal"
-//             error={!!errors.amount}
-//             helperText={errors.amount?.message}
-//             inputProps={{
-//               inputMode: 'decimal',
-//               pattern: '[0-9]*[.,]?[0-9]*',
-//             }}
-//             InputProps={{
-//               endAdornment: <InputAdornment position="start">₽</InputAdornment>,
-//             }}
-//             {...field}
-//             value={field.value === 0 ? '' : field.value}
-//             onChange={(e) => {
-//               let val = e.target.value.replace(',', '.');
-
-//               if (/^0[0-9]+$/.test(val)) {
-//                 val = val.replace(/^0+/, '');
-//               }
-
-//               val = val.replace(/[^0-9.]/g, '');
-
-//               const parts = val.split('.');
-//               if (parts.length > 2) {
-//                 val = parts[0] + '.' + parts.slice(1).join('');
-//               }
-//               field.onChange(val);
-//             }}
-//           />
-//         )}
-//       />
-
-//       <ExpenseTitleField
-//         name="title"
-//         control={control}
-//       />
-
-//       <RecipientField
-//         name="recipient"
-//         control={control}
-//       />
-
-//       <ExpenseCategoryField
-//         name="category"
-//         control={control}
-//       />
-//       <Controller
-//         name="comment"
-//         control={control}
-//         render={({ field }) => (
-//           <TextField
-//             label="Комментарий"
-//             fullWidth
-//             margin="normal"
-//             {...field}
-//           />
-//         )}
-//       />
-//       <Button
-//         type="submit"
-//         variant="contained"
-//         color="primary"
-//         disabled={isSubmitting}
-//         endIcon={isSubmitting ? <CircularProgress size={20} /> : null}
-//         sx={{ mt: 2 }}
-//       >
-//         Добавить расход
-//       </Button>
-
-//       {serverError && (
-//         <Box sx={{ mb: 2 }}>
-//           <Typography color="error">
-//             {((serverError as FetchBaseQueryError)?.data as ErrorResponse)
-//               ?.message ?? 'Что-то пошло не так'}
-//           </Typography>
-//         </Box>
-//       )}
-//       <Box position="relative">
-//         <Snackbar
-//           open={successOpen}
-//           autoHideDuration={1000}
-//           onClose={() => setSuccessOpen(false)}
-//           message="Расход добавлен!"
-//           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-//           sx={{ position: 'absolute' }}
-//         />
-//       </Box>
-//     </Box>
-//   );
-// };
-
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Snackbar,
-  Typography,
-  TextField,
-} from '@mui/material';
-import { useForm, Controller } from 'react-hook-form';
+import { Alert, Box, Button, CircularProgress, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { type FieldErrors, useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { useEffect, useRef, useState } from 'react';
 import { useAddExpenseMutation } from 'entities/Expense';
 import {
-  useGetDefaultCategoriesQuery,
-  useGetUserCategoriesQuery,
-  useAddUserCategoryMutation,
+  useAddUserCategoryMutation, useGetDefaultCategoriesQuery, useGetUserCategoriesQuery,
 } from 'entities/ExpenseCategory';
-import { ExpenseCategoryField } from 'features/AddExpenseCategory';
-import {
-  useGetRecipientsQuery,
-  useAddRecipientMutation,
-} from 'entities/Recipient';
-import { useState } from 'react';
-import {
-  useGetExpenseTitlesQuery,
-  useAddExpenseTitleMutation,
-} from 'entities/ExpenseTitle';
-import { ExpenseTitleField } from 'features/AddExpenseTitle';
+import { useAddExpenseTitleMutation, useGetExpenseTitlesQuery } from 'entities/ExpenseTitle';
+import { useAddRecipientMutation, useGetRecipientsQuery } from 'entities/Recipient';
 import { RecipientField } from 'features/AddRecipients';
-import type { ErrorResponse } from 'shared/types/errorSchema';
-import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { DateField } from 'shared/ui/DateField';
-import { AmountField } from 'shared/ui/AmountField';
+import { ExpensePositionRow } from './ExpensePositionRow';
+import { getTodayDateString } from 'shared/lib/utils/date';
 import {
-  getTodayDateString,
-  buildResetValuesKeepingDate,
-} from 'shared/lib/utils/date';
-
-type FormData = {
-  amount: number;
-  date: string;
-  title: string;
-  category: string;
-  recipient: string;
-  comment?: string;
-};
-
-const emptyValues: Omit<FormData, 'date'> = {
-  amount: 0,
-  title: '',
-  category: '',
-  recipient: '',
-  comment: '',
-};
+  type BulkExpenseValues, createEmptyPosition, formatKopecks,
+  isValidQuantity, MAX_BATCH_SIZE, priceToKopecks,
+} from '../model/bulkExpense';
 
 export const AddExpenseForm = () => {
-  const {
-    control,
-    handleSubmit,
-    reset,
-    clearErrors,
-    formState: { isSubmitting },
-  } = useForm<FormData>({
-    defaultValues: {
-      ...emptyValues,
-      date: getTodayDateString(),
-    },
+  const { control, handleSubmit, reset, getValues, setError, clearErrors } = useForm<BulkExpenseValues>({
+    defaultValues: { date: getTodayDateString(), recipient: '', positions: [createEmptyPosition()] },
   });
+  const { fields, append, remove } = useFieldArray({ control, name: 'positions' });
+  const positions = useWatch({ control, name: 'positions' });
+  const theme = useTheme();
+  const narrow = useMediaQuery(theme.breakpoints.down('md'));
+  const [expandedId, setExpandedId] = useState<string | null>(fields[0]?.id ?? null);
+  const previousIds = useRef(new Set(fields.map((field) => field.id)));
+  useEffect(() => {
+    const added = fields.filter((field) => !previousIds.current.has(field.id));
+    setExpandedId((current) => added.length
+      ? added[added.length - 1].id
+      : fields.some((field) => field.id === current) ? current : fields[0]?.id ?? null);
+    previousIds.current = new Set(fields.map((field) => field.id));
+  }, [fields]);
+  const revealInvalidPosition = (errors: FieldErrors<BulkExpenseValues>) => {
+    const index = fields.findIndex((_, i) => errors.positions?.[i]);
+    if (index >= 0) setExpandedId(fields[index].id);
+  };
+  const [phase, setPhase] = useState<'idle' | 'saving' | 'failed'>('idle');
+  const [savedCount, setSavedCount] = useState(0);
+  const [successCount, setSuccessCount] = useState<number | null>(null);
+  const [validationMessage, setValidationMessage] = useState('');
+  const [dictionaryWarning, setDictionaryWarning] = useState(false);
+  // Guard synchronously, including the asynchronous RHF validation window.
+  const submissionInFlight = useRef(false);
+  const failedBatch = useRef(false);
+  const synchronized = useRef({ categories: new Set<string>(), titles: new Set<string>(), recipients: new Set<string>() });
 
-  const [successOpen, setSuccessOpen] = useState(false);
-
-  const { data: defaultSources = [] } = useGetDefaultCategoriesQuery();
-  const { data: userSources = [] } = useGetUserCategoriesQuery();
+  const { data: defaultCategories = [] } = useGetDefaultCategoriesQuery();
+  const { data: userCategories = [] } = useGetUserCategoriesQuery();
   const { data: recipients = [] } = useGetRecipientsQuery();
   const { data: expenseTitles = [] } = useGetExpenseTitlesQuery();
-
-  const [addExpense, { error: serverError }] = useAddExpenseMutation();
+  const [addExpense] = useAddExpenseMutation();
   const [addUserCategory] = useAddUserCategoryMutation();
-  const [addRecipient] = useAddRecipientMutation();
   const [addExpenseTitle] = useAddExpenseTitleMutation();
+  const [addRecipient] = useAddRecipientMutation();
 
-  const allSources = [
-    ...defaultSources.map((s) => s.name),
-    ...userSources.map((s) => s.name),
-  ];
-  const userTitles = [...expenseTitles.map((s) => s.name)];
-  const userRecipients = [...recipients.map((s) => s.name)];
+  const count = positions.reduce((sum, position) =>
+    sum + (isValidQuantity(position.quantity) ? position.quantity : 0), 0);
+  const subtotal = (position: BulkExpenseValues['positions'][number] | undefined) => {
+    if (!position) return 0;
+    const price = priceToKopecks(position.unitPrice);
+    return price !== null && isValidQuantity(position.quantity) && position.quantity <= MAX_BATCH_SIZE
+      ? price * position.quantity : 0;
+  };
+  const total = count <= MAX_BATCH_SIZE ? positions.reduce((sum, position) => sum + subtotal(position), 0) : 0;
 
-  const onSubmit = async (data: FormData) => {
-    try {
-      await addExpense(data).unwrap();
-    } catch {
+  const syncDictionaries = async (data: BulkExpenseValues, confirmed: BulkExpenseValues['positions']) => {
+    const synchronize = async (names: string[], known: string[], cached: Set<string>, write: (name: string) => Promise<unknown>) => {
+      const results = await Promise.allSettled([...new Set(names)].filter((name) =>
+        name && !known.includes(name) && !cached.has(name)).map(async (name) => {
+        await write(name);
+        cached.add(name);
+      }));
+      return results.some((result) => result.status === 'rejected');
+    };
+    const results = await Promise.all([
+      synchronize(confirmed.map((p) => p.category), [...defaultCategories, ...userCategories].map((c) => c.name), synchronized.current.categories,
+        (name) => addUserCategory({ name }).unwrap()),
+      synchronize(confirmed.map((p) => p.title), expenseTitles.map((t) => t.name), synchronized.current.titles,
+        (name) => addExpenseTitle({ name }).unwrap()),
+      synchronize(confirmed.length ? [data.recipient] : [], recipients.map((r) => r.name), synchronized.current.recipients,
+        (name) => addRecipient({ name }).unwrap()),
+    ]);
+    setDictionaryWarning(results.some(Boolean));
+  };
+
+  const onSubmit = async (data: BulkExpenseValues) => {
+    const recordCount = data.positions.reduce((sum, p) => sum + p.quantity, 0);
+    if (!data.positions.length || !Number.isSafeInteger(recordCount) || recordCount > MAX_BATCH_SIZE) {
+      setValidationMessage(`В одном пакете допускается от 1 до ${MAX_BATCH_SIZE} расходов.`);
       return;
     }
+    let invalid = false;
+    data.positions.forEach((position, index) => {
+      if (priceToKopecks(position.unitPrice) === null) {
+        setError(`positions.${index}.unitPrice`, { message: 'Укажите положительную цену с точностью до копеек.' });
+        if (!invalid) setExpandedId(fields[index].id);
+        invalid = true;
+      }
+      if (!isValidQuantity(position.quantity)) {
+        setError(`positions.${index}.quantity`, { message: 'Количество должно быть целым числом не меньше 1.' });
+        if (!invalid) setExpandedId(fields[index].id);
+        invalid = true;
+      }
+      if (!position.title.trim() || !position.category.trim()) {
+        if (!invalid) setExpandedId(fields[index].id);
+        invalid = true;
+      }
+    });
+    if (invalid || !data.recipient.trim() || !data.date) {
+      setValidationMessage('Заполните обязательные поля и проверьте цену и количество.');
+      return;
+    }
+    setPhase('saving');
+    setSuccessCount(null);
+    setSavedCount(0);
+    setDictionaryWarning(false);
+    setValidationMessage('');
+    const confirmed: BulkExpenseValues['positions'] = [];
+    let saved = 0;
+    try {
+      for (const position of data.positions) {
+        const amount = priceToKopecks(position.unitPrice)! / 100;
+        for (let unit = 0; unit < position.quantity; unit += 1) {
+          await addExpense({
+            date: data.date, recipient: data.recipient, title: position.title,
+            category: position.category, amount, comment: position.comment,
+          }).unwrap();
+          saved += 1;
+          confirmed.push(position);
+          setSavedCount(saved);
+        }
+      }
+    } catch {
+      failedBatch.current = true;
+    }
+    if (!failedBatch.current) {
+      setSuccessCount(saved);
+      reset({ date: data.date, recipient: '', positions: [createEmptyPosition()] });
+    }
+    await syncDictionaries(data, confirmed);
+    setPhase(failedBatch.current ? 'failed' : 'idle');
+  };
 
-    setSuccessOpen(true);
+  const startNewEntry = () => {
+    const { date, recipient } = getValues();
+    reset({ date, recipient, positions: [createEmptyPosition()] });
     clearErrors();
-    reset(buildResetValuesKeepingDate(emptyValues, data.date));
-
-    const auxiliaryWrites: Promise<unknown>[] = [];
-    if (data.category && !allSources.includes(data.category)) {
-      auxiliaryWrites.push(addUserCategory({ name: data.category }).unwrap());
-    }
-    if (data.title && !userTitles.includes(data.title)) {
-      auxiliaryWrites.push(addExpenseTitle({ name: data.title }).unwrap());
-    }
-    if (data.recipient && !userRecipients.includes(data.recipient)) {
-      auxiliaryWrites.push(addRecipient({ name: data.recipient }).unwrap());
-    }
-    await Promise.allSettled(auxiliaryWrites);
+    failedBatch.current = false;
+    setPhase('idle');
+    setSavedCount(0);
+    setSuccessCount(null);
+    setDictionaryWarning(false);
+    setValidationMessage('');
   };
 
   return (
-    <Box
-      component="form"
-      onSubmit={handleSubmit(onSubmit)}
-      sx={{ mb: 4 }}
-    >
-      <DateField
-        name="date"
-        control={control}
-      />
-
-      <AmountField
-        name="amount"
-        control={control}
-      />
-
-      <ExpenseTitleField
-        name="title"
-        control={control}
-      />
-
-      <RecipientField
-        name="recipient"
-        control={control}
-      />
-
-      <ExpenseCategoryField
-        name="category"
-        control={control}
-      />
-      <Controller
-        name="comment"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            label="Комментарий"
-            fullWidth
-            margin="normal"
-            {...field}
-          />
-        )}
-      />
-      <Button
-        type="submit"
-        variant="contained"
-        color="primary"
-        disabled={isSubmitting}
-        endIcon={isSubmitting ? <CircularProgress size={20} /> : null}
-        sx={{ mt: 2 }}
-      >
-        Добавить расход
-      </Button>
-
-      {serverError && (
-        <Box sx={{ mb: 2 }}>
-          <Typography color="error">
-            {((serverError as FetchBaseQueryError)?.data as ErrorResponse)
-              ?.message ?? 'Что-то пошло не так'}
-          </Typography>
+    <Box component="form" noValidate sx={{ mb: 4 }} onSubmit={async (event) => {
+      event.preventDefault();
+      if (submissionInFlight.current || failedBatch.current) return;
+      submissionInFlight.current = true;
+      try {
+        await handleSubmit(onSubmit, (errors) => {
+          revealInvalidPosition(errors);
+          setValidationMessage('Заполните обязательные поля и проверьте цену и количество.');
+        })(event);
+      } finally {
+        submissionInFlight.current = false;
+      }
+    }}>
+      <Box component="fieldset" disabled={phase !== 'idle'} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: narrow ? '1fr' : '180px minmax(0, 1fr)', gap: 2 }}>
+          <DateField name="date" control={control} required />
+          <RecipientField name="recipient" control={control} />
         </Box>
-      )}
-      <Box position="relative">
-        <Snackbar
-          open={successOpen}
-          autoHideDuration={1000}
-          onClose={() => setSuccessOpen(false)}
-          message="Расход добавлен!"
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-          sx={{ position: 'absolute' }}
-        />
+        <Box sx={{ overflowX: narrow ? 'visible' : 'auto' }}>
+          <Box sx={{ minWidth: narrow ? 0 : 900 }}>
+            {fields.map((position, index) => (
+              <ExpensePositionRow key={position.id} control={control} index={index}
+                position={positions[index] ?? position} subtotal={subtotal(positions[index])}
+                narrow={narrow} expanded={expandedId === position.id}
+                onToggle={() => setExpandedId(expandedId === position.id ? null : position.id)}
+                canRemove={fields.length > 1} onRemove={() => remove(index)} />
+            ))}
+          </Box>
+        </Box>
+        <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+        <Button type="button" disabled={fields.length >= MAX_BATCH_SIZE} onClick={() => append(createEmptyPosition())}>Добавить позицию</Button>
+        <Typography>Количество позиций: {fields.length}</Typography>
+        <Typography sx={{ mt: 2 }}>Количество расходов: {count}</Typography>
+        <Typography>Итого: {count > MAX_BATCH_SIZE ? 'Превышен лимит пакета' : formatKopecks(total)}</Typography>
+        {count > MAX_BATCH_SIZE && <Alert severity="error">В одном пакете допускается не более {MAX_BATCH_SIZE} расходов.</Alert>}
+        {validationMessage && <Alert severity="error">{validationMessage}</Alert>}
+        <Button type="submit" variant="contained" disabled={phase !== 'idle'} sx={{ mt: 2 }}>
+          Сохранить {count} расходов
+        </Button>
+        </Box>
       </Box>
+      {phase === 'saving' && <Stack direction="row" spacing={1} sx={{ mt: 2 }}><CircularProgress size={20} /><Typography>Подтверждено сохранено: {savedCount}</Typography></Stack>}
+      {successCount !== null && <Alert severity="success" sx={{ mt: 2 }}>Сохранено расходов: {successCount}</Alert>}
+      {phase === 'failed' && <>
+        <Alert severity="error" sx={{ mt: 2 }}>Подтверждено сохранено: {savedCount}. Сохранение остановлено. Результат последнего запроса может быть неопределённым. Проверьте историю расходов. Повторная отправка этого пакета заблокирована.</Alert>
+        <Button type="button" sx={{ mt: 1 }} onClick={startNewEntry}>Начать новый ввод</Button>
+      </>}
+      {dictionaryWarning && <Alert severity="warning" sx={{ mt: 2 }}>Не удалось обновить часть подсказок. Подтверждённые расходы сохранены; повторно отправлять их не нужно.</Alert>}
     </Box>
   );
 };

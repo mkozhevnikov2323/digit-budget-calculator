@@ -7,8 +7,7 @@ import {
   Divider,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/InfoOutlined';
-import { useState } from 'react';
-import { Controller, Control, FieldValues, Path } from 'react-hook-form';
+import { Controller, Control, FieldValues, Path, useWatch } from 'react-hook-form';
 import { useGetRecipientsQuery } from 'entities/Recipient';
 
 type Props<T extends FieldValues = FieldValues> = {
@@ -21,7 +20,8 @@ export const RecipientField = <T extends FieldValues = FieldValues>({
   control,
 }: Props<T>) => {
   const { data: userRecipients = [] } = useGetRecipientsQuery();
-  const [inputValue, setInputValue] = useState('');
+  const watchedValue = useWatch({ name, control });
+  const inputValue = typeof watchedValue === 'string' ? watchedValue : '';
 
   const userNamesRecipients = userRecipients.map((s) => s.name);
 
@@ -63,9 +63,8 @@ export const RecipientField = <T extends FieldValues = FieldValues>({
             }
             value={currentOption}
             inputValue={inputValue}
-            onInputChange={(_, newInputValue) => {
-              setInputValue(newInputValue);
-              if (newInputValue !== value) {
+            onInputChange={(_, newInputValue, reason) => {
+              if ((reason === 'input' || reason === 'clear') && newInputValue !== value) {
                 onChange(newInputValue);
               }
             }}
@@ -77,7 +76,6 @@ export const RecipientField = <T extends FieldValues = FieldValues>({
                 newVal = newValue.label;
               }
               onChange(newVal);
-              setInputValue(newVal);
             }}
             renderInput={(params) => (
               <TextField
