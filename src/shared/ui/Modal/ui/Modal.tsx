@@ -1,6 +1,7 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useId } from 'react';
 import { styled } from '@mui/material/styles';
 import Dialog from '@mui/material/Dialog';
+import type { DialogProps } from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
@@ -10,6 +11,10 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   children?: ReactNode;
+  title?: ReactNode;
+  maxWidth?: DialogProps['maxWidth'];
+  fullWidth?: boolean;
+  closeDisabled?: boolean;
 }
 
 const BootstrapDialog = styled(Dialog)(({ theme }) => ({
@@ -21,23 +26,34 @@ const BootstrapDialog = styled(Dialog)(({ theme }) => ({
   },
 }));
 
-export const Modal = ({ open, onClose, children }: ModalProps) => {
+export const Modal = ({
+  open, onClose, children, title = 'Вход / Регистрация',
+  maxWidth, fullWidth, closeDisabled = false,
+}: ModalProps) => {
+  const titleId = useId();
+  const requestClose = () => {
+    if (!closeDisabled) onClose();
+  };
   return (
     <React.Fragment>
       <BootstrapDialog
-        onClose={onClose}
-        aria-labelledby="customized-dialog-title"
+        onClose={requestClose}
+        disableEscapeKeyDown={closeDisabled}
+        maxWidth={maxWidth}
+        fullWidth={fullWidth}
+        aria-labelledby={titleId}
         open={open}
       >
         <DialogTitle
-          sx={{ m: 0, p: 2 }}
-          id="customized-dialog-title"
+          sx={{ m: 0, p: 2, pr: 7 }}
+          id={titleId}
         >
-          Вход / Регистрация
+          {title}
         </DialogTitle>
         <IconButton
           aria-label="close"
-          onClick={onClose}
+          onClick={requestClose}
+          disabled={closeDisabled}
           sx={(theme) => ({
             position: 'absolute',
             right: 8,
