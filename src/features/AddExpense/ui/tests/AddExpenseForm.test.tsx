@@ -232,14 +232,16 @@ describe('AddExpenseForm bulk entry', () => {
   });
 
   it('serializes POSTs and guards concurrent submit even during RHF validation', async () => {
+    const onSubmissionStateChange = jest.fn();
     let resolveFirst!: () => void;
     const first = new Promise<void>((resolve) => { resolveFirst = resolve; });
     addExpenseUnwrap.mockReturnValueOnce(first);
-    render(<AddExpenseForm />);
+    render(<AddExpenseForm onSubmissionStateChange={onSubmissionStateChange} />);
     fillForm();
     change(quantity(), '2');
     const form = submit().closest('form')!;
     fireEvent.submit(form);
+    expect(onSubmissionStateChange).toHaveBeenLastCalledWith({ isBusy: true, hasUncertainResult: false });
     fireEvent.submit(form);
     await waitFor(() => expect(addExpense).toHaveBeenCalledTimes(1));
     expect(submit()).toBeDisabled();
@@ -249,16 +251,19 @@ describe('AddExpenseForm bulk entry', () => {
     await act(async () => resolveFirst());
     expect(await screen.findByText('Сохранено расходов: 2')).toBeInTheDocument();
     expect(addExpense).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(onSubmissionStateChange).toHaveBeenLastCalledWith({ isBusy: false, hasUncertainResult: false }));
   });
 
   it('stops at the first rejected request and blocks replay until an explicit fresh entry', async () => {
+    const onSubmissionStateChange = jest.fn();
     addExpenseUnwrap.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Response lost'));
-    render(<AddExpenseForm />);
+    render(<AddExpenseForm onSubmissionStateChange={onSubmissionStateChange} />);
     fillForm();
     change(quantity(), '5');
     await userEvent.click(submit());
     expect(await screen.findByText(/Подтверждено сохранено: 2\. Сохранение остановлено/)).toBeInTheDocument();
     expect(addExpense).toHaveBeenCalledTimes(3);
+    expect(onSubmissionStateChange).toHaveBeenLastCalledWith({ isBusy: false, hasUncertainResult: true });
     expect(screen.queryByText(/Сохранено расходов:/)).not.toBeInTheDocument();
     expect(title()).toHaveValue('Молоко');
     expect(price()).toHaveValue('120');
@@ -270,6 +275,7 @@ describe('AddExpenseForm bulk entry', () => {
     fireEvent.submit(submit().closest('form')!);
     expect(addExpense).toHaveBeenCalledTimes(3);
     await userEvent.click(screen.getByRole('button', { name: 'Начать новый ввод' }));
+    expect(onSubmissionStateChange).toHaveBeenLastCalledWith({ isBusy: false, hasUncertainResult: false });
     expect(title()).toHaveValue('');
     expect(price()).toHaveValue('');
     expect(quantity()).toHaveValue(1);

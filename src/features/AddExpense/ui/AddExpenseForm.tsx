@@ -16,7 +16,16 @@ import {
   isValidQuantity, MAX_BATCH_SIZE, priceToKopecks,
 } from '../model/bulkExpense';
 
-export const AddExpenseForm = () => {
+export type ExpenseSubmissionState = {
+  isBusy: boolean;
+  hasUncertainResult: boolean;
+};
+
+type AddExpenseFormProps = {
+  onSubmissionStateChange?: (state: ExpenseSubmissionState) => void;
+};
+
+export const AddExpenseForm = ({ onSubmissionStateChange }: AddExpenseFormProps = {}) => {
   const { control, handleSubmit, reset, getValues, setError, clearErrors } = useForm<BulkExpenseValues>({
     defaultValues: { date: getTodayDateString(), recipient: '', positions: [createEmptyPosition()] },
   });
@@ -149,6 +158,7 @@ export const AddExpenseForm = () => {
     reset({ date, recipient, positions: [createEmptyPosition()] });
     clearErrors();
     failedBatch.current = false;
+    onSubmissionStateChange?.({ isBusy: false, hasUncertainResult: false });
     setPhase('idle');
     setSavedCount(0);
     setSuccessCount(null);
@@ -161,6 +171,7 @@ export const AddExpenseForm = () => {
       event.preventDefault();
       if (submissionInFlight.current || failedBatch.current) return;
       submissionInFlight.current = true;
+      onSubmissionStateChange?.({ isBusy: true, hasUncertainResult: false });
       try {
         await handleSubmit(onSubmit, (errors) => {
           revealInvalidPosition(errors);
@@ -168,6 +179,7 @@ export const AddExpenseForm = () => {
         })(event);
       } finally {
         submissionInFlight.current = false;
+        onSubmissionStateChange?.({ isBusy: false, hasUncertainResult: failedBatch.current });
       }
     }}>
       <Box component="fieldset" disabled={phase !== 'idle'} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
