@@ -10,5 +10,6 @@ export const navItems: NavItem[] = [
   { label: 'Расходы', path: RoutePath.expenses },
   { label: 'Займы', path: RoutePath.loans },
   { label: 'Баланс', path: RoutePath.balance },
+  { label: 'Аналитика', path: RoutePath.analytics },
   { label: 'Профиль', path: RoutePath.profile },
 ];

@@ -8,6 +8,7 @@ import { ProfilePage } from 'pages/ProfilePage';
 import { NotFoundPage } from 'pages/NotFoundPage';
 import { Protected } from './ProtectedRoute';
 import { LoansPage } from 'pages/LoansPage';
+import { AnalyticsPage } from 'pages/AnalyticsPage';
 
 export const enum AppRoutes {
   MAIN = 'main',
@@ -15,6 +16,7 @@ export const enum AppRoutes {
   EXPENSES = 'expenses',
   BALANCE = 'balance',
   LOANS = 'loans',
+  ANALYTICS = 'analytics',
   PROFILE = 'profile',
   NOT_FOUND = 'notFound',
 }
@@ -25,11 +27,16 @@ export const RoutePath: Record<AppRoutes, string> = {
   [AppRoutes.EXPENSES]: '/expenses',
   [AppRoutes.BALANCE]: '/balance',
   [AppRoutes.LOANS]: '/loans',
+  [AppRoutes.ANALYTICS]: '/analytics',
   [AppRoutes.PROFILE]: '/profile',
   [AppRoutes.NOT_FOUND]: '*',
 };
 
 export const routeConfig: Record<AppRoutes, RouteObject> = {
+  [AppRoutes.ANALYTICS]: {
+    path: RoutePath.analytics,
+    element: <Protected><AnalyticsPage /></Protected>,
+  },
   [AppRoutes.MAIN]: {
     path: RoutePath.main,
     element: <MainPage />,
