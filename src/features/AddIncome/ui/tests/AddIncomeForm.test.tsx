@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Control, FieldValues } from 'react-hook-form';
 import { useAddIncomeMutation } from 'entities/Income';
@@ -12,6 +12,15 @@ import { AddIncomeForm } from '../AddIncomeForm';
 type MockFieldProps = {
   name: string;
   control: Control<FieldValues>;
+};
+
+const mockValidateAmount = jest.fn();
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
 };
 
 jest.mock('entities/Income', () => ({
@@ -50,7 +59,7 @@ jest.mock('shared/ui/AmountField', () => {
       <Controller
         name={name}
         control={control}
-        rules={{ required: true }}
+        rules={{ required: true, validate: () => mockValidateAmount() }}
         render={({ field }) => (
           <input
             aria-label="amount"
@@ -99,13 +108,16 @@ describe('AddIncomeForm create flow', () => {
   const addUserSourceUnwrap = jest.fn();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    mockValidateAmount.mockReturnValue(true);
     mockedUseAddIncomeMutation.mockReturnValue([addIncome]);
     mockedUseAddUserSourceMutation.mockReturnValue([addUserSource]);
     mockedUseGetDefaultSourcesQuery.mockReturnValue({ data: [] });
     mockedUseGetUserSourcesQuery.mockReturnValue({ data: [] });
     addIncome.mockReturnValue({ unwrap: addIncomeUnwrap });
     addUserSource.mockReturnValue({ unwrap: addUserSourceUnwrap });
+    addIncomeUnwrap.mockResolvedValue(undefined);
+    addUserSourceUnwrap.mockResolvedValue(undefined);
   });
 
   const fillForm = () => {
@@ -185,5 +197,124 @@ describe('AddIncomeForm create flow', () => {
     expect(screen.getByLabelText('date')).toHaveValue('2026-09-20');
     expect(screen.getByLabelText('amount')).toHaveValue('');
     expect(screen.getByLabelText('source')).toHaveValue('');
+    expect(await screen.findByText(/Не удалось обновить подсказку источника/)).toBeVisible();
+    expect(screen.getByText('Доход сохранён.')).toBeVisible();
+    expect(screen.queryByText(/Доход мог уже сохраниться/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Добавить доход' })).toBeEnabled();
+  });
+
+  it('blocks rapid clicks throughout asynchronous validation and persistence', async () => {
+    const validation = deferred<boolean>();
+    const pending = deferred<void>();
+    const onStateChange = jest.fn();
+    mockValidateAmount.mockReturnValueOnce(validation.promise);
+    addIncomeUnwrap.mockReturnValueOnce(pending.promise);
+    render(<AddIncomeForm onSubmissionStateChange={onStateChange} />);
+    fillForm();
+    const button = screen.getByRole('button', { name: 'Добавить доход' });
+    act(() => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+      fireEvent.submit(button.closest('form')!);
+      expect(onStateChange).toHaveBeenLastCalledWith({ isBusy: true, hasUncertainResult: false });
+    });
+    expect(addIncome).not.toHaveBeenCalled();
+    expect(button).toBeDisabled();
+    expect(screen.getByLabelText('date')).toBeDisabled();
+    expect(screen.getByLabelText('amount')).toBeDisabled();
+    expect(screen.getByLabelText('source')).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Комментарий' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Сохранение дохода');
+
+    await act(async () => validation.resolve(true));
+    await waitFor(() => expect(addIncome).toHaveBeenCalledTimes(1));
+    fireEvent.submit(button.closest('form')!);
+    expect(addIncome).toHaveBeenCalledTimes(1);
+    expect(addUserSource).not.toHaveBeenCalled();
+    await act(async () => pending.resolve());
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(onStateChange).toHaveBeenLastCalledWith({ isBusy: false, hasUncertainResult: false });
+    expect(addIncome).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks repeated Enter submissions while the income POST is pending', async () => {
+    const pending = deferred<void>();
+    addIncomeUnwrap.mockReturnValueOnce(pending.promise);
+    const user = userEvent.setup();
+    render(<AddIncomeForm />);
+    fillForm();
+    await user.click(screen.getByRole('textbox', { name: 'Комментарий' }));
+    await user.keyboard('{Enter}{Enter}{Enter}');
+    await waitFor(() => expect(addIncome).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: 'Добавить доход' })).toBeDisabled();
+    await act(async () => pending.resolve());
+    expect(await screen.findByText('Доход сохранён.')).toBeVisible();
+    expect(addIncome).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the guard after invalid validation so corrected input can be submitted', async () => {
+    mockValidateAmount.mockReturnValue(false);
+    render(<AddIncomeForm />);
+    fillForm();
+    const button = screen.getByRole('button', { name: 'Добавить доход' });
+    fireEvent.submit(button.closest('form')!);
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(addIncome).not.toHaveBeenCalled();
+    mockValidateAmount.mockReturnValue(true);
+    fireEvent.change(screen.getByLabelText('amount'), { target: { value: '200' } });
+    await userEvent.click(button);
+    expect(await screen.findByText('Доход сохранён.')).toBeVisible();
+    expect(addIncome).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves uncertain input and blocks retries until acknowledgement without sending on acknowledgement', async () => {
+    const pending = deferred<void>();
+    addIncomeUnwrap.mockReturnValueOnce(pending.promise);
+    render(<AddIncomeForm />);
+    fillForm();
+    const button = screen.getByRole('button', { name: 'Добавить доход' });
+    fireEvent.submit(button.closest('form')!);
+    await waitFor(() => expect(addIncome).toHaveBeenCalledTimes(1));
+    await act(async () => pending.reject(new Error('Response lost')));
+    expect(await screen.findByText(/Доход мог уже сохраниться/)).toHaveTextContent('Проверьте историю доходов');
+    expect(button).toBeDisabled();
+    expect(screen.getByLabelText('date')).toHaveValue('2026-09-20');
+    expect(screen.getByLabelText('amount')).toHaveValue('123.45');
+    expect(screen.getByLabelText('source')).toHaveValue('New source');
+    expect(screen.getByRole('textbox', { name: 'Комментарий' })).toHaveValue('Income comment');
+    fireEvent.submit(button.closest('form')!);
+    fireEvent.submit(button.closest('form')!);
+    expect(addIncome).toHaveBeenCalledTimes(1);
+    expect(addUserSource).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'История проверена, продолжить ввод' }));
+    expect(button).toBeEnabled();
+    expect(addIncome).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('amount')).toHaveValue('123.45');
+    await userEvent.click(button);
+    expect(await screen.findByText('Доход сохранён.')).toBeVisible();
+    expect(addIncome).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the guard until auxiliary work settles and permits a later deliberate income', async () => {
+    const sourcePending = deferred<void>();
+    addUserSourceUnwrap.mockReturnValueOnce(sourcePending.promise);
+    render(<AddIncomeForm />);
+    fillForm();
+    const button = screen.getByRole('button', { name: 'Добавить доход' });
+    await userEvent.click(button);
+    expect(await screen.findByText('Доход сохранён.')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Обновление источника дохода');
+    expect(button).toBeDisabled();
+    expect(screen.getByLabelText('date')).toHaveValue('2026-09-20');
+    expect(screen.getByLabelText('amount')).toHaveValue('');
+    fireEvent.submit(button.closest('form')!);
+    expect(addIncome).toHaveBeenCalledTimes(1);
+    await act(async () => sourcePending.resolve());
+    await waitFor(() => expect(button).toBeEnabled());
+    fillForm();
+    await userEvent.click(button);
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(addIncome).toHaveBeenCalledTimes(2);
   });
 });
