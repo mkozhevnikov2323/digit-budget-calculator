@@ -57,3 +57,4 @@ jobs:
           src/pages/AnalyticsPage/ui/tests/AnalyticsRoute.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsResults.test.tsx
           src/features/FinancialClassification/model/tests/classification.test.ts
+          src/features/FinancialClassification/ui/tests/ClassificationPreview.test.tsx
