@@ -49,3 +49,7 @@ jobs:
           src/widgets/Modals/AddIncomeModal/ui/tests/AddIncomeModal.test.tsx
           src/features/FinancialAnalytics/model/tests/money.test.ts
           src/features/FinancialAnalytics/model/tests/period.test.ts
+          src/features/FinancialAnalytics/model/tests/apiRange.test.ts
+          src/features/FinancialAnalytics/model/tests/validation.test.ts
+          src/features/FinancialAnalytics/model/tests/calculations.test.ts
+          src/features/FinancialAnalytics/model/tests/useFinancialAnalytics.test.tsx
