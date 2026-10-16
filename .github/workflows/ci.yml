@@ -59,3 +59,4 @@ jobs:
           src/features/FinancialClassification/model/tests/classification.test.ts
           src/features/FinancialClassification/model/tests/snapshotAdapter.test.ts
           src/features/FinancialClassification/ui/tests/ClassificationPreview.test.tsx
+          src/features/FinancialClassification/ui/tests/ClassificationReviewPrototype.test.tsx
