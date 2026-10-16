@@ -132,7 +132,8 @@
 //   );
 // };
 
-import { Box, Button, TextField } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Stack, TextField, Typography } from '@mui/material';
+import { useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { useAddIncomeMutation } from 'entities/Income';
 import {
@@ -161,7 +162,22 @@ const emptyValues: Omit<FormData, 'date'> = {
   comment: '',
 };
 
-export const AddIncomeForm = () => {
+export type IncomeSubmissionState = {
+  isBusy: boolean;
+  hasUncertainResult: boolean;
+};
+
+type AddIncomeFormProps = {
+  onSubmissionStateChange?: (state: IncomeSubmissionState) => void;
+};
+
+export const AddIncomeForm = ({ onSubmissionStateChange }: AddIncomeFormProps = {}) => {
+  const submissionInFlight = useRef(false);
+  const uncertainResult = useRef(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const [hasUncertainResult, setHasUncertainResult] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [sourceWarning, setSourceWarning] = useState(false);
   const { control, handleSubmit, reset } = useForm<FormData>({
     defaultValues: {
       ...emptyValues,
@@ -182,58 +198,119 @@ export const AddIncomeForm = () => {
     try {
       await addIncome(data).unwrap();
     } catch {
+      // A lost response does not prove that the income was not persisted.
+      uncertainResult.current = true;
+      setHasUncertainResult(true);
       return;
     }
 
     reset(buildResetValuesKeepingDate(emptyValues, data.date));
+    setIsSaved(true);
 
-    const auxiliaryWrites: Promise<unknown>[] = [];
     if (data.source && !allSources.includes(data.source)) {
-      auxiliaryWrites.push(addUserSource({ name: data.source }).unwrap());
+      try {
+        await addUserSource({ name: data.source }).unwrap();
+      } catch {
+        setSourceWarning(true);
+      }
     }
-    await Promise.allSettled(auxiliaryWrites);
+  };
+
+  const acknowledgeUncertainResult = () => {
+    if (submissionInFlight.current) return;
+    uncertainResult.current = false;
+    setHasUncertainResult(false);
+    onSubmissionStateChange?.({ isBusy: false, hasUncertainResult: false });
   };
 
   return (
     <Box
       component="form"
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (submissionInFlight.current || uncertainResult.current) return;
+        // Lock before RHF validation yields, and notify close handlers immediately.
+        submissionInFlight.current = true;
+        setIsBusy(true);
+        setIsSaved(false);
+        setSourceWarning(false);
+        onSubmissionStateChange?.({ isBusy: true, hasUncertainResult: false });
+        try {
+          await handleSubmit(onSubmit)(event);
+        } finally {
+          submissionInFlight.current = false;
+          setIsBusy(false);
+          onSubmissionStateChange?.({
+            isBusy: false,
+            hasUncertainResult: uncertainResult.current,
+          });
+        }
+      }}
       sx={{ mb: 4 }}
     >
-      <DateField
-        name="date"
-        control={control}
-      />
-
-      <AmountField
-        name="amount"
-        control={control}
-      />
-
-      <IncomeSourceField
-        name="source"
-        control={control}
-      />
-      <Controller
-        name="comment"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            label="Комментарий"
-            fullWidth
-            margin="normal"
-            {...field}
-          />
-        )}
-      />
-      <Button
-        type="submit"
-        variant="contained"
-        color="primary"
-        sx={{ mt: 2 }}
+      <Box
+        component="fieldset"
+        disabled={isBusy || hasUncertainResult}
+        sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
       >
-        Добавить доход
-      </Button>
+        <DateField
+          name="date"
+          control={control}
+        />
+
+        <AmountField
+          name="amount"
+          control={control}
+        />
+
+        <IncomeSourceField
+          name="source"
+          control={control}
+        />
+        <Controller
+          name="comment"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              label="Комментарий"
+              fullWidth
+              margin="normal"
+              {...field}
+            />
+          )}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          sx={{ mt: 2 }}
+        >
+          Добавить доход
+        </Button>
+      </Box>
+      {isBusy && (
+        <Stack direction="row" spacing={1} role="status" sx={{ mt: 2 }}>
+          <CircularProgress size={20} />
+          <Typography>{isSaved ? 'Обновление источника дохода...' : 'Сохранение дохода...'}</Typography>
+        </Stack>
+      )}
+      {isSaved && <Alert severity="success" sx={{ mt: 2 }}>Доход сохранён.</Alert>}
+      {sourceWarning && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Не удалось обновить подсказку источника. Доход сохранён; повторно отправлять его не нужно.
+        </Alert>
+      )}
+      {hasUncertainResult && (
+        <>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Не удалось подтвердить сохранение. Доход мог уже сохраниться.
+            Проверьте историю доходов перед повторным вводом. Повторная отправка заблокирована.
+          </Alert>
+          <Button type="button" onClick={acknowledgeUncertainResult} sx={{ mt: 1 }}>
+            История проверена, продолжить ввод
+          </Button>
+        </>
+      )}
     </Box>
   );
 };
