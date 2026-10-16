@@ -138,6 +138,78 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     expect(summary('Разность поступлений и расходов').getByText('-0,71 ₽')).toBeInTheDocument();
   });
 
+  it('keeps one-kopeck and zero-valued operations visible with their real counts', async () => {
+    mockBodies(expenseResponse([expense('e-cent', 0.01), expense('e-zero', 0, 'Нулевая сумма')]),
+      incomeResponse([income('i-cent', 0.01), income('i-zero', 0)]));
+    setup(); await ready();
+    expect(summary('Записанные поступления').getByText('0,01 ₽')).toBeInTheDocument();
+    expect(summary('Записанные расходы').getByText('0,01 ₽')).toBeInTheDocument();
+    expect(summary('Разность поступлений и расходов').getByText('0,00 ₽')).toBeInTheDocument();
+    expect(summary('Количество записей доходов').getByText('2')).toBeInTheDocument();
+    expect(summary('Количество записей расходов').getByText('2')).toBeInTheDocument();
+    expect(screen.queryByText('За выбранный период операций нет.')).not.toBeInTheDocument();
+    const table = within(screen.getByRole('table', { name: 'Расходные операции по категориям' }));
+    const zeroRow = within(table.getByRole('rowheader', { name: 'Нулевая сумма' }).parentElement!);
+    expect(zeroRow.getByText('0,00 ₽')).toBeInTheDocument();
+    expect(zeroRow.getByText('0%')).toBeInTheDocument();
+    expect(zeroRow.getByText('1')).toBeInTheDocument();
+    expect(lineProps().series[0].data).toEqual([1]);
+  });
+
+  it('renders special keys, full Unicode category names and the missing-label group from real analytics', async () => {
+    const unicodeName = 'Кафе ☕ — 家族 👨‍👩‍👧‍👦 — е\u0301 '.repeat(8).trim();
+    mockBodies(expenseResponse([
+      expense('constructor-record', 0.01, 'constructor'), expense('prototype-record', 0.02, '__proto__'),
+      expense('unicode-one', 0.03, unicodeName), expense('unicode-two', 0.01, unicodeName),
+      expense('missing-category', 0.03, null),
+    ]));
+    setup(); await ready();
+    expect(summary('Записанные расходы').getByText('0,10 ₽')).toBeInTheDocument();
+    const table = within(screen.getByRole('table', { name: 'Расходные операции по категориям' }));
+    expect(table.getAllByRole('row')).toHaveLength(5);
+    for (const [label, amount, share, count] of [
+      ['constructor', '0,01 ₽', '10%', '1'], ['__proto__', '0,02 ₽', '20%', '1'],
+      [unicodeName, '0,04 ₽', '40%', '2'], ['Без категории', '0,03 ₽', '30%', '1'],
+    ]) {
+      const row = within(table.getByRole('rowheader', { name: label }).parentElement!);
+      expect(row.getByText(amount)).toBeInTheDocument();
+      expect(row.getByText(share)).toBeInTheDocument();
+      expect(row.getByText(count)).toBeInTheDocument();
+    }
+    expect(barProps().series[0].data).toEqual([4, 3, 2, 1]);
+  });
+
+  it('carries inclusive UTC boundaries and offset instants through both GETs into cross-year totals', async () => {
+    setup(); await ready();
+    change('Период', 'custom');
+    change('Начальная дата', '');
+    change('Конечная дата', '2025-01-01');
+    // Both offset strings describe the exact inclusive UTC endpoints, despite
+    // calendar prefixes outside the selected dates. No mock server is contacted.
+    mockBodies(expenseResponse([
+      expense('first-e', 0.01, 'Еда', '2024-12-31T00:00:00.000Z'),
+      expense('last-e', 0.02, 'Еда', '2025-01-01T23:59:59.999Z'),
+    ]), incomeResponse([
+      income('first-i', 0.03, 'Synthetic', '2024-12-30T20:00:00-04:00'),
+      income('last-i', 0.04, 'Synthetic', '2025-01-02T03:59:59.999+04:00'),
+    ]));
+    change('Начальная дата', '2024-12-31'); await ready();
+    expect(summary('Записанные поступления').getByText('0,07 ₽')).toBeInTheDocument();
+    expect(summary('Записанные расходы').getByText('0,03 ₽')).toBeInTheDocument();
+    expect(summary('Разность поступлений и расходов').getByText('0,04 ₽')).toBeInTheDocument();
+    expect(summary('Количество записей доходов').getByText('2')).toBeInTheDocument();
+    expect(summary('Количество записей расходов').getByText('2')).toBeInTheDocument();
+    expect(lineProps().xAxis?.[0].data).toEqual(['2024-12', '2025-01']);
+    expect(lineProps().series[0].data).toEqual([1, 2]);
+    const calls = mockFetch.mock.calls.slice(-2);
+    expect(calls.map(([input, init]) => urlOf(input, init).pathname).sort()).toEqual(['/expenses', '/incomes']);
+    for (const [input, init] of calls) {
+      expect(Object.fromEntries(urlOf(input, init).searchParams)).toEqual({
+        startDate: '2024-12-31T00:00:00.000Z', endDate: '2025-01-01T23:59:59.999Z', noPagination: 'true',
+      });
+    }
+  });
+
   it('keeps every category row and full long names while limiting the chart to twelve', async () => {
     const longName = 'Очень длинное название категории без сокращения в таблице';
     mockBodies(expenseResponse(Array.from({ length: 14 }, (_, i) => expense(`e${i}`, i + 1, i === 0 ? longName : `Категория ${i}`))));
