@@ -47,3 +47,5 @@ jobs:
           src/shared/ui/Modal/tests/Modal.test.tsx
           src/widgets/Modals/AddExpenseModal/ui/tests/AddExpenseModal.test.tsx
           src/widgets/Modals/AddIncomeModal/ui/tests/AddIncomeModal.test.tsx
+          src/features/FinancialAnalytics/model/tests/money.test.ts
+          src/features/FinancialAnalytics/model/tests/period.test.ts
