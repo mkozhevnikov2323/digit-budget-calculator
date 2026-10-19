@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { useGetMeQuery } from '../api/userApi';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from 'app/providers/store/store';
 import { setUser } from '../model/userSlice';
 import { useNavigate } from 'react-router';
-import { logout } from 'features/Authorization/model/authThunks';
+import { adoptExternalSession, logout } from 'features/Authorization/model/authThunks';
+import { checkCredentialChange, observeCredentialChanges } from 'shared/api/credentialObservation';
 import { completeSessionTransition, getSessionSnapshot, isCurrentSession, subscribeSession } from 'shared/api/sessionBoundary';
 import { validateVerifiedOwner, type VerifiedOwnerState } from '../model/verifiedOwner';
 import { VerifiedOwnerContext } from '../model/useVerifiedOwner';
@@ -53,7 +54,7 @@ const CurrentSessionUser: React.FC<Props & { generation: number }> = ({ children
   }
 
   useEffect(() => {
-    if (token && data && isCurrentSession(generation)) {
+    if (token && data && !checkCredentialChange() && isCurrentSession(generation)) {
       dispatch(setUser(data));
     }
   }, [data, dispatch, generation, token]);
@@ -64,6 +65,7 @@ const CurrentSessionUser: React.FC<Props & { generation: number }> = ({ children
       'status' in error &&
       (error.status === 401 || error.status === 403)
     ) {
+      if (checkCredentialChange()) return;
       dispatch(logout());
       navigate('/', { replace: true });
     }
@@ -73,7 +75,14 @@ const CurrentSessionUser: React.FC<Props & { generation: number }> = ({ children
 };
 
 export const UserProvider: React.FC<Props> = ({ children }) => {
+  const dispatch = useDispatch<AppDispatch>();
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
+  // Outside the keyed subtree: events remain observable throughout handoff.
+  // Layout registration precedes children's passive RTK subscriptions.
+  useLayoutEffect(() => observeCredentialChanges(() => {
+    // Storage/handoff failure stays closed; never log credentials or claim login.
+    void dispatch(adoptExternalSession()).catch(() => undefined);
+  }), [dispatch]);
   useEffect(() => {
     if (session.transitioning) completeSessionTransition(session.generation);
   }, [session]);
