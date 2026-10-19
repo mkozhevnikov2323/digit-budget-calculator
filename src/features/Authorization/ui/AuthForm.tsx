@@ -16,7 +16,10 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { errorMessageHandler } from 'shared/lib/utils/errorMessageHandler';
 import { useLoginMutation, useRegisterMutation } from '../api/authApi';
-import { closeAuthModal, setAuthenticated } from '../model/authorizationSlice';
+import { closeAuthModal } from '../model/authorizationSlice';
+import { completeLogin } from '../model/authThunks';
+import { getSessionSnapshot, isCurrentSession } from 'shared/api/sessionBoundary';
+import type { AppDispatch } from 'app/providers/store/store';
 import { useDispatch } from 'react-redux';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { ErrorResponse } from 'shared/types/errorSchema';
@@ -29,7 +32,7 @@ interface FormData {
 }
 
 export const AuthForm: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
 
   const [isRegisterMode, setIsRegisterMode] = useState(false);
@@ -85,6 +88,8 @@ export const AuthForm: React.FC = () => {
   };
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
+    const { generation } = getSessionSnapshot();
+    if (!isCurrentSession(generation)) return;
     try {
       let response;
       if (isRegisterMode) {
@@ -92,6 +97,7 @@ export const AuthForm: React.FC = () => {
           email: data.email,
           password: data.password,
         }).unwrap();
+        if (!isCurrentSession(generation)) return;
         response = await login({
           email: data.email,
           password: data.password,
@@ -103,12 +109,12 @@ export const AuthForm: React.FC = () => {
         }).unwrap();
       }
 
-      localStorage.setItem('token', response.token);
-
-      dispatch(setAuthenticated(true));
+      const committedGeneration = await dispatch(completeLogin(response.token, generation));
+      if (committedGeneration === null || !isCurrentSession(committedGeneration)) return;
       dispatch(closeAuthModal());
       navigate('/expenses');
     } catch (error) {
+      if (!isCurrentSession(generation)) return;
       const errMessage = errorMessageHandler(
         ((error as FetchBaseQueryError)?.data as ErrorResponse)?.message ??
           'Что-то пошло не так',
