@@ -1,5 +1,6 @@
 import type { fetchBaseQuery } from '@reduxjs/toolkit/query';
 import { getSessionSnapshot, isCurrentSession } from './sessionBoundary';
+import { checkCredentialChange } from './credentialObservation';
 
 const obsolete = () => ({ error: { status: 'CUSTOM_ERROR' as const, error: 'SESSION_CHANGED' } });
 
@@ -9,6 +10,7 @@ const obsolete = () => ({ error: { status: 'CUSTOM_ERROR' as const, error: 'SESS
  * only their successful consumer starts the separate credential transition. */
 export const withSessionBoundary = (query: ReturnType<typeof fetchBaseQuery>): ReturnType<typeof fetchBaseQuery> =>
   async (args, api, options) => {
+    if (checkCredentialChange()) return obsolete();
     const { generation, transitioning } = getSessionSnapshot();
     if (transitioning) return obsolete();
     const request = typeof args === 'string' ? { url: args } : args;
@@ -24,5 +26,7 @@ export const withSessionBoundary = (query: ReturnType<typeof fetchBaseQuery>): R
     const token = localStorage.getItem('token');
     if (token) headers.set('Authorization', `Bearer ${token}`);
     const result = await query({ ...request, headers }, api, options);
-    return isCurrentSession(generation) ? result : obsolete();
+    // Also notice a storage change before its browser event is delivered.
+    checkCredentialChange();
+    return isCurrentSession(generation) && localStorage.getItem('token') === token ? result : obsolete();
   };

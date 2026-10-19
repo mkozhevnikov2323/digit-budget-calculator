@@ -3,6 +3,7 @@
 PR #17 — техническая основа в одном JS-контексте приложения. PR #18 добавляет
 verified-owner gate (см. ниже). Classification data hook и подключение реальной
 классификации не реализованы.
+PR #19 добавляет наблюдение внешних credential changes через существующий handoff.
 Backend/JWT, формат `localStorage.token`, endpoint args/теги, денежные правила и
 существующие маршруты не меняются. Session generation не является авторизацией,
 идентификатором владельца, audit event или ревизией транзакции.
@@ -86,10 +87,9 @@ server rollback или доказательство её завершения. �
 
 ## Явные ограничения перед live review
 
-1. **Cross-tab и внешняя запись token не реализованы.** Нет storage-event
-   invalidation/координации нескольких вкладок. Смена localStorage вне штатных
-   login/logout путей не получает этот handoff. Это блокирующий follow-up перед
-   подключением live classification; тесты одного JS-контекста не доказывают иного.
+1. **PR #19 защищает замеченные внешние изменения**, но browser events асинхронны.
+   Интервал до наблюдения, suspended tabs и границы сравнения storage описаны ниже.
+   Это не мгновенная глобальная ревокация и не доказательство production security.
 2. PR #18 проверяет форму текущего `/users/me` для owner gate. Наличие credential
    и локальная generation сами по себе не доказывают владельца или право доступа.
    Backend ownership/JWT остаются отдельными гарантиями и здесь не тестируются live.
@@ -140,8 +140,74 @@ invalid payloads, cold/cache startup, общий GET, rerender, refetch/failure/
 frames. Старые UserProvider/AuthForm/session/navigation tests также выполняются.
 Backend source ожидает документ со стандартным `_id`, но production payload
 `/users/me` и реальная серверная авторизация остаются **UNVERIFIED**.
-Cross-tab по-прежнему **блокирует live classification UI**. Этот gate не подключает
+PR #19 добавляет ограниченную cross-tab invalidation. Этот gate не подключает
 classification к транзакциям и не доказывает полную multi-user security.
+
+## PR #19: наблюдение shared credentials
+
+`credentialObservation.ts` содержит один private comparison token и флаг pending
+для существующего outer UserProvider. Значения не экспортируются, не попадают в
+React/Redux/context, логи или новое постоянное хранилище. Второй generation counter,
+BroadcastChannel, polling, endpoint и auth framework не вводятся.
+
+Layout effect внешнего UserProvider устанавливает listeners до passive RTK effects
+потомков. Listener остаётся активным, пока keyed subtree отсутствует, и полностью
+удаляется при unmount/StrictMode cleanup. Учитываются только localStorage events
+для `token` или `key=null` (clear). Иные keys, sessionStorage и неизвестная storage
+area игнорируются. Источник нового состояния — актуальный `localStorage.token`,
+а не oldValue/newValue события. Совпадение с последним наблюдением не создаёт reset.
+
+Замеченное изменение синхронно вызывает прежний `transitionSession`: generation
+меняется, verified-owner закрывается, старое дерево становится недоступным.
+После passive unmount барьера `adoptExternalSession` использует **тот же** cleanup,
+что local auth: abort running GET, root LOGOUT, resetApiState. Затем перечитывает
+финальный credential и восстанавливает только boolean authenticated. Новый keyed
+UserProvider запрашивает свежий `/users/me`; ID появляется лишь после runtime gate.
+External adoption **не пишет и не удаляет token**, поэтому не порождает logout echo
+и не стирает credential другой вкладки.
+
+Rapid A → B → C, замеченные до окончания handoff, отменяют промежуточные completion;
+новое дерево использует финальный storage, без B-запросов от прежних подписчиков.
+Замеченный A → B → A и новый credential того же owner получают свежие generation.
+Pending external adoption блокирует старые local login/logout intents. Обычный
+local logout по-прежнему удаляет свой credential; local login пишет только после
+барьера. Оба сравнивают storage ещё раз в отложенном completion: уже изменившийся
+credential принимается без write, obsolete login возвращает null. Local writes
+подтверждаются observer явно, поскольку своя вкладка не получает storage event.
+
+Без polling сравнение также выполняется на focus, pageshow и visible restoration,
+на старте/settling transport и перед auth actions/profile effects. Неизменный token
+не запускает GET/reset. При новом запросе старого subtree замеченная смена закрывает
+boundary до HTTP; поздний success/401/403 теряет data/meta через прежний guard.
+Текущие 401/403 сохраняют local logout, transient failure не удаляет credential.
+
+### Доказательства и неизбежные границы
+
+34 новых автоматических теста используют реальный root reducer, middleware, getMe,
+expense query и session guard, фиктивные credentials, deferred mocked transport и
+StorageEvent с предварительной записью shared storage. Проверены unmount до новых
+GET, cache/profile reset, committed frames, оба порядка late success, старые и
+текущие 401/403, rapid/ABA, overlap login/logout с событием и без него, clear,
+duplicate/no-op, чужие keys/areas, StrictMode listener cleanup и resume без loops.
+Отдельно проходят PR #17/#18, UserProvider/AuthForm, route и analytics-hook regressions.
+Новых financial mutation requests нет; существующие financial contracts не меняются.
+
+Browser event не является мгновенным межвкладочным барьером. До обработки события
+или другой проверки контекст может ещё не знать о внешней записи; frozen/suspended
+вкладка не исполняет JS. Resume обнаруживает текущее отличие, но **полностью
+ненаблюдавшийся A → B → A с возвратом идентичных байтов token** не отличим от
+неизменного storage этим сравнением. История событий не используется как proof
+авторизации. Между storage read/check и local write нет атомарного compare-and-swap:
+проверки защищают замеченные и существующие перед completion изменения, а не дают
+глобальный порядок действительно одновременных записей разных browser contexts.
+Общий server lifecycle/version/ревокация и такое расширение протокола здесь не
+реализованы. При недоступном storage автоматического recovery по-прежнему нет.
+
+До live classification остаются отдельные gates: принятие этих browser lifecycle
+границ, проверка deployed `/users/me` и backend ownership в изолированной разрешённой
+среде, будущий read-only data hook, продуктовые решения и browser acceptance RFC.
+Реальный API/production authorization, многопроцессный браузер и финансовые данные
+в этом PR **UNVERIFIED**. Синтетические тесты не объявляются production acceptance.
 
 ## Откат
 
@@ -154,3 +220,7 @@ classification к транзакциям и не доказывает полну
 Gate PR #18 можно откатить отдельно: убрать новый контекст/validator/exports и
 его интеграцию в UserProvider, сохранив целиком handoff/guard PR #17. Финансовые
 данные и миграции отката не требуют.
+
+Cross-tab слой PR #19 откатывается вместе: observer, его outer-provider registration,
+external adoption/условные local writes и дополнительные transport checks. Сохранить
+исходные PR #17/#18 как единое основание; не включать live classification при откате.
