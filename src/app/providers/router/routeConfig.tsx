@@ -1,4 +1,6 @@
 import { RouteObject } from 'react-router';
+import { lazy } from 'react';
+import { classificationPreviewEnabled, CLASSIFICATION_PREVIEW_PATH } from 'shared/config/classificationPreview';
 
 import { MainPage } from 'pages/MainPage';
 import { IncomePage } from 'pages/IncomePage';
@@ -9,6 +11,13 @@ import { NotFoundPage } from 'pages/NotFoundPage';
 import { Protected } from './ProtectedRoute';
 import { LoansPage } from 'pages/LoansPage';
 import { AnalyticsPage } from 'pages/AnalyticsPage';
+
+// The production literal is false, including builds in development mode. Keep
+// the dynamic import inside the guard so no demo chunk is shipped by build.
+const ClassificationPreviewPage = classificationPreviewEnabled
+  ? lazy(() => import('pages/ClassificationPreviewPage/ui/ClassificationPreviewPage')) : null;
+export const classificationPreviewRoutes: RouteObject[] = ClassificationPreviewPage
+  ? [{ path: CLASSIFICATION_PREVIEW_PATH, element: <ClassificationPreviewPage /> }] : [];
 
 export const enum AppRoutes {
   MAIN = 'main',

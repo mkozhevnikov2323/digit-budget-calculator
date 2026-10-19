@@ -1,4 +1,5 @@
 export default {
+  globals: { __CLASSIFICATION_PREVIEW__: true },
   testEnvironmentOptions: {
     customExportConditions: [''],
   },

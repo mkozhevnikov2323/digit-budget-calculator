@@ -13,6 +13,7 @@ import {
 import { Navigation } from 'widgets/Navigation';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { MobileMenu } from 'widgets/MobileMenu';
+import { classificationPreviewEnabled } from 'shared/config/classificationPreview';
 
 export const Navbar = () => {
   const theme = useTheme();
@@ -37,7 +38,7 @@ export const Navbar = () => {
             >
               Калькулятор бюджета
             </Typography>
-            {isAuth && <Navigation />}
+            {(isAuth || classificationPreviewEnabled) && <Navigation publicOnly={!isAuth} />}
           </Box>
 
           {isMobile ? (
