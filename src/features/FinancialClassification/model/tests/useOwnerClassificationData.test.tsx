@@ -318,6 +318,28 @@ describe('owner classification paired GETs with actual session, validators and a
     const state = await ready(hook); expect(JSON.stringify(state)).not.toContain('obsolete-old-a'); expect(financialCalls()).toHaveLength(6);
     for (const frame of hook.frames) if (frame.state.status === 'ready') expect(JSON.stringify(frame.state)).not.toContain('obsolete-old-a');
   });
+  it('a failed returned-month round keeps its error and retry when the retired counterpart settles', async () => {
+    const oldIncome = deferred(); let firstIncome = true; let febExpenses = 0;
+    mockFetch.mockImplementation((input, init) => {
+      const url = urlOf(input, init);
+      if (url.searchParams.get('startDate')?.startsWith('2024-02')) {
+        if (url.pathname === '/incomes' && firstIncome) { firstIncome = false; return oldIncome.promise; }
+        if (url.pathname === '/expenses' && ++febExpenses === 2) return Promise.resolve(response({}, 503));
+      }
+      return normalTransport(input, init);
+    });
+    const hook = setup(); await waitFor(() => expect(financialCalls()).toHaveLength(2));
+    const oldRequest = hook.store.dispatch(baseApi.util.getRunningQueriesThunk())
+      .find((request) => request.queryCacheKey.startsWith('getIncomes('))!;
+    hook.rerender(month(2024, 3)); await ready(hook); hook.rerender(month());
+    await waitFor(() => expect(hook.read().status).toBe('error'));
+    await act(async () => { oldIncome.resolve(response(incomeResponse([income('retired-before-error')]))); await oldRequest; });
+    hook.rerender();
+    expect(hook.read().status).toBe('error'); expect(financialCalls()).toHaveLength(5);
+    const state = hook.read(); if (state.status !== 'error') throw new Error('Expected retryable error');
+    act(() => { state.retry(); }); const accepted = await ready(hook);
+    expect(JSON.stringify(accepted)).not.toContain('retired-before-error'); expect(financialCalls()).toHaveLength(7);
+  });
   it.each(['expenses', 'incomes'] as const)('%s-only refetch requires one fresh counterpart and replaces identical-content revisions', async (dataset) => {
     const adapterSpy = jest.spyOn(adapter, 'buildClassificationSnapshots'); const hook = setup(); const before = await ready(hook);
     const counterpart = dataset === 'expenses' ? '/incomes' : '/expenses'; const pending = deferred(); let counterpartBody: unknown;

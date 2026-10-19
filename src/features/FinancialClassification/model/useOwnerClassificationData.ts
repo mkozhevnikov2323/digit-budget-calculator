@@ -121,8 +121,10 @@ export const useOwnerClassificationData = (period: CalendarPeriod | null): Owner
     const previousRound = active.current;
     let pair = read();
     const sameContext = previousRound !== null && previousRound.key === key && previousRound.entry === entry.marker;
-    const replaced = previousRound && datasets.some((dataset) => previousRound.targets[dataset] &&
-      previousRound.targets[dataset] !== pair[dataset].requestId);
+    const replaced = previousRound && datasets.some((dataset) => {
+      const expected = previousRound.targets[dataset] ?? previousRound.sources?.[dataset].requestId;
+      return expected && expected !== pair[dataset].requestId;
+    });
     const sources = previousRound?.sources;
     const edited = sources && datasets.some((dataset) => sources[dataset].status === 'fulfilled' &&
       sources[dataset].data !== pair[dataset].data);
@@ -146,6 +148,9 @@ export const useOwnerClassificationData = (period: CalendarPeriod | null): Owner
       publish({ key, entry: entry.marker, result: { status: round.phase } });
     }
     const currentRound = round;
+    // A failed pair cannot initiate its missing counterpart after that retired
+    // request settles. Only explicit retry or a new external request reopens it.
+    if (currentRound.finished) return;
     for (const dataset of datasets) {
       if (currentRound.targets[dataset]) continue;
       let query = pair[dataset];
@@ -160,7 +165,6 @@ export const useOwnerClassificationData = (period: CalendarPeriod | null): Owner
     }
     pair = read();
     if (!isCurrentSession(owner.owner.sessionGeneration)) return;
-    if (currentRound.finished) return;
     const failed = datasets.find((dataset) => currentRound.targets[dataset] === pair[dataset].requestId && pair[dataset].status === 'rejected');
     const finish = (result: OwnerClassificationData) => {
       currentRound.finished = true; currentRound.failed = result.status === 'error'; currentRound.sources = pair;
