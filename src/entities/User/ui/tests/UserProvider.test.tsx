@@ -106,6 +106,7 @@ describe('UserProvider startup navigation', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/expenses');
     expect(mockedUseGetMeQuery).toHaveBeenCalledWith(undefined, {
       skip: false,
+      refetchOnMountOrArgChange: true,
     });
 
     mockedUseGetMeQuery.mockReturnValue({
@@ -150,6 +151,7 @@ describe('UserProvider startup navigation', () => {
     });
     expect(mockedUseGetMeQuery).toHaveBeenCalledWith(undefined, {
       skip: true,
+      refetchOnMountOrArgChange: true,
     });
   });
 

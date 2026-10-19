@@ -1,7 +1,8 @@
 # Клиентская граница смены credentials
 
-PR #17 — техническая основа в одном JS-контексте приложения. Verified owner,
-classification data hook и подключение реальной классификации не реализованы.
+PR #17 — техническая основа в одном JS-контексте приложения. PR #18 добавляет
+verified-owner gate (см. ниже). Classification data hook и подключение реальной
+классификации не реализованы.
 Backend/JWT, формат `localStorage.token`, endpoint args/теги, денежные правила и
 существующие маршруты не меняются. Session generation не является авторизацией,
 идентификатором владельца, audit event или ревизией транзакции.
@@ -89,8 +90,8 @@ server rollback или доказательство её завершения. �
    invalidation/координации нескольких вкладок. Смена localStorage вне штатных
    login/logout путей не получает этот handoff. Это блокирующий follow-up перед
    подключением live classification; тесты одного JS-контекста не доказывают иного.
-2. `/users/me` ещё не даёт типизированный verified-owner gate. Наличие credential
-   и локальная generation не доказывают владельца, право доступа или server identity.
+2. PR #18 проверяет форму текущего `/users/me` для owner gate. Наличие credential
+   и локальная generation сами по себе не доказывают владельца или право доступа.
    Backend ownership/JWT остаются отдельными гарантиями и здесь не тестируются live.
 3. Работает существующее приложение с одним Redux store и UserProvider. Нельзя
    вызывать transition helpers вне этого handoff lifecycle и затем считать новый
@@ -100,6 +101,48 @@ server rollback или доказательство её завершения. �
    не должен запускать frontend или присылать личные записи для этого PR. Проверки
    автоматические, с фиктивными credentials и полностью mocked transport.
 
+## PR #18: read-only verified-owner gate
+
+Публичный интерфейс `entities/User`: `useVerifiedOwner`, `validateVerifiedOwner`,
+типы `VerifiedOwner`, `VerifiedOwnerState`, `VerifiedOwnerError`. Только состояние
+`verified` содержит `owner: { userId, sessionGeneration }`; `unauthenticated`,
+`verifying` и `verification_error` не содержат прежнего ID. Причины ошибок —
+фиксированные коды, без payload, credentials, email или серверного error body.
+Чистый validator проверяет форму, но сам не выполняет аутентификацию: потребители
+текущего владельца должны читать hook внутри существующего `UserProvider`.
+
+Проверка принимает только non-null object (не array) с собственным `_id`:
+непустой string без whitespace, без coercion/trim и без требования ObjectId pattern.
+Email не используется как ID и не получает новой политики валидации. Legacy
+`setUser(data)` остаётся прежним: отсутствие `_id` блокирует новую capability,
+но не отнимает email-профиль и не инициирует logout.
+
+Контекст вычисляется в `CurrentSessionUser`, keyed существующей generation PR #17.
+Нет второго счётчика, query endpoint/API slice или прямого fetch. Читается только
+успешный `currentData` существующего getMe, когда запрос не fetching/loading,
+не failed и generation актуальна. Любая revalidation немедленно скрывает ID;
+transient failure оставляет credentials и legacy UI. 401/403 обрабатываются
+прежним effect, `SESSION_CHANGED` не считается unauthorized.
+
+При монтировании включён `refetchOnMountOrArgChange`: уже выполняющийся GET
+разделяется через RTK; готовый cache не открывает gate до свежего ответа.
+Первоначальный fulfilled requestId запоминается только для исключения этого cache,
+не как server revision. Повторные renders не запускают GET. Первый проверенный ID
+привязывается к keyed lifecycle; другой ID в той же generation даёт sticky
+`identity_changed` до нового login. Проверка и блокировка происходят до commit,
+а не effect, очищающим уже показанного владельца. Контекст/привязка существуют
+только в React-памяти; новых storage writes, Redux actions с identity или логов нет.
+
+Целевые автоматические тесты используют реальные reducers, middleware, getMe и
+transport guard, mocked HTTP, deferred A/B completions и no-op abort. Проверяются
+invalid payloads, cold/cache startup, общий GET, rerender, refetch/failure/recovery,
+текущие и устаревшие 401/403, A/B/A, fresh same-owner login, logout и committed
+frames. Старые UserProvider/AuthForm/session/navigation tests также выполняются.
+Backend source ожидает документ со стандартным `_id`, но production payload
+`/users/me` и реальная серверная авторизация остаются **UNVERIFIED**.
+Cross-tab по-прежнему **блокирует live classification UI**. Этот gate не подключает
+classification к транзакциям и не доказывает полную multi-user security.
+
 ## Откат
 
 Откатывать boundary helper, wrapper, UserProvider и login/logout integration одним
@@ -107,3 +150,7 @@ server rollback или доказательство её завершения. �
 контракт. Это вернёт известное прежнее ограничение cache между credentials, поэтому
 не включать будущий owner review на таком откате. Миграции/очистка финансовых данных
 не нужны. Существующий RFC интеграции остаётся проектом, следующий PR не разрешён.
+
+Gate PR #18 можно откатить отдельно: убрать новый контекст/validator/exports и
+его интеграцию в UserProvider, сохранив целиком handoff/guard PR #17. Финансовые
+данные и миграции отката не требуют.
