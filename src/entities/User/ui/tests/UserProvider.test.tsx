@@ -23,6 +23,7 @@ jest.mock('../../api/userApi', () => ({
 jest.mock('shared/api/baseApi', () => ({
   baseApi: {
     util: {
+      getRunningQueriesThunk: () => () => [],
       resetApiState: () => ({ type: 'api/reset' }),
     },
   },

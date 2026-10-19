@@ -40,6 +40,7 @@ jobs:
         run: >-
           npm test -- --ci --runInBand --runTestsByPath
           src/shared/api/tests/financialMutationApis.test.ts
+          src/shared/api/tests/sessionBoundary.test.tsx
           src/features/AddExpense/ui/tests/AddExpenseForm.test.tsx
           src/features/AddIncome/ui/tests/AddIncomeForm.test.tsx
           src/features/EditExpense/ui/tests/EditExpenseForm.test.tsx

@@ -1,9 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
 import { useLoginMutation, useRegisterMutation } from '../../api/authApi';
 import { AuthForm } from '../AuthForm';
+import { UserProvider } from '../../../../entities/User/ui/UserProvider';
+import { logout } from '../../model/authThunks';
+
+jest.mock('shared/api/baseApi', () => ({ baseApi: { util: {
+  getRunningQueriesThunk: () => () => [], resetApiState: () => ({ type: 'api/reset' }),
+} } }));
+jest.mock('../../../../entities/User/api/userApi', () => ({ useGetMeQuery: () => ({}) }));
 
 jest.mock('../../api/authApi', () => ({
   useLoginMutation: jest.fn(),
@@ -42,7 +49,8 @@ describe('AuthForm navigation', () => {
     localStorage.clear();
     events.length = 0;
 
-    dispatch.mockImplementation((action: { type: string }) => {
+    dispatch.mockImplementation((action: { type: string } | ((send: typeof dispatch) => unknown)): unknown => {
+      if (typeof action === 'function') return action(dispatch);
       events.push(`dispatch:${action.type}`);
       return action;
     });
@@ -51,8 +59,8 @@ describe('AuthForm navigation', () => {
     });
     setItemSpy = jest
       .spyOn(Storage.prototype, 'setItem')
-      .mockImplementation((key: string, value: string) => {
-        events.push(`storage:${key}:${value}`);
+      .mockImplementation((key: string) => {
+        events.push(`storage:${key}`);
       });
 
     login.mockReturnValue({
@@ -91,7 +99,7 @@ describe('AuthForm navigation', () => {
   };
 
   it('navigates to expenses after successful login', async () => {
-    render(<AuthForm />);
+    render(<UserProvider><AuthForm /></UserProvider>);
     const user = await fillCredentials();
 
     await user.click(screen.getByRole('button', { name: 'Войти' }));
@@ -102,7 +110,9 @@ describe('AuthForm navigation', () => {
       password: 'password123',
     });
     expect(events).toEqual([
-      'storage:token:login-token',
+      'dispatch:LOGOUT',
+      'dispatch:api/reset',
+      'storage:token',
       'dispatch:authorization/setAuthenticated',
       'dispatch:authorization/closeAuthModal',
       'navigate:/expenses',
@@ -110,7 +120,7 @@ describe('AuthForm navigation', () => {
   });
 
   it('navigates to expenses after registration and automatic login', async () => {
-    render(<AuthForm />);
+    render(<UserProvider><AuthForm /></UserProvider>);
     const user = userEvent.setup();
     await user.click(
       screen.getByRole('button', { name: 'Нет аккаунта? Зарегистрироваться' }),
@@ -134,10 +144,40 @@ describe('AuthForm navigation', () => {
       login.mock.invocationCallOrder[0],
     );
     expect(events).toEqual([
-      'storage:token:login-token',
+      'dispatch:LOGOUT',
+      'dispatch:api/reset',
+      'storage:token',
       'dispatch:authorization/setAuthenticated',
       'dispatch:authorization/closeAuthModal',
       'navigate:/expenses',
     ]);
+  });
+
+  it('does not establish a session or navigate after failed login', async () => {
+    login.mockReturnValue({ unwrap: jest.fn().mockRejectedValue({ status: 401, data: { message: 'Synthetic failure' } }) });
+    render(<UserProvider><AuthForm /></UserProvider>);
+    const user = await fillCredentials();
+    await user.click(screen.getByRole('button', { name: 'Войти' }));
+    await screen.findByText('Synthetic failure');
+    expect(setItemSpy).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
+  });
+
+  it('does not auto-login after registration completes in an obsolete generation', async () => {
+    let finish!: (result: { token: string }) => void;
+    const pending = new Promise<{ token: string }>((resolve) => { finish = resolve; });
+    register.mockReturnValue({ unwrap: () => pending });
+    render(<UserProvider><AuthForm /></UserProvider>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Нет аккаунта? Зарегистрироваться' }));
+    await fillCredentials(true);
+    await user.click(screen.getByRole('button', { name: 'Зарегистрироваться' }));
+    await waitFor(() => expect(register).toHaveBeenCalledTimes(1));
+    act(() => { dispatch(logout()); });
+    await act(async () => { finish({ token: 'synthetic-signup-token' }); });
+    expect(login).not.toHaveBeenCalled();
+    expect(setItemSpy).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
