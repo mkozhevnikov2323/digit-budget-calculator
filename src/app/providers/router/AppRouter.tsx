@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
 import { Route, Routes } from 'react-router';
 
-import { routeConfig } from './routeConfig';
+import { routeConfig, classificationPreviewRoutes } from './routeConfig';
 
 const AppRouter = () => (
   <Routes>
-    {Object.values(routeConfig).map(({ element, path }) => (
+    {[...Object.values(routeConfig), ...classificationPreviewRoutes].map(({ element, path }) => (
       <Route
         key={path}
         element={

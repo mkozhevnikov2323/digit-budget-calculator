@@ -17,12 +17,14 @@ import { selectUser } from 'entities/User';
 import { useSelector } from 'react-redux';
 import { LogoutButton } from 'features/Authorization/ui/LogoutButton';
 import { AuthButton } from 'features/Authorization/ui/AuthButton';
+import { classificationPreviewEnabled, CLASSIFICATION_PREVIEW_PATH } from 'shared/config/classificationPreview';
 
 export const MobileMenu = () => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const user = useSelector(selectUser);
+  const visibleItems = navItems.filter((item) => user || (classificationPreviewEnabled && item.path === CLASSIFICATION_PREVIEW_PATH));
 
   const toggleDrawer = (value: boolean) => () => setOpen(value);
 
@@ -32,10 +34,10 @@ export const MobileMenu = () => {
       onClick={toggleDrawer(false)}
       onKeyDown={toggleDrawer(false)}
     >
-      {user && (
+      {visibleItems.length > 0 && (
         <>
           <List>
-            {navItems.map((item) => (
+            {visibleItems.map((item) => (
               <ListItem
                 role="button"
                 component={RouterLink}
@@ -62,6 +64,7 @@ export const MobileMenu = () => {
   return (
     <>
       <IconButton
+        aria-label="Открыть меню"
         color="inherit"
         edge="start"
         onClick={toggleDrawer(true)}

@@ -66,5 +66,7 @@ jobs:
           src/features/FinancialClassification/model/tests/useOwnerClassificationData.test.tsx
           src/features/FinancialClassification/model/tests/reviewSession.test.ts
           src/features/FinancialClassification/model/tests/useOwnerClassificationReview.test.tsx
+          src/pages/ClassificationPreviewPage/ui/tests/ClassificationPreviewPage.test.tsx
+          src/pages/ClassificationPreviewPage/ui/tests/ClassificationPreviewRoute.test.tsx
           src/features/FinancialClassification/ui/tests/ClassificationPreview.test.tsx
           src/features/FinancialClassification/ui/tests/ClassificationReviewPrototype.test.tsx
