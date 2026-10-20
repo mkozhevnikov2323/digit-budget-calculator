@@ -12,7 +12,7 @@ export const useSyncIncomesWithStore = () => {
   const filters = useSelector(selectIncomeFilters);
   const pagination = useSelector(selectIncomePagination);
 
-  const { data, isLoading, isFetching, refetch } = useGetIncomesQuery({
+  const { currentData, isLoading, isFetching, isError, refetch } = useGetIncomesQuery({
     year: filters.year,
     month: filters.month,
     page: pagination.page,
@@ -20,10 +20,16 @@ export const useSyncIncomesWithStore = () => {
   });
 
   useEffect(() => {
-    if (data) {
-      dispatch(setIncome(data));
+    if (currentData) {
+      dispatch(setIncome(currentData));
     }
-  }, [data, dispatch]);
+  }, [currentData, dispatch]);
 
-  return { isLoading: isLoading || isFetching, refetch };
+  return {
+    // A refetch with data for these arguments must not unmount active forms.
+    isLoading: isLoading || (isFetching && !currentData),
+    isError,
+    currentData,
+    refetch,
+  };
 };

@@ -17,7 +17,6 @@ import { YearSelector } from 'shared/ui/YearSelector';
 import { IncomeTableHeader } from './IncomeTableHeader';
 import { IncomeTableBody } from './IncomeTableBody';
 import {
-  selectAllIncomes,
   selectIncomeFilters,
   selectIncomePagination,
   setMonth,
@@ -30,10 +29,11 @@ export const IncomeTable = () => {
   const [editId, setEditId] = useState<string | number | undefined>(undefined);
   const dispatch = useDispatch();
 
-  const incomes = useSelector(selectAllIncomes) ?? [];
   const { total, page, limit } = useSelector(selectIncomePagination);
   const { year, month } = useSelector(selectIncomeFilters);
-  const { isLoading } = useSyncIncomesWithStore();
+  const { isLoading, currentData } = useSyncIncomesWithStore();
+  // Never label the previous query arguments' rows as the selected period.
+  const incomes = currentData?.incomes ?? [];
 
   if (isLoading) {
     return <Typography>Загрузка...</Typography>;

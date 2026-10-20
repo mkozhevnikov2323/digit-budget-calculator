@@ -9,6 +9,7 @@ export default {
   },
   testPathIgnorePatterns: ['/node_modules/', '/cypress/'],
   moduleNameMapper: {
+    '^(app|pages|widgets|features|entities|shared)/(.*)$': '<rootDir>/src/$1/$2',
     '.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
   modulePaths: ['<rootDir>/src/'],

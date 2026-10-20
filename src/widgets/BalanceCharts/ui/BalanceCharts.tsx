@@ -1,5 +1,4 @@
 import { Paper, Typography, CircularProgress, Alert } from '@mui/material';
-import { ChartsReferenceLine } from '@mui/x-charts';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { useGetBalanceQuery } from 'entities/Balance';
 
@@ -59,9 +58,7 @@ export const BarChartBalance = () => {
           },
         ]}
         height={400}
-      >
-        <ChartsReferenceLine y={0} />
-      </BarChart>
+      />
     </Paper>
   );
 };

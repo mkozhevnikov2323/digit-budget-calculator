@@ -47,6 +47,8 @@ jobs:
           src/features/AddIncome/ui/tests/AddIncomeForm.test.tsx
           src/features/EditExpense/ui/tests/EditExpenseForm.test.tsx
           src/features/EditIncome/ui/tests/EditIncomeForm.test.tsx
+          src/pages/IncomePage/ui/tests/IncomePage.test.tsx
+          src/pages/BalancePage/ui/tests/BalancePage.test.tsx
           src/shared/ui/Modal/tests/Modal.test.tsx
           src/widgets/Modals/AddExpenseModal/ui/tests/AddExpenseModal.test.tsx
           src/widgets/Modals/AddIncomeModal/ui/tests/AddIncomeModal.test.tsx
