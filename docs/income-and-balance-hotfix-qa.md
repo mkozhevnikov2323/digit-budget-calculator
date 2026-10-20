@@ -24,7 +24,9 @@ financial calculations and explicit close/uncertain-result behavior are unchange
 The income page tests use real RTK Query endpoint definitions, invalidation,
 Redux, table, modal and forms with an in-memory synthetic transport. All-time
 income charts are substituted to isolate this lifecycle. No HTTP requests,
-credentials, backend service or database are needed.
+credentials, backend service or database are needed. Jest explicitly maps the
+application alias prefixes to `src`, matching production paths and avoiding
+load-order collisions between real modules and existing virtual form mocks.
 
 ## Balance chart compatibility and verification limit
 
