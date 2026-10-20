@@ -61,6 +61,9 @@ jobs:
           src/pages/AnalyticsPage/ui/tests/AnalyticsPage.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsRoute.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsResults.test.tsx
+          src/features/RecurrenceAnalytics/model/tests/window.test.ts
+          src/features/RecurrenceAnalytics/model/tests/validation.test.ts
+          src/features/RecurrenceAnalytics/ui/tests/RecurrenceSection.test.tsx
           src/features/FinancialClassification/model/tests/classification.test.ts
           src/features/FinancialClassification/model/tests/snapshotAdapter.test.ts
           src/features/FinancialClassification/model/tests/useOwnerClassificationData.test.tsx
