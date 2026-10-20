@@ -5,6 +5,7 @@ import type { AnalyticsError, AnalyticsErrorCode } from 'features/FinancialAnaly
 import { currentSelection, selectedPeriod } from './selection';
 import { PeriodSelector } from './PeriodSelector';
 import { AnalyticsResults } from './AnalyticsResults';
+import { RecurrenceSection } from 'features/RecurrenceAnalytics/ui/RecurrenceSection';
 
 const errorMessages: Record<AnalyticsErrorCode, string> = {
   invalid_period: 'Некорректный период. Проверьте выбранные даты.',
@@ -57,6 +58,7 @@ const AnalyticsPage = () => {
             </Stack>
             : analytics.status === 'error' ? <Alert severity="error">{analyticsErrorMessage(analytics.error)} Итоги периода не рассчитаны.</Alert>
               : analytics.status === 'ready' ? <AnalyticsResults data={analytics.data} /> : null}
+        <RecurrenceSection />
       </Stack>
     </Container>
   );
