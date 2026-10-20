@@ -27,6 +27,14 @@ jest.mock('entities/Income', () => ({
   ...jest.requireActual('../../../../entities/Income/hooks/useSyncIncomeWithStore'),
 }), { virtual: true });
 jest.mock('entities/IncomeSource', () => jest.requireActual('../../../../entities/IncomeSource/api/sourceApi'), { virtual: true });
+// Register the same virtual aliases as the existing form/modal suites. Without
+// this, Jest's shared resolver can cache real alias IDs before their virtual mocks.
+// These re-exports still exercise the actual fields and modal in this suite.
+jest.mock('shared/ui/DateField', () => jest.requireActual('../../../../shared/ui/DateField/ui/DateField'), { virtual: true });
+jest.mock('shared/ui/AmountField', () => jest.requireActual('../../../../shared/ui/AmountField/ui/AmountField'), { virtual: true });
+jest.mock('features/AddIncomeSource', () => jest.requireActual('../../../../features/AddIncomeSource/ui/IncomeSourceField'), { virtual: true });
+jest.mock('features/AddIncome', () => jest.requireActual('../../../../features/AddIncome/ui/AddIncomeForm'), { virtual: true });
+jest.mock('shared/ui/Modal', () => jest.requireActual('../../../../shared/ui/Modal/ui/Modal'), { virtual: true });
 jest.mock('widgets/IncomeCharts', () => ({ IncomeCharts: () => <div>Income charts</div> }));
 
 const deferred = <T,>() => {
