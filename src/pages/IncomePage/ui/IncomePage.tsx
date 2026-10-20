@@ -1,4 +1,4 @@
-import { Box, Typography, Divider, Button } from '@mui/material';
+import { Box, Typography, Divider, Button, Alert } from '@mui/material';
 import { useSyncIncomesWithStore } from 'entities/Income';
 import { useDispatch, useSelector } from 'react-redux';
 import { IncomeCharts } from 'widgets/IncomeCharts';
@@ -12,7 +12,7 @@ import {
 
 const IncomePage = () => {
   const dispatch = useDispatch();
-  const { isLoading } = useSyncIncomesWithStore();
+  const { isLoading, isError, currentData } = useSyncIncomesWithStore();
 
   const isOpen = useSelector(selectIsOpenIncomeModal);
 
@@ -22,8 +22,6 @@ const IncomePage = () => {
   const handleCloseModal = () => {
     dispatch(close());
   };
-
-  if (isLoading) return <Typography variant="h5">Loading...</Typography>;
 
   return (
     <Box p={2}>
@@ -45,8 +43,15 @@ const IncomePage = () => {
         onClose={handleCloseModal}
       />
       <Divider sx={{ my: 4 }} />
-      <IncomeCharts />
-      <IncomeTable />
+      {isError && <Alert severity="error">Ошибка при загрузке доходов</Alert>}
+      {isLoading ? (
+        <Typography variant="h5">Loading...</Typography>
+      ) : currentData ? (
+        <>
+          <IncomeCharts />
+          <IncomeTable />
+        </>
+      ) : null}
     </Box>
   );
 };
