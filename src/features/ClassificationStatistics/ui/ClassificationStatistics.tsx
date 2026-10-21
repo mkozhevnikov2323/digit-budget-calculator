@@ -10,7 +10,7 @@ export const ClassificationStatistics = () => {
   const result = demo ? syntheticClassifiedHistory() : null;
   return <Stack spacing={1} component="section" aria-label="Историческая статистика классификации">
     <Typography component="h2" variant="h6">Историческая статистика по классификации</Typography>
-    <Alert severity="info">Реальные итоги по слоям недоступны: нужен согласованный полный источник, связывающий факты и решения. Отдельные classification GET не подтверждают соответствие суммам истории.</Alert>
+    <Alert severity="info" role="note">Реальные итоги по слоям недоступны: нужен согласованный полный источник, связывающий факты и решения. Отдельные classification GET не подтверждают соответствие суммам истории.</Alert>
     <Button onClick={() => setDemo(v => !v)}>{demo ? 'Закрыть вымышленный пример статистики' : 'Показать вымышленный пример статистики'}</Button>
     {result?.ok && <>
       <Alert severity="warning">ДЕМО · Только вымышленные операции 2025 года. Это не ваша финансовая история.</Alert>
