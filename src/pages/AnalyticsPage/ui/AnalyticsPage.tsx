@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Button, CircularProgress, Container, Stack, Typography } from '@mui/material';
 import { HistoricalClassification } from 'features/HistoricalClassification/ui/HistoricalClassification';
 import { ClassificationStatistics } from 'features/ClassificationStatistics/ui/ClassificationStatistics';
+import { ExpenseForecast } from 'features/ExpenseForecast/ui/ExpenseForecast';
 import { useFinancialAnalytics } from 'features/FinancialAnalytics/model/useFinancialAnalytics';
 import type { AnalyticsError, AnalyticsErrorCode } from 'features/FinancialAnalytics/model/types';
 import { currentSelection, selectedPeriod } from './selection';
@@ -65,6 +66,7 @@ const AnalyticsPage = () => {
         <Button onClick={() => setShowClassification(value => !value)}>Классификация исторических операций</Button>
         {showClassification && period.ok && <HistoricalClassification key={`${period.value.startInclusive}/${period.value.endExclusive}`} period={period.value} />}
         <ClassificationStatistics />
+        <ExpenseForecast />
       </Stack>
     </Container>
   );

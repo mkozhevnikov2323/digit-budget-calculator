@@ -63,6 +63,8 @@ jobs:
           src/features/HistoricalClassification/ui/tests/HistoricalClassification.test.tsx
           src/features/ClassificationStatistics/model/tests/statistics.test.ts
           src/features/ClassificationStatistics/ui/tests/ClassificationStatistics.test.tsx
+          src/features/ExpenseForecast/model/tests/forecast.test.ts
+          src/features/ExpenseForecast/ui/tests/ExpenseForecast.test.tsx
           src/features/FinancialAnalytics/model/tests/useFinancialAnalytics.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsPage.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsRoute.test.tsx
