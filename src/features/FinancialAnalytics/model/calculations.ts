@@ -21,6 +21,8 @@ export const buildAnalytics = (
 
   const groups = new Map<string, CategoryTotal>();
   const monthly = new Map(months.value.map((key) => [key, 0]));
+  const ledger = new Map(months.value.map(key => [key, { key, expenseKopecks: 0,
+    incomeKopecks: 0, expenseCount: 0, incomeCount: 0 }]));
   for (const expense of expenses.value.records) {
     const group = groups.get(expense.category) ?? { category: expense.category, kopecks: 0, count: 0, share: 0 };
     const groupSum = sumKopecks([group.kopecks, expense.kopecks]);
@@ -31,6 +33,17 @@ export const buildAnalytics = (
     if (!groupSum.ok || !monthSum.ok) return { ok: false, error: { code: 'overflow', dataset: 'expenses' } };
     groups.set(expense.category, { ...group, kopecks: groupSum.value, count: group.count + 1 });
     monthly.set(month, monthSum.value);
+    const entry = ledger.get(month)!;
+    entry.expenseKopecks = monthSum.value;
+    entry.expenseCount += 1;
+  }
+  for (const income of incomes.value.records) {
+    const entry = ledger.get(new Date(income.timestamp).toISOString().slice(0, 7));
+    if (!entry) return { ok: false, error: { code: 'outside_period', dataset: 'incomes' } };
+    const sum = sumKopecks([entry.incomeKopecks, income.kopecks]);
+    if (!sum.ok) return { ok: false, error: { code: 'overflow', dataset: 'incomes' } };
+    entry.incomeKopecks = sum.value;
+    entry.incomeCount += 1;
   }
   const issued = sumKopecks(expenses.value.records.filter((record) => record.isLoanIssuance).map((record) => record.kopecks));
   const returned = sumKopecks(incomes.value.records.filter((record) => record.source === 'Возврат займа').map((record) => record.kopecks));
@@ -53,6 +66,7 @@ export const buildAnalytics = (
       expenseCount: expenses.value.records.length,
       categories,
       dynamics: [...monthly].map(([key, kopecks]) => ({ key, kopecks })),
+      months: [...ledger.values()],
       loans: { issuedKopecks: issued.value, returnedKopecks: returned.value },
     },
   };

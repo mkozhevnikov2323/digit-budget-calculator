@@ -38,3 +38,20 @@ records. The two GETs are not an atomic snapshot during concurrent writes.
 Unpaginated periods can be large; server aggregation needs separate approval.
 Legacy half-up rounding, a second calendar engine, daily/chart logic and the UI
 are intentionally excluded. No product normalization or next-page PR is implied.
+# Annual history reliability (P0)
+
+The existing full-response validator remains authoritative: noPagination=true,
+page=1, total=record count, compatible limit, unique IDs, valid amounts and exact
+UTC period membership. Any failure suppresses all totals. Existing session-aware
+transport/UserProvider protects credential changes; currentData hides old-period
+responses. Backend GETs were inspected: owner-scoped queries, inclusive startDate /
+endDate and complete unpaginated envelopes. Explicit UTC ranges avoid the legacy
+server-local month/year fallback. No backend/API changes are made here.
+
+The report includes twelve monthly income/expense/count rows for a full year,
+with exact kopeck/category/month reconciliation. Loan subtotals remain included
+once in recorded cash flow, never classified automatically as living expenses.
+Calendar elapsed/current/future/partial-selection labels are explicit. An elapsed
+month is not evidence that every real-world transaction was entered; empty recorded
+months must not become zero-spending evidence for forecasting. Two dataset reads
+are observations, not a transactional snapshot. Reporting timezone remains UTC.
