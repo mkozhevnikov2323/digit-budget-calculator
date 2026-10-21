@@ -3,6 +3,7 @@ import { Alert, Button, CircularProgress, Container, Stack, Typography } from '@
 import { HistoricalClassification } from 'features/HistoricalClassification/ui/HistoricalClassification';
 import { ClassificationStatistics } from 'features/ClassificationStatistics/ui/ClassificationStatistics';
 import { ExpenseForecast } from 'features/ExpenseForecast/ui/ExpenseForecast';
+import { BudgetPlanning } from 'features/BudgetPlanning/ui/BudgetPlanning';
 import { useFinancialAnalytics } from 'features/FinancialAnalytics/model/useFinancialAnalytics';
 import type { AnalyticsError, AnalyticsErrorCode } from 'features/FinancialAnalytics/model/types';
 import { currentSelection, selectedPeriod } from './selection';
@@ -67,6 +68,7 @@ const AnalyticsPage = () => {
         {showClassification && period.ok && <HistoricalClassification key={`${period.value.startInclusive}/${period.value.endExclusive}`} period={period.value} />}
         <ClassificationStatistics />
         <ExpenseForecast />
+        <BudgetPlanning />
       </Stack>
     </Container>
   );
