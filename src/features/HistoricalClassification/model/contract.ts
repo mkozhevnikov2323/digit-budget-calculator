@@ -16,8 +16,8 @@ export type ClassificationRead = Readonly<{ version: 'classification-read-v1'; d
   decisionRevision: number | null; confirmed: StableAssignment | null; consistency: 'observed_only_non_atomic' }>;
 
 export const closedData = (value: unknown, fields: readonly string[]): Record<string, unknown> | null => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   try {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     if (![Object.prototype, null].includes(Object.getPrototypeOf(value))) return null;
     const out: Record<string, unknown> = Object.create(null);
     for (const key of Reflect.ownKeys(value)) {
