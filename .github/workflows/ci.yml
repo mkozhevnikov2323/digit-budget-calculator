@@ -58,6 +58,9 @@ jobs:
           src/features/FinancialAnalytics/model/tests/validation.test.ts
           src/features/FinancialAnalytics/model/tests/calculations.test.ts
           src/features/FinancialAnalytics/model/tests/annualHistory.test.ts
+          src/features/HistoricalClassification/model/tests/contract.test.ts
+          src/features/HistoricalClassification/model/tests/historyApi.test.ts
+          src/features/HistoricalClassification/ui/tests/HistoricalClassification.test.tsx
           src/features/FinancialAnalytics/model/tests/useFinancialAnalytics.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsPage.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsRoute.test.tsx
