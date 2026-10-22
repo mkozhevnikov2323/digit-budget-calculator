@@ -76,6 +76,7 @@ try {
             fetchCumulativeMilliseconds: fetchMilliseconds, sampledHeapPeakBytes: Math.max(sampledHeapPeakBytes, process.memoryUsage().heapUsed), cpuMicroseconds: process.cpuUsage(cpu), reactActualMilliseconds: 'UNMEASURED' };
         }
         const backendMetrics = await b.rpc('stats');
+        if (backendMetrics.mongo['operation_classifications/find']?.count !== Math.ceil(count / 100)) throw Error('PERFORMANCE_MONITOR_UNAVAILABLE');
         const expectedMembership = 2 * (Math.max(1, Math.ceil(b.reference.counts.expenses / 100)) + Math.max(1, Math.ceil(b.reference.counts.incomes / 100)));
         if (metrics.requests.membership !== expectedMembership || metrics.requests.classification !== Math.ceil(count / 100) || metrics.requests.peak > 4 || metrics.uniqueOperations !== count || metrics.financialInvariants !== true) throw Error('PERFORMANCE_DETERMINISTIC_BUDGET');
         profile.runs.push({ temperature: r ? 'warm' : 'first-after-seed', ...metrics, backend: backendMetrics });
