@@ -9,6 +9,7 @@ import { useGetCoherentHistoryQuery } from 'features/HistoricalClassification/ap
 import type { CoherentHistory } from 'features/HistoricalClassification/model/coherentHistory';
 import { recordedCategories, recordedStatistics } from '../model/recordedHistory';
 import { STATUSES } from '../model/statistics';
+import { RealExpenseForecast } from 'features/ExpenseForecast/ui/RealExpenseForecast';
 const money = (n: number) => { const f = formatKopecks(n); return f.ok ? f.value : 'Недоступно'; };
 const percent = (n: number | null) => n === null ? 'нет знаменателя' : `${(n * 100).toFixed(1)}%`;
 
@@ -59,7 +60,7 @@ export const RealClassificationStatistics = ({ period }: { period: CalendarPerio
     {open && (owner.status !== 'verified' ? <Alert severity="info" role="note">Нужна текущая проверка владельца.</Alert>
       : query.isError ? <Alert severity="warning" role="note">Полный когерентный источник недоступен или изменился. Проверьте доступность нового backend read gate; частичные итоги не показаны.</Alert>
         : !cohort ? <Typography role="status">Проверка всей записанной истории и состава периода…</Typography>
-          : <RecordedStatisticsReport key={query.requestId} cohort={cohort} />)}
+          : <Stack key={query.requestId}><RecordedStatisticsReport cohort={cohort} /><RealExpenseForecast cohort={cohort} /></Stack>)}
     {open && owner.status === 'verified' && <Button onClick={() => void query.refetch()}>Заново проверить состав и факты периода</Button>}
   </Stack>;
 };
