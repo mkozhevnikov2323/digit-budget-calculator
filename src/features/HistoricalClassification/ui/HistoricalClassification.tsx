@@ -8,6 +8,7 @@ import { FINANCIAL_LAYERS, type FinancialLayer } from 'features/FinancialClassif
 import { ROLE_DATASETS, type StableRole, type DecisionState } from '../model/contract';
 import type { HistoryOperation } from '../model/history';
 import { useGetOwnedHistoryQuery, useReadOperationClassificationQuery, type DecisionQuery } from '../api/historyApi';
+import { PersistentReview } from './PersistentReview';
 
 const labels = { unreviewed: 'Не рассмотрена', approved: 'Есть подтверждённое решение', explicit_unclassified: 'Явно без классификации',
   cleared: 'Решение сброшено', stale: 'Решение устарело', blocked: 'Решение заблокировано' };
@@ -42,7 +43,11 @@ const OperationReview = ({ operation, scope }: { operation: HistoryOperation; sc
     <FormControlLabel control={<Checkbox checked={checked} onChange={e => { setChecked(e.target.checked); setConfirmed(false); }} />} label="Я проверил(а) факты и временный выбор" />
     <Button disabled={!checked} onClick={() => setConfirmed(true)}>Подтвердить временный выбор</Button>
     {confirmed && <Alert severity="info">Временный выбор: {state}{state === 'approved' ? ` / ${role} / ${role === 'ordinary_expense' ? layer : 'без слоя'}` : ''}. Только в памяти, на сервер не отправлен.</Alert>}
-    <Button disabled>Сохранить на сервере — недоступно до согласования H1–H10</Button>
+    {query.currentData && !query.isFetching && !query.isError
+      ? <PersistentReview key={JSON.stringify([state, role, layer, query.requestId])} operation={operation} scope={scope} decision={query.currentData}
+        state={state} assignment={state === 'approved' ? { economicRole: role, layer: role === 'ordinary_expense' ? layer : null } : undefined}
+        onSaved={() => void query.refetch()} />
+      : <Button disabled>Сохранить на сервере — состояние недоступно</Button>}
   </Stack>;
 };
 
@@ -67,7 +72,7 @@ export const HistoricalClassification = ({ period }: { period: CalendarPeriod })
 const HistorySelection = ({ operations, scope }: { operations: readonly HistoryOperation[]; scope: Omit<DecisionQuery, 'dataset' | 'operationId'> }) => {
   const [page, setPage] = useState(0), [selection, setSelection] = useState<HistoryOperation | null>(null);
   return <Stack spacing={1}>
-    <Alert severity="info">Стабильная схема financial-classification-v1. Решения только в памяти. Смена периода, обновление истории, сессии или уход удаляют временный выбор. Категория не определяет роль.</Alert>
+    <Alert severity="info">Стабильная схема financial-classification-v1. Серверное сохранение требует отдельной подготовки и проверки фактов. Смена периода, обновление истории, сессии или уход удаляют временный выбор и proof. Категория не определяет роль.</Alert>
     <Typography>Операций: {operations.length}. Состояние запрашивается только для выбранной операции.</Typography>
     {!operations.length && <Typography>В записанной истории операций нет.</Typography>}
     {operations.slice(page * 25, page * 25 + 25).map(op => {

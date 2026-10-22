@@ -5,6 +5,7 @@ import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
 import { useGetOwnedHistoryQuery, useReadOperationClassificationQuery } from '../../api/historyApi';
 
 jest.mock('entities/User/model/useVerifiedOwner');
+jest.mock('shared/api/baseApi', () => ({ baseApi: {}, apiBaseUrl: 'https://fictional.invalid' }));
 jest.mock('../../api/historyApi', () => ({ useGetOwnedHistoryQuery: jest.fn(), useReadOperationClassificationQuery: jest.fn() }));
 const history = jest.mocked(useGetOwnedHistoryQuery), decision = jest.mocked(useReadOperationClassificationQuery);
 const owner = jest.mocked(useVerifiedOwner), id = '1'.repeat(24);

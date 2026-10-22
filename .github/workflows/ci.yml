@@ -2,7 +2,7 @@ name: Pull request CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'feat/coherent-classification-history-client', 'feat/persistent-historical-classification', 'feat/real-classification-statistics', 'feat/real-expense-forecasting']
 
 permissions:
   contents: read
@@ -61,6 +61,8 @@ jobs:
           src/features/HistoricalClassification/model/tests/contract.test.ts
           src/features/HistoricalClassification/model/tests/historyApi.test.ts
           src/features/HistoricalClassification/model/tests/coherentHistory.test.ts
+          src/features/HistoricalClassification/model/tests/manualClient.test.ts
+          src/features/HistoricalClassification/ui/tests/PersistentReview.test.tsx
           src/features/HistoricalClassification/ui/tests/HistoricalClassification.test.tsx
           src/features/ClassificationStatistics/model/tests/statistics.test.ts
           src/features/ClassificationStatistics/ui/tests/ClassificationStatistics.test.tsx
