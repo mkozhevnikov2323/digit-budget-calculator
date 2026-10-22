@@ -18,7 +18,7 @@ harness.p12Run = async config => {
       calls++; if (request.method === 'GET') membership++; else classification++;
       active++; peak = Math.max(peak, active); const start = performance.now();
       try {
-        const response = await fetch(config.baseUrl + request.url, { method: request.method, cache: 'no-store',
+        const response = await fetch(config.baseUrl + request.url, { method: request.method, cache: 'no-store', signal: AbortSignal.timeout(10000),
           headers: { Authorization: `Bearer ${config.bearer}`, ...(request.body ? { 'Content-Type': 'application/json' } : {}) },
           ...(request.body ? { body: JSON.stringify(request.body) } : {}) });
         if (!response.ok) throw Error('PERFORMANCE_HTTP_UNAVAILABLE');

@@ -11,7 +11,8 @@
     "test": "jest",
     "test:e2e": "playwright test",
     "bench:p12": "node benchmarks/p12/run.mjs",
-    "bench:p12:browser": "node benchmarks/p12/run.mjs --browser"
+    "bench:p12:browser": "node benchmarks/p12/run.mjs --browser",
+    "test:e2e:p12": "playwright test --config playwright.p12.config.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

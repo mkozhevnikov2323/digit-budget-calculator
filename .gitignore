@@ -35,3 +35,6 @@ coverage
 
 # Disposable performance measurements
 benchmark-results/
+
+p12-e2e-results/
+test-results-p12/

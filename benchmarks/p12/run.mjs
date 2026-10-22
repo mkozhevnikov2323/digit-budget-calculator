@@ -58,7 +58,7 @@ try {
         await page.goto('http://localhost:5173/benchmarks/p12/index.html'); await page.waitForFunction(() => typeof window.p12Run === 'function'); }
       for (let r = 0; r < repetitions; r++) {
         stage = 'reset'; await b.rpc('reset'); stage = 'pipeline'; let metrics;
-        if (browserMode) metrics = await page.evaluate(config => window.p12Run(config), { baseUrl: b.baseUrl, bearer: b.bearer, owner: b.owner, reference: b.reference });
+        if (browserMode) metrics = await bounded(page.evaluate(config => window.p12Run(config), { baseUrl: b.baseUrl, bearer: b.bearer, owner: b.owner, reference: b.reference }), 300000);
         else {
           let calls = 0, membership = 0, classification = 0, active = 0, peak = 0, bytes = 0, parseMilliseconds = 0, fetchMilliseconds = 0;
           let sampledHeapPeakBytes = process.memoryUsage().heapUsed; const cpu = process.cpuUsage();

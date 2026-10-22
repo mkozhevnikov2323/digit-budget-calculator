@@ -61,11 +61,13 @@ jobs:
           src/features/HistoricalClassification/model/tests/contract.test.ts
           src/features/HistoricalClassification/model/tests/historyApi.test.ts
           src/features/HistoricalClassification/model/tests/coherentHistory.test.ts
+          src/features/HistoricalClassification/model/tests/performanceIntegrity.test.ts
           src/features/HistoricalClassification/model/tests/manualClient.test.ts
           src/features/HistoricalClassification/ui/tests/PersistentReview.test.tsx
           src/features/HistoricalClassification/ui/tests/HistoricalClassification.test.tsx
           src/features/ClassificationStatistics/model/tests/statistics.test.ts
           src/features/ClassificationStatistics/model/tests/recordedHistory.test.ts
+          src/features/ClassificationStatistics/model/tests/performanceFinancial.test.ts
           src/features/ClassificationStatistics/ui/tests/RealClassificationStatistics.test.tsx
           src/features/ClassificationStatistics/ui/tests/ClassificationStatistics.test.tsx
           src/features/ExpenseForecast/model/tests/forecast.test.ts
@@ -182,6 +184,33 @@ jobs:
             if (!s.complete || s.expected !== 14 || s.executed !== 14 || s.passed !== 14 || s.tests.some(t => !t.pass || !t.cleanupVerified || t.status !== "passed")) throw Error("Incomplete required browser run");
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, fs.readFileSync("e2e-results/summary.md", "utf8"));
           '
+
+      - name: Real browser mutation and late-response integrity scenarios
+        env:
+          BUDGET_E2E_BACKEND: ${{ github.workspace }}/backend
+          BUDGET_BROWSER_LOCAL_PROVIDER: '1'
+          MONGODB_INTEGRATION_TEST: '1'
+          MONGODB_TEST_BASE_URI: mongodb://127.0.0.1:27017
+          TZ: UTC
+        run: npm run test:e2e:p12
+
+      - name: Deterministic history request and query budgets (S/M)
+        env:
+          MONGODB_INTEGRATION_TEST: '1'
+          MONGODB_TEST_BASE_URI: mongodb://127.0.0.1:27017
+          TZ: UTC
+        run: npm run bench:p12 -- --backend ../backend --sizes 100,1000 --repetitions 1
+
+      - name: Upload sanitized P12 integrity and smoke metrics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: p12-smoke-results
+          path: |
+            frontend/p12-e2e-results/
+            frontend/benchmark-results/
+          if-no-files-found: error
+          retention-days: 5
 
       - name: Upload sanitized JUnit and browser summary
         if: ${{ !cancelled() }}

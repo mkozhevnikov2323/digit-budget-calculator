@@ -1,0 +1,92 @@
+name: Opt-in synthetic history scale benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Bounded fictional operation profile
+        required: true
+        type: choice
+        default: L
+        options: [L, XL]
+
+permissions:
+  contents: read
+
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mongodb:
+        image: mongo:7.0.45@sha256:c53852c00c23ca9f23fc39690350ffa9a80e3642fe8f96879726d8da0abe80a7
+        ports: ['127.0.0.1:27017:27017']
+        options: >-
+          --tmpfs /data/db:rw,noexec,nosuid,size=1g
+          --tmpfs /data/configdb:rw,noexec,nosuid,size=64m
+          --memory 2g --cpus 2 --log-driver none
+          --health-cmd "mongosh --quiet --norc --eval 'quit(db.runCommand({ ping: 1 }).ok === 1 ? 0 : 1)'"
+          --health-interval 5s --health-timeout 5s --health-retries 12 --health-start-period 10s
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: frontend
+          persist-credentials: false
+      - name: Validate immutable backend manifest
+        id: backend
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const m = JSON.parse(fs.readFileSync("e2e/backend-revision.json", "utf8"));
+            if (m.repository !== "mkozhevnikov2323/digit-budget-calculator-api" || !/^[a-f0-9]{40}$/.test(m.commit)) throw Error("Invalid backend pin");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `sha=${m.commit}\n`);
+          '
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: mkozhevnikov2323/digit-budget-calculator-api
+          ref: ${{ steps.backend.outputs.sha }}
+          path: backend
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+      - name: Install locked frontend
+        run: npm ci
+      - name: Install and compile pinned backend without bootstrap
+        working-directory: backend
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ steps.backend.outputs.sha }}"
+          npm ci
+          npm run typecheck
+          npm run build
+      - name: Install pinned Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run bounded Node and real-browser measurements
+        env:
+          PROFILE: ${{ inputs.profile }}
+          MONGODB_INTEGRATION_TEST: '1'
+          MONGODB_TEST_BASE_URI: mongodb://127.0.0.1:27017
+          TZ: UTC
+        run: |
+          case "$PROFILE" in
+            L) set -- --sizes 10000 --repetitions 3 ;;
+            XL) set -- --sizes 50000 --repetitions 1 --xl ;;
+            *) exit 1 ;;
+          esac
+          npm run bench:p12 -- --backend ../backend "$@" --query-indexes --output benchmark-results/node.json
+          npm run bench:p12:browser -- --backend ../backend "$@" --output benchmark-results/browser.json
+      - name: Upload aggregate synthetic metrics only
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: p12-scale-metrics
+          path: frontend/benchmark-results/
+          if-no-files-found: error
+          retention-days: 5
