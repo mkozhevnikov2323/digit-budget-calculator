@@ -8,7 +8,7 @@ export default {
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
   },
-  testPathIgnorePatterns: ['/node_modules/', '/cypress/'],
+  testPathIgnorePatterns: ['/node_modules/', '/cypress/', '/e2e/'],
   moduleNameMapper: {
     '^(app|pages|widgets|features|entities|shared)/(.*)$': '<rootDir>/src/$1/$2',
     '.(css|less|scss|sass)$': 'identity-obj-proxy',
