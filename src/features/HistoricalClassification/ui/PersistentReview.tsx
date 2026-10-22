@@ -41,12 +41,14 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
     active.current = true; setBusy(true); setMessage('');
     try {
       if (action === 'prepare') {
+        setPrepared(null); setChecked(false);
         const request: ReviewRequest = { version: 'classification-review-request-v1', browserReviewContext: context,
           requestId: crypto.randomUUID(), expectedRevision: decision.decisionRevision, state, ...(assignment ? { assignment } : {}) };
         const result = await client().prepare(operation.dataset, operation.operationId, request);
         if (!live.current) return;
         if (result.ok) { setPrepared(result.value); setChecked(false); }
-        else setMessage(result.code === 'conflict' ? 'Ревизия изменилась. Обновите историю и повторите ручную проверку.' : 'Подготовка проверки недоступна. Введённый выбор сохранён в памяти.');
+        else setMessage(result.code === 'session_changed' ? 'Сессия изменилась или истекла. Текущая серверная проверка закрыта.'
+          : result.code === 'conflict' ? 'Ревизия изменилась. Обновите историю и повторите ручную проверку.' : 'Подготовка проверки недоступна. Введённый выбор сохранён в памяти.');
       } else if (prepared) {
         if (action === 'apply' && (!checked || uncertain || Date.now() >= prepared.expiresAt * 1000)) {
           setMessage('Нужно заново подготовить и проверить факты.'); return;
@@ -56,8 +58,10 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
         if (result.ok && result.value === 'applied') success();
         else if (result.ok) { setUncertain(true); setMessage('Результат остаётся неопределённым. Новая запись автоматически не отправляется.'); }
         else if (result.code === 'unknown_outcome') { setUncertain(true); setMessage('Ответ о сохранении не получен. Запись могла сохраниться. Доступна только проверка результата.'); }
-        else { if (action === 'apply') setPrepared(null);
-          setMessage(result.code === 'conflict' ? 'Конфликт решения или изменённые факты. Обновите историю; выбор сохранён.'
+        else { if (action === 'apply' || result.code === 'session_changed') setPrepared(null);
+          if (result.code === 'session_changed') { setChecked(false); setUncertain(true); }
+          setMessage(result.code === 'session_changed' ? 'Сессия изменилась или истекла. Текущая проверка закрыта; исход прежнего сохранения может быть неопределённым.'
+            : result.code === 'conflict' ? 'Конфликт решения или изменённые факты. Обновите историю; выбор сохранён.'
             : result.code === 'expired' ? 'Срок проверки истёк. Истёкший proof не используется для новой записи.'
               : 'Действие недоступно. Успешное сохранение не подтверждено; выбор сохранён.'); }
       }

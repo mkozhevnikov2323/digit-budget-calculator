@@ -73,6 +73,9 @@ jobs:
           src/features/ExpenseForecast/ui/tests/RealExpenseForecast.test.tsx
           src/features/ExpenseForecast/ui/tests/ExpenseForecast.test.tsx
           src/features/BudgetPlanning/model/tests/plan.test.ts
+          src/features/BudgetPlanning/model/tests/recordedPlan.test.ts
+          src/features/BudgetPlanning/ui/tests/RecordedBudgetPlanning.test.tsx
+          src/features/BudgetPlanning/ui/tests/RecordedPlanActual.test.tsx
           src/features/BudgetPlanning/ui/tests/BudgetPlanning.test.tsx
           src/features/FinancialAnalytics/model/tests/useFinancialAnalytics.test.tsx
           src/pages/AnalyticsPage/ui/tests/AnalyticsPage.test.tsx

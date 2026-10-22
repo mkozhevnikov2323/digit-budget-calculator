@@ -25,7 +25,7 @@ export const createManualClient = (options: { baseUrl: string; generation: numbe
       });
       if (!current() || credential() !== token) return { ok: false, code: 'session_changed' };
       // Never preserve Request/Response, raw driver text or sensitive server errors.
-      if (!res.ok) return { ok: false, code: res.status === 409 ? 'conflict' : res.status === 410 ? 'expired'
+      if (!res.ok) return { ok: false, code: res.status === 401 ? 'session_changed' : res.status === 409 ? 'conflict' : res.status === 410 ? 'expired'
         : mutation && res.status >= 500 ? 'unknown_outcome' : 'unavailable' };
       const data: unknown = await res.json();
       return current() && credential() === token ? { ok: true, value: data } : { ok: false, code: 'session_changed' };

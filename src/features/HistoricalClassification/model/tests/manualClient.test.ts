@@ -68,3 +68,7 @@ it('suppresses old-session responses and prevents subsequent requests', async ()
   const r = await t.client.prepare(dataset, id, request); expect(r.ok).toBe(false); if (!r.ok) expect(r.code).toBe('session_changed');
   await t.client.prepare(dataset, id, request); expect(t.transport).toHaveBeenCalledTimes(1);
 });
+it('treats a server 401 as a retired manual-review lifecycle, including legacy auth error bodies', async () => {
+  const t = setup(); t.transport.mockResolvedValueOnce(response({ message: 'Synthetic authorization required' }, 401));
+  const r = await t.client.prepare(dataset, id, request); expect(r.ok).toBe(false); if (!r.ok) expect(r.code).toBe('session_changed');
+});

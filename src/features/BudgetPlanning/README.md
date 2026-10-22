@@ -1,4 +1,8 @@
-# P4: local annual planning workspace
+# P4/P9: local annual planning workspace
+
+Normal analytics now uses the P9 real-history recommendation/actual adapter.
+See [RECORDED_HISTORY.md](RECORDED_HISTORY.md) for manual-layer protection,
+recording evidence, draft retention across refresh and operational boundaries.
 
 The workspace on analytics is opt-in, in memory only, within the currently verified
 owner/session subtree. Close/reload/unmount/logout/verification loss deletes it.
@@ -28,9 +32,9 @@ Remaining scheduled allocation = annual targets minus elapsed scheduled targets;
 remaining against annual target = annual targets minus elapsed actual (can be
 negative). Neither calculation changes the plan or subtracts reserves twice.
 
-Real comparisons remain unavailable pending a coherent authoritative read/coverage
-adapter. A separately labelled fictional Jan–Feb 2027 comparison at March 15 is
-available for exercising the local calculation, never labelled real financial data.
+Real comparisons use the P5/P7 coherent adapter plus explicit ephemeral recording
+evidence. The standalone no-props component retains its isolated fictional test
+example; normal analytics realMode does not expose or mix it with real reports.
 
 JSON export is a deliberate click followed by user copying the generated text.
 Import requires an explicit replacement action, accepts at most 65,536 characters,
@@ -42,5 +46,6 @@ or financial value is logged. Exported files contain financial targets, not anon
 data; they are never transmitted automatically.
 
 Durable server storage is not implemented or approved. See the separate proposed
-[persistence RFC](../../../docs/budget-plan-persistence-rfc.md). H1–H10 classification
-decisions remain pending, independently of future budget-plan persistence approval.
+[persistence RFC](../../../docs/budget-plan-persistence-rfc.md). H1–H10/R1–R4
+classification implementation was approved separately; production operational
+readiness remains gated. BP1–BP6 are still pending.

@@ -68,3 +68,10 @@ it('suppresses late responses after component unmount', async () => {
   const view = show(); fireEvent.click(screen.getByRole('button', { name: 'Подготовить серверную проверку' })); view.unmount(); resolve({});
   await Promise.resolve(); expect(mockApply).not.toHaveBeenCalled(); expect(onSaved).not.toHaveBeenCalled();
 });
+it('purges proof state and blocks new writes when the server retires authentication', async () => {
+  mockApply.mockResolvedValue({ ok: false, code: 'session_changed' }); show(); await prepare(); fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить классификацию на сервере' }));
+  await screen.findByText(/Текущая проверка закрыта; исход прежнего сохранения/);
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Подготовить серверную проверку' })).toBeDisabled();
+  expect(onSaved).not.toHaveBeenCalled(); expect(mockApply).toHaveBeenCalledTimes(1);
+});

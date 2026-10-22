@@ -59,7 +59,9 @@ const PreviousYearComparison = ({ current, currentInput, adjustmentBasisPoints, 
   const args = open && previous.ok && userId === current.history.owner && generation ? { userId, sessionGeneration: generation,
     period: previous.value, requestScope: `${instance}/previous/${year}` } : skipToken;
   const query = useGetCoherentHistoryQuery(args, { refetchOnMountOrArgChange: true });
-  const cohort = !query.isFetching && !query.isError && args !== skipToken ? query.currentData : undefined;
+  const candidate = query.currentData;
+  const cohort = !query.isFetching && !query.isError && args !== skipToken && candidate && candidate.history.owner === userId
+    && candidate.history.period.startInclusive === args.period.startInclusive && candidate.history.period.endExclusive === args.period.endExclusive ? candidate : undefined;
   return <Stack spacing={1}>
     <Button disabled={!previous.ok || !current.history.period.firstDate.endsWith('-01-01') || !current.history.period.lastDate.endsWith('-12-31')}
       onClick={() => setOpen(v => !v)}>Сравнить с предыдущим полным годом</Button>

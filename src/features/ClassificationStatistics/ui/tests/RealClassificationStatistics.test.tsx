@@ -29,3 +29,18 @@ it('explicitly refetches the whole membership protocol after user request', () =
   const r = result(); query.mockReturnValue(r); render(<RealClassificationStatistics period={cohort.history.period} />); open();
   fireEvent.click(screen.getByRole('button', { name: 'Заново проверить состав и факты периода' })); expect(r.refetch).toHaveBeenCalledTimes(1);
 });
+it('never publishes a cached cohort belonging to another selected period or owner', () => {
+  const view = render(<RealClassificationStatistics period={recordedCohort(2024).history.period} />); open();
+  expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  owner.mockReturnValue({ status: 'verified', owner: { userId: 'b'.repeat(24), sessionGeneration: 2 } });
+  view.rerender(<RealClassificationStatistics period={cohort.history.period} />); expect(screen.queryByRole('table')).not.toBeInTheDocument();
+});
+it('preserves the local plan even while the selected history period is temporarily invalid', async () => {
+  const view = render(<RealClassificationStatistics period={cohort.history.period} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Открыть локальный план' }));
+  await screen.findByText(/У этого года ещё нет завершённых месяцев/);
+  fireEvent.change(screen.getByLabelText('everyday месяц 1'), { target: { value: '123.45' } });
+  view.rerender(<RealClassificationStatistics period={null} />);
+  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('123.45');
+  expect(screen.queryByRole('table', { name: 'Реальные финансовые слои' })).not.toBeInTheDocument();
+});
