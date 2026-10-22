@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Alert, CircularProgress, Container, Stack, Typography } from '@mui/material';
+import { Alert, Button, CircularProgress, Container, Stack, Typography } from '@mui/material';
+import { HistoricalClassification } from 'features/HistoricalClassification/ui/HistoricalClassification';
 import { useFinancialAnalytics } from 'features/FinancialAnalytics/model/useFinancialAnalytics';
 import type { AnalyticsError, AnalyticsErrorCode } from 'features/FinancialAnalytics/model/types';
 import { currentSelection, selectedPeriod } from './selection';
@@ -32,6 +33,7 @@ const analyticsErrorMessage = (error: AnalyticsError): string =>
 
 const AnalyticsPage = () => {
   const [selection, setSelection] = useState(currentSelection);
+  const [showClassification, setShowClassification] = useState(false);
   const period = useMemo(() => selectedPeriod(selection), [selection]);
   const analytics = useFinancialAnalytics(period.ok ? period.value : null);
   const periodError = period.ok ? '' : period.error === 'invalid_range'
@@ -59,6 +61,8 @@ const AnalyticsPage = () => {
             : analytics.status === 'error' ? <Alert severity="error">{analyticsErrorMessage(analytics.error)} Итоги периода не рассчитаны.</Alert>
               : analytics.status === 'ready' ? <AnalyticsResults data={analytics.data} /> : null}
         <RecurrenceSection />
+        <Button onClick={() => setShowClassification(value => !value)}>Классификация исторических операций</Button>
+        {showClassification && period.ok && <HistoricalClassification key={`${period.value.startInclusive}/${period.value.endExclusive}`} period={period.value} />}
       </Stack>
     </Container>
   );
