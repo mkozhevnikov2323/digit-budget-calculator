@@ -46,4 +46,16 @@ describe('AnalyticsResults with real MUI charts', () => {
     expect(card.getByText('Некорректная сумма')).toBeInTheDocument();
     expect(card.queryByText('0,00 ₽')).not.toBeInTheDocument();
   });
+
+  it('marks current/future annual months instead of presenting twelve completed months', () => {
+    const result = buildAnalytics(expenseResponse(), incomeResponse(), selectedPeriod('2026-01-01', '2026-12-31'));
+    if (!result.ok) throw new Error('Invalid synthetic analytics');
+    render(<AnalyticsResults data={result.value} observedAt={Date.parse('2026-10-21T00:00:00Z')} />);
+    const table = within(screen.getByRole('table', { name: 'Помесячный денежный поток' }));
+    expect(table.getAllByRole('row')).toHaveLength(13);
+    expect(table.getAllByText('Период завершён')).toHaveLength(9);
+    expect(table.getByText('Месяц не завершён')).toBeInTheDocument();
+    expect(table.getAllByText('Будущий месяц')).toHaveLength(2);
+    expect(screen.getByText(/Ноль записей не доказывает/)).toBeInTheDocument();
+  });
 });

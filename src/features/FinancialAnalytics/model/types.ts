@@ -48,6 +48,8 @@ export type FinancialAnalytics = {
   readonly expenseCount: number;
   readonly categories: readonly CategoryTotal[];
   readonly dynamics: readonly { readonly key: string; readonly kopecks: number }[];
+  readonly months: readonly { readonly key: string; readonly expenseKopecks: number;
+    readonly incomeKopecks: number; readonly expenseCount: number; readonly incomeCount: number }[];
   /** Exact label matches only; already included in the primary recorded totals. */
   readonly loans: { readonly issuedKopecks: number; readonly returnedKopecks: number };
 };
