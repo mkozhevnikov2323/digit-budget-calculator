@@ -49,6 +49,7 @@ for (const seed of [1, 7, 19, 42, 73, 101, 509, 1021, 2025, 65537, 104729, 21474
     for (const m of stats.months) expect(BigInt(m[dataset].recorded.kopecks)).toBe(byMonth.get(`${m.key}/${dataset}`) ?? 0n);
     for (const [key, bucket] of Object.entries(stats[dataset].statuses)) expect(BigInt(bucket.kopecks)).toBe(statuses.get(`${dataset}/${key}`) ?? 0n);
     for (const [key, bucket] of Object.entries(stats[dataset].roles)) expect(BigInt(bucket.kopecks)).toBe(roles.get(`${dataset}/${key}`) ?? 0n);
+    expect(Object.keys(stats[dataset].roles).length).toBe([...roles.keys()].filter(key => key.startsWith(`${dataset}/`)).length);
     expect(Object.values(stats[dataset].statuses).reduce((n, b) => n + BigInt(b.kopecks), 0n)).toBe(totals[dataset]);
     expect(stats[dataset].coverage.byCount).toBeLessThan(1);
   }

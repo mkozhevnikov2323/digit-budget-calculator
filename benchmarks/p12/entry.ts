@@ -22,6 +22,7 @@ export const verifyFinancials = (cohort: CoherentHistory, stats: ClassifiedHisto
       check(m[dataset].recorded.kopecks === r.minor && m[dataset].recorded.count === r.count); }
     for (const [status, b] of Object.entries(d.statuses)) { const r = reference.statuses[`${dataset}/${status}`] ?? { minor: 0, count: 0 }; check(b.kopecks === r.minor && b.count === r.count); }
     for (const [role, b] of Object.entries(d.roles)) { const r = reference.roles[`${dataset}/${role}`]; check(!!r && b.kopecks === r.minor && b.count === r.count); }
+    check(Object.keys(d.roles).length === Object.keys(reference.roles).filter(key => key.startsWith(`${dataset}/`)).length);
   }
   for (const c of categories) { const r = reference.categories[c.category]; check(!!r && c.kopecks === r.minor && c.count === r.count); }
   check(categories.reduce((n, c) => n + c.kopecks, 0) === reference.totals.expenses);
