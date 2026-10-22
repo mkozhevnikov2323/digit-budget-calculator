@@ -53,6 +53,15 @@ async function startBackend(defaultOff) {
   }
 }
 export const test = base.extend({
+  context: async ({ context, stack }, use) => {
+    // Fail closed if frontend configuration ever points outside this test stack.
+    const allowed = new Set(['http://localhost:5173', stack.baseUrl]);
+    await context.route('**/*', route => {
+      const url = new URL(route.request().url());
+      return allowed.has(url.origin) ? route.continue() : route.abort('blockedbyclient');
+    });
+    await use(context);
+  },
   stack: async ({}, use, testInfo) => {
     let backend, vite;
     try {

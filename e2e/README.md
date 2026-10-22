@@ -47,6 +47,8 @@ existing CORS/Origin policy permits exactly `http://localhost:5173`; occupied
 port fails instead of silently moving to a forbidden origin. No production CORS
 changes. Vite disables `.env` loading and receives only the owned API address.
 
+Browser networking permits only this Vite origin and the owned Express listener;
+other HTTP destinations are aborted without synthetic responses.
 Browser contexts and DBs are independent. Backend child processes have bounded
 startup/RPC/teardown; parent disconnect/signals trigger backend teardown too.
 Every passing scenario requires verified DB drop/empty/disconnect, closed HTTP
