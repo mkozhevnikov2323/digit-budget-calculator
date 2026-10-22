@@ -37,7 +37,11 @@ export const parseSourceFacts = (input: unknown, dataset: Dataset): HistoryOpera
 };
 const sameOperation = (a: HistoryOperation, b: HistoryOperation): boolean => a.dataset === b.dataset
   && a.operationId === b.operationId && a.timestamp === b.timestamp && a.kopecks === b.kopecks
-  && Object.is(a.facts.amount, b.facts.amount) && JSON.stringify(a.facts) === JSON.stringify(b.facts);
+  && Object.is(a.facts.amount, b.facts.amount) && a.facts.date === b.facts.date
+  && a.facts.category === b.facts.category && a.facts.title === b.facts.title
+  && a.facts.recipient === b.facts.recipient && a.facts.source === b.facts.source
+  && Object.prototype.hasOwnProperty.call(a.facts, 'comment') === Object.prototype.hasOwnProperty.call(b.facts, 'comment')
+  && a.facts.comment === b.facts.comment;
 
 /** Bounded recorded membership alone; supplies no classification authority. */
 export const loadRecordedMembership = async (port: HistoryReadPort, owner: string, period: CalendarPeriod,
@@ -58,7 +62,7 @@ export const loadRecordedMembership = async (port: HistoryReadPort, owner: strin
         const r = closedData(await call({ url: `/${dataset}?${suffix}`, method: 'GET', cache: 'no-store' }), ['total', 'page', 'limit', dataset]);
         const items = r && exactArray(r[dataset], PAGE_SIZE);
         if (!r || !items || r.page !== page || r.limit !== PAGE_SIZE || typeof r.total !== 'number'
-          || !Number.isSafeInteger(r.total) || r.total < 0 || r.total > MAX_HISTORY_RECORDS
+          || !Number.isSafeInteger(r.total) || r.total < 0 || overall + r.total > MAX_HISTORY_RECORDS
           || (total !== undefined && r.total !== total)) return invalid();
         total = r.total;
         if (items.length !== Math.min(PAGE_SIZE, Math.max(0, total - records.length))) return invalid();
@@ -89,34 +93,45 @@ export const loadCoherentHistory = async (port: HistoryReadPort, owner: string, 
   const membership = () => loadRecordedMembership(call, owner, period, current);
   const before = await membership(), identities: Identity[] = before.operations.map(({ dataset, operationId }) => ({ dataset, operationId }));
   const results = new Map<string, { operation: HistoryOperation; decision: ClassificationRead }>();
-  let nextBatch = 0;
+  let nextBatch = 0, stopped = false;
   const batches: Identity[][] = [];
   for (let start = 0; start < identities.length; start += BATCH_SIZE) batches.push(identities.slice(start, start + BATCH_SIZE));
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batches.length) }, async () => {
-    while (nextBatch < batches.length) {
+    try { while (!stopped && nextBatch < batches.length) {
       const batch = batches[nextBatch++];
       const r = closedData(await call({ url: '/classifications/history/read', method: 'POST', cache: 'no-store', body: {
         version: 'classification-history-read-request-v1', startInclusive: period.startInclusive, endExclusive: period.endExclusive, operations: batch,
       } }), ['version', 'window', 'coverage', 'consistency', 'returnedCount', 'operations']);
+      // Other in-flight requests may finish, but cannot schedule more work or
+      // publish a partial cohort after any worker fails.
+      if (stopped) return;
       const w = r && closedData(r.window, ['startInclusive', 'endExclusive']), operations = r && exactArray(r.operations, BATCH_SIZE);
       if (!r || Object.keys(r).length !== 6 || !w || Object.keys(w).length !== 2 || w.startInclusive !== period.startInclusive
         || w.endExclusive !== period.endExclusive || r.version !== 'classification-history-read-v1' || r.coverage !== 'requested_identities_only'
         || r.consistency !== 'observed_only_non_atomic' || !operations || r.returnedCount !== batch.length || operations.length !== batch.length) return invalid();
       const requested = new Set(batch.map(op => `${op.dataset}/${op.operationId}`));
+      const pending = new Map<string, ClassificationRead>();
+      const e: Record<string, unknown>[] = [], i: Record<string, unknown>[] = [];
       for (const item of operations) {
         const op = closedData(item, ['dataset', 'operationId', 'facts', 'classification']);
         if (!op || Object.keys(op).length !== 4 || (op.dataset !== 'expenses' && op.dataset !== 'incomes') || !canonicalId(op.operationId)) return invalid();
         const key = `${op.dataset}/${op.operationId}`, facts = parseSourceFacts(op.facts, op.dataset);
         const decision = validateClassificationRead(op.classification, op.dataset, op.operationId);
-        if (!requested.has(key) || results.has(key) || !facts || !decision) return invalid();
+        if (!requested.delete(key) || results.has(key) || !facts || !decision) return invalid();
         const record = { _id: op.operationId, owner, ...facts };
-        const e = op.dataset === 'expenses' ? [record] : [], i = op.dataset === 'incomes' ? [record] : [];
-        const checked = validateOwnedHistory({ expenses: e, total: e.length, page: 1, limit: e.length },
-          { incomes: i, total: i.length, page: 1, limit: i.length }, period, owner);
-        if (!checked.ok) return invalid();
-        results.set(key, { operation: checked.value.operations[0], decision });
+        (op.dataset === 'expenses' ? e : i).push(record); pending.set(key, decision);
       }
-    }
+      // Every record still crosses the same validators. Validate one bounded
+      // batch instead of rebuilding a complete period validator per operation.
+      const checked = validateOwnedHistory({ expenses: e, total: e.length, page: 1, limit: e.length },
+        { incomes: i, total: i.length, page: 1, limit: i.length }, period, owner);
+      if (!checked.ok || requested.size) return invalid();
+      for (const operation of checked.value.operations) {
+        const key = `${operation.dataset}/${operation.operationId}`, decision = pending.get(key);
+        if (!decision || results.has(key)) return invalid();
+        results.set(key, { operation, decision });
+      }
+    } } catch (error) { stopped = true; throw error; }
   }));
   const after = await membership();
   if (after.operations.length !== before.operations.length || results.size !== identities.length || !current()) return invalid();
