@@ -123,3 +123,17 @@ MongoDB namespace. All 14 browser scenarios remain unchanged, including the
 flags-only/default-off test. Review backend #30 -> #31 before this frontend pin.
 No production custody, durable fleet ledger, trusted time or maintenance exclusion
 is established by these synthetic providers. Production bootstrap remains uninstalled.
+
+
+## P11.1 Ubuntu adapter verification (dependent pin)
+
+The immutable backend pin now includes P11.1 local SQLite authority, protected
+systemd-style credential files and strict chrony-health adapter. CI explicitly sets
+`BUDGET_BROWSER_LOCAL_PROVIDER=1`; use the same selector for local runs. The14P10
+scenarios and manual user confirmation are unchanged. All state/keys are disposable;
+independent checkpoint/time infrastructure is SYNTHETIC, accepted only as isolated
+assurance. No home Ubuntu service, production custody, trusted external anchor,
+power-loss durability, migration or operational activation is established by this run.
+Review backend PR30 ->31 ->32 ->33 ->34 and frontend PR37 before this dependent pin.
+No application/UI/public API change; CI permissions, privacy, retries and cleanup
+gates are preserved. Backend main never installs these providers automatically.
