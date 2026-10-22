@@ -97,3 +97,5 @@ No hydration, readiness, pagination/API, security limits or backend production
 behavior is changed without measured evidence and compatible contracts. A future
 cursor/snapshot proposal must separately address total ordering, A→B→A, source
 changes after observation, classification-only changes and migration compatibility.
+
+Full Chromium XL baseline also completed: 145219.9 ms loading, one observation, no p95 claim. See `p12-browser-xl-baseline.json`; financial invariants, 1,500 request budget, concurrency <=4 and BSON/DB cleanup passed.
