@@ -2,7 +2,7 @@ name: Pull request CI
 
 on:
   pull_request:
-    branches: [main, 'feat/coherent-classification-history-client', 'feat/persistent-historical-classification', 'feat/real-classification-statistics', 'feat/real-expense-forecasting']
+    branches: [main, 'feat/coherent-classification-history-client', 'feat/persistent-historical-classification', 'feat/real-classification-statistics', 'feat/real-expense-forecasting', 'test/classification-runtime-browser-integration']
 
 permissions:
   contents: read
@@ -167,6 +167,7 @@ jobs:
       - name: Run all required real browser scenarios
         env:
           BUDGET_E2E_BACKEND: ${{ github.workspace }}/backend
+          BUDGET_BROWSER_LOCAL_PROVIDER: '1'
           MONGODB_INTEGRATION_TEST: '1'
           MONGODB_TEST_BASE_URI: mongodb://127.0.0.1:27017
           TZ: UTC
