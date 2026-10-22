@@ -39,19 +39,15 @@ const sameOperation = (a: HistoryOperation, b: HistoryOperation): boolean => a.d
   && a.operationId === b.operationId && a.timestamp === b.timestamp && a.kopecks === b.kopecks
   && Object.is(a.facts.amount, b.facts.amount) && JSON.stringify(a.facts) === JSON.stringify(b.facts);
 
-/** Multiple bounded reads, NOT an atomic snapshot. The second membership/facts
- * pass detects observable changes; edits after it and A→B→A remain possible. */
-export const loadCoherentHistory = async (port: HistoryReadPort, owner: string, period: CalendarPeriod,
-  current: () => boolean, observationId: string, now: () => number = Date.now): Promise<CoherentHistory> => {
+/** Bounded recorded membership alone; supplies no classification authority. */
+export const loadRecordedMembership = async (port: HistoryReadPort, owner: string, period: CalendarPeriod,
+  current: () => boolean): Promise<OwnedHistory> => {
   const params = toAnalyticsQueryParams(period);
   if (!params.ok || !canonicalId(owner) || !current()) return invalid();
   const call: HistoryReadPort = async request => {
-    if (!current()) return invalid();
-    const result = await port(request);
-    if (!current()) return invalid();
-    return result;
+    if (!current()) return invalid(); const result = await port(request);
+    return current() ? result : invalid();
   };
-  const membership = async (): Promise<OwnedHistory> => {
     const payloads: Record<Dataset, unknown> = { expenses: null, incomes: null };
     let overall = 0;
     for (const dataset of ['expenses', 'incomes'] as const) {
@@ -75,7 +71,22 @@ export const loadCoherentHistory = async (port: HistoryReadPort, owner: string, 
     }
     const checked = validateOwnedHistory(payloads.expenses, payloads.incomes, period, owner);
     return checked.ok ? checked.value : invalid();
+
+};
+
+/** Multiple bounded reads, NOT an atomic snapshot. The second membership/facts
+ * pass detects observable changes; edits after it and A→B→A remain possible. */
+export const loadCoherentHistory = async (port: HistoryReadPort, owner: string, period: CalendarPeriod,
+  current: () => boolean, observationId: string, now: () => number = Date.now): Promise<CoherentHistory> => {
+  const params = toAnalyticsQueryParams(period);
+  if (!params.ok || !canonicalId(owner) || !current()) return invalid();
+  const call: HistoryReadPort = async request => {
+    if (!current()) return invalid();
+    const result = await port(request);
+    if (!current()) return invalid();
+    return result;
   };
+  const membership = () => loadRecordedMembership(call, owner, period, current);
   const before = await membership(), identities: Identity[] = before.operations.map(({ dataset, operationId }) => ({ dataset, operationId }));
   const results = new Map<string, { operation: HistoryOperation; decision: ClassificationRead }>();
   let nextBatch = 0;

@@ -15,15 +15,18 @@ const makeStore = () => configureStore({ reducer: { [baseApi.reducerPath]: baseA
 const owner = 'a'.repeat(24), id = '1'.repeat(24);
 const args = () => ({ userId: owner, sessionGeneration: getSessionSnapshot().generation, requestScope: 'round1', period: selectedPeriod() });
 beforeEach(() => mockTransport.mockReset());
-it('uses only two existing unpaginated GETs and never sends the caller owner', async () => {
-  mockTransport.mockImplementation(async url => ({ data: String(url).startsWith('/expenses')
-    ? expenseResponse([{ ...expense(id), owner }]) : incomeResponse() }));
+it('uses bounded existing paginated GETs and never sends the caller owner', async () => {
+  mockTransport.mockImplementation(async request => ({ data: {
+    ...(String((request as { url: string }).url).startsWith('/expenses')
+      ? expenseResponse([{ ...expense(id), owner }]) : incomeResponse()), limit: 100,
+  } }));
   const store = makeStore(), query = store.dispatch(historyApi.endpoints.getOwnedHistory.initiate(args()));
   try {
     const result = await query; expect(result.isSuccess).toBe(true); expect(result.data?.operations).toHaveLength(1);
     expect(mockTransport).toHaveBeenCalledTimes(2);
-    for (const [url] of mockTransport.mock.calls) {
-      expect(String(url)).toContain('noPagination=true'); expect(String(url)).not.toContain(owner);
+    for (const [request] of mockTransport.mock.calls) {
+      const url = (request as { url: string }).url;
+      expect(url).toContain('limit=100'); expect(url).toContain('page=1'); expect(url).not.toContain('noPagination'); expect(url).not.toContain(owner);
     }
   } finally { query.unsubscribe(); store.dispatch(baseApi.util.resetApiState()); }
 });
@@ -33,7 +36,7 @@ it('rejects both settled datasets after the authenticated lifecycle changes', as
   const store = makeStore(), query = store.dispatch(historyApi.endpoints.getOwnedHistory.initiate(args()));
   const transitioned = transitionSession(() => {}); completeSessionTransition(getSessionSnapshot().generation); await transitioned;
   resolve({ data: {} });
-  try { const result = await query; expect(result.isError).toBe(true); expect(result.error).toMatchObject({ error: 'SESSION_CHANGED' }); expect(result.data).toBeUndefined(); }
+  try { const result = await query; expect(result.isError).toBe(true); expect(result.error).toMatchObject({ error: 'INCOMPLETE_OR_INVALID_HISTORY' }); expect(result.data).toBeUndefined(); }
   finally { query.unsubscribe(); store.dispatch(baseApi.util.resetApiState()); }
 });
 it('does not turn unavailable classification infrastructure into unreviewed', async () => {

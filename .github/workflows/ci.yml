@@ -65,6 +65,8 @@ jobs:
           src/features/HistoricalClassification/ui/tests/PersistentReview.test.tsx
           src/features/HistoricalClassification/ui/tests/HistoricalClassification.test.tsx
           src/features/ClassificationStatistics/model/tests/statistics.test.ts
+          src/features/ClassificationStatistics/model/tests/recordedHistory.test.ts
+          src/features/ClassificationStatistics/ui/tests/RealClassificationStatistics.test.tsx
           src/features/ClassificationStatistics/ui/tests/ClassificationStatistics.test.tsx
           src/features/ExpenseForecast/model/tests/forecast.test.ts
           src/features/ExpenseForecast/ui/tests/ExpenseForecast.test.tsx
