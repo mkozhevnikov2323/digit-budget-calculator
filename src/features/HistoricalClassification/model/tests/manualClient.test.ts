@@ -29,7 +29,7 @@ it('prepares exact server facts without rounding or moving proof into browser st
     if (!r.ok) return;
     expect((r.value.facts.amount as { value: string }).value === '12.340000000000002').toBe(true);
     expect(t.transport.mock.calls[0][1]?.cache).toBe('no-store'); expect(t.transport.mock.calls[0][1]?.credentials).toBe('omit');
-    expect(storage).not.toHaveBeenCalled(); expect(t.transport.mock.calls[0][0]).not.toContain('crp1');
+    expect(storage).not.toHaveBeenCalled(); expect(String(t.transport.mock.calls[0][0]).includes('crp1')).toBe(false);
   } finally { storage.mockRestore(); }
 });
 for (const [label, change] of [
@@ -61,7 +61,7 @@ it('uses only read-only reconciliation for an expired uncertain proof', async ()
   p.value.expiresAt = 1;
   t.transport.mockResolvedValueOnce(response({ version: 'classification-reconcile-v1', dataset, operationId: id, requestId: request.requestId,
     result: 'latest_applied', receipt: { storedState: 'approved', decisionRevision: 1, sourceStatus: 'stale' }, confirmed: null, consistency: 'observed_only_non_atomic' }));
-  const r = await t.client.reconcile(dataset, id, p.value); expect(r.ok).toBe(true); expect(t.transport.mock.calls[1][0]).toContain('/commands/reconcile');
+  const r = await t.client.reconcile(dataset, id, p.value); expect(r.ok).toBe(true); expect(String(t.transport.mock.calls[1][0]).includes('/commands/reconcile')).toBe(true);
 });
 it('suppresses old-session responses and prevents subsequent requests', async () => {
   const t = setup(); t.transport.mockImplementation(async () => { t.end(); return response(reviewed()); });
