@@ -1,0 +1,376 @@
+{
+  "version": "p12-performance-v1",
+  "mode": "node-ssr",
+  "frontendSHA": "ab3848addd1b5fca735903b7ee4e3e36ad929852",
+  "backendSHA": "81ee073d2acadb22dc212a48a2e1c6a5c020a9a2",
+  "node": "v22.23.3",
+  "containerLimits": {
+    "memory.max": "8589934592",
+    "cpu.max": "200000 100000"
+  },
+  "host": {
+    "architecture": "x64",
+    "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logicalCPUs": 2,
+    "totalMemoryBytes": 10452471808
+  },
+  "profiles": [
+    {
+      "count": 50000,
+      "runs": [
+        {
+          "temperature": "first-after-seed",
+          "loadingMilliseconds": 102937.017495,
+          "validationMilliseconds": {
+            "validateOwnedHistoryCalls": 50002,
+            "validateOwnedHistory": 1533.1125400002347,
+            "parseSourceFactsCalls": 50000,
+            "parseSourceFacts": 440.11338399997476,
+            "validateClassificationReadCalls": 50000,
+            "validateClassificationRead": 337.18396500096424
+          },
+          "aggregationMilliseconds": 1737.096703000003,
+          "evidenceAndForecastMilliseconds": 1187.7605259999982,
+          "financialInvariants": true,
+          "uniqueOperations": 50000,
+          "requests": {
+            "total": 1500,
+            "membership": 1000,
+            "classification": 500,
+            "peak": 4
+          },
+          "jsonBytes": 58003114,
+          "parseMilliseconds": 334.74508600015906,
+          "fetchCumulativeMilliseconds": 129055.62715200016,
+          "sampledHeapPeakBytes": 213094496,
+          "cpuMicroseconds": {
+            "user": 11385470,
+            "system": 737505
+          },
+          "reactActualMilliseconds": "UNMEASURED",
+          "backend": {
+            "http": {
+              "GET": 1000,
+              "POST": 500,
+              "OPTIONS": 0,
+              "OTHER": 0
+            },
+            "responseBytes": 58003114,
+            "peakActive": 4,
+            "aborted": 0,
+            "httpLatencyMs": {
+              "p50": 84.3813300000038,
+              "p95": 131.29807800000708,
+              "max": 296.41453300000285
+            },
+            "mongo": {
+              "expenses/aggregate": {
+                "count": 800,
+                "milliseconds": 22408,
+                "maxMilliseconds": 173
+              },
+              "expenses/find": {
+                "count": 1300,
+                "milliseconds": 60652,
+                "maxMilliseconds": 205
+              },
+              "incomes/aggregate": {
+                "count": 200,
+                "milliseconds": 1469,
+                "maxMilliseconds": 20
+              },
+              "incomes/find": {
+                "count": 606,
+                "milliseconds": 5530,
+                "maxMilliseconds": 42
+              },
+              "users/find": {
+                "count": 500,
+                "milliseconds": 3855,
+                "maxMilliseconds": 38
+              },
+              "metadata/listCollections": {
+                "count": 1000,
+                "milliseconds": 5878,
+                "maxMilliseconds": 41
+              },
+              "operation_classifications/listIndexes": {
+                "count": 1000,
+                "milliseconds": 4912,
+                "maxMilliseconds": 41
+              },
+              "operation_classifications/find": {
+                "count": 500,
+                "milliseconds": 5194,
+                "maxMilliseconds": 48
+              }
+            },
+            "sampledHeapPeakBytes": 188880840,
+            "cpuMicroseconds": {
+              "user": 19609284,
+              "system": 1044893
+            },
+            "maxRSSKiB": 364556
+          }
+        }
+      ],
+      "queryPlans": {
+        "baseline": {
+          "expenses": {
+            "first": {
+              "docsExamined": 44002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 70,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "deep": {
+              "docsExamined": 44002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 92,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "count": {
+              "docsExamined": 44002,
+              "keysExamined": 0,
+              "returned": 40000,
+              "executionTimeMillis": 25,
+              "stages": [
+                "COLLSCAN"
+              ]
+            },
+            "indexes": [
+              {
+                "name": "_id_",
+                "key": {
+                  "_id": 1
+                }
+              }
+            ],
+            "indexBytes": 438272
+          },
+          "incomes": {
+            "first": {
+              "docsExamined": 11002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 10,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "deep": {
+              "docsExamined": 11002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 20,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "count": {
+              "docsExamined": 11002,
+              "keysExamined": 0,
+              "returned": 10000,
+              "executionTimeMillis": 7,
+              "stages": [
+                "COLLSCAN"
+              ]
+            },
+            "indexes": [
+              {
+                "name": "_id_",
+                "key": {
+                  "_id": 1
+                }
+              }
+            ],
+            "indexBytes": 110592
+          },
+          "sourceObservation": {
+            "docsExamined": 80,
+            "keysExamined": 81,
+            "returned": 80,
+            "executionTimeMillis": 0,
+            "stages": [
+              "FETCH",
+              "IXSCAN"
+            ]
+          },
+          "decisions": {
+            "docsExamined": 90,
+            "keysExamined": 90,
+            "returned": 90,
+            "executionTimeMillis": 8,
+            "stages": [
+              "FETCH",
+              "IXSCAN"
+            ]
+          },
+          "account": {
+            "docsExamined": 1,
+            "keysExamined": 1,
+            "returned": 1,
+            "executionTimeMillis": 0,
+            "stages": [
+              "IDHACK"
+            ]
+          }
+        },
+        "proposedDisposableIndexes": {
+          "expenses": {
+            "first": {
+              "docsExamined": 100,
+              "keysExamined": 100,
+              "returned": 100,
+              "executionTimeMillis": 1,
+              "stages": [
+                "FETCH",
+                "IXSCAN"
+              ]
+            },
+            "deep": {
+              "docsExamined": 100,
+              "keysExamined": 40000,
+              "returned": 100,
+              "executionTimeMillis": 18,
+              "stages": [
+                "FETCH",
+                "IXSCAN"
+              ]
+            },
+            "count": {
+              "docsExamined": 0,
+              "keysExamined": 40001,
+              "returned": 40000,
+              "executionTimeMillis": 18,
+              "stages": [
+                "COUNT_SCAN"
+              ]
+            },
+            "indexes": [
+              {
+                "name": "_id_",
+                "key": {
+                  "_id": 1
+                }
+              },
+              {
+                "name": "p12_proposal_only",
+                "key": {
+                  "owner": 1,
+                  "date": 1,
+                  "createdAt": 1
+                }
+              }
+            ],
+            "indexBytes": 880640
+          },
+          "incomes": {
+            "first": {
+              "docsExamined": 100,
+              "keysExamined": 100,
+              "returned": 100,
+              "executionTimeMillis": 1,
+              "stages": [
+                "FETCH",
+                "IXSCAN"
+              ]
+            },
+            "deep": {
+              "docsExamined": 100,
+              "keysExamined": 10000,
+              "returned": 100,
+              "executionTimeMillis": 6,
+              "stages": [
+                "FETCH",
+                "IXSCAN"
+              ]
+            },
+            "count": {
+              "docsExamined": 0,
+              "keysExamined": 10001,
+              "returned": 10000,
+              "executionTimeMillis": 5,
+              "stages": [
+                "COUNT_SCAN"
+              ]
+            },
+            "indexes": [
+              {
+                "name": "_id_",
+                "key": {
+                  "_id": 1
+                }
+              },
+              {
+                "name": "p12_proposal_only",
+                "key": {
+                  "owner": 1,
+                  "date": 1,
+                  "createdAt": 1
+                }
+              }
+            ],
+            "indexBytes": 249856
+          },
+          "sourceObservation": {
+            "docsExamined": 80,
+            "keysExamined": 81,
+            "returned": 80,
+            "executionTimeMillis": 0,
+            "stages": [
+              "FETCH",
+              "IXSCAN"
+            ]
+          },
+          "decisions": {
+            "docsExamined": 90,
+            "keysExamined": 90,
+            "returned": 90,
+            "executionTimeMillis": 9,
+            "stages": [
+              "FETCH",
+              "IXSCAN"
+            ]
+          },
+          "account": {
+            "docsExamined": 1,
+            "keysExamined": 1,
+            "returned": 1,
+            "executionTimeMillis": 0,
+            "stages": [
+              "IDHACK"
+            ]
+          }
+        }
+      },
+      "cleanup": {
+        "cleanupVerified": true,
+        "sourceBsonUnchanged": true
+      },
+      "versions": {
+        "node": "v22.23.3",
+        "mongo": "7.0.45"
+      },
+      "latencyMs": {
+        "p50": 102937.017495,
+        "p95": "UNMEASURED (n<3)",
+        "max": 102937.017495,
+        "repetitions": 1
+      }
+    }
+  ],
+  "memoryMethod": "10ms sampled heap; backend maxRSS includes setup; not exact transient peaks",
+  "coldMethod": "first pipeline after seeding (DB cache NOT cold); later repetitions warm; no OS cache eviction",
+  "caveat": "Local/CI synthetic data, not home Ubuntu performance. Cumulative overlapping request times are not wall latency."
+}
