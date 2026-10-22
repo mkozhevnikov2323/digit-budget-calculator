@@ -1,28 +1,34 @@
-# P2: classified historical accounting
+# Recorded classification statistics (P2 engine, P5/P7 adapter)
 
-Reuses Phase 1 calendar/money primitives and P1's stable C3.2 DTO validator.
-Input is closed unknown data, a canonical period, trusted owner-scoped operations
-and one decision for each operation, bound by sourceObservationId. This ID is a
-caller-established coherent observation, not an authority created by this module.
-The current API cannot supply it; origin=coherent_adapter is only a future internal
-port, never a client option/API feature. Only synthetic fixtures are wired to UI.
+The normal `/analytics` page explicitly loads the selected real period through
+`getCoherentHistory`. `recordedHistoryInput` maps only the accepted same-observation
+cohort into the existing P2 pure engine. No separately loaded C3.2 GET is joined
+with historical money. The synthetic example remains an isolated no-period
+component/test fixture and is not mixed into the real report.
 
-Each expense/income enters exactly one of six statuses. Only approved assignments
-enter role totals; only ordinary_expense enters layers. Layers/roles/statuses are
-alternative views, not amounts to add together. Loan/transfer/capital flows stay
-inside recorded cash flow and outside ordinary living expenses. Every dataset's
-status amount/count sum equals recorded amount/count; monthly sums reconcile too.
-Money uses safe integer kopecks with checked BigInt intermediates and no rounding.
-Coverage is approved count/amount divided by recorded count/amount; zero denominator
-is null (undefined), not invented 100%.
+Each expense/income belongs to exactly one of approved/unreviewed/stale/blocked/
+explicit_unclassified/cleared. Only approved assignments enter roles, and only
+ordinary_expense enters layers. Status and role views are not added together.
+The existing safe integer-kopeck engine reconciles period/month/dataset amount
+and count totals; zero coverage denominator is null. No rounding or category-based
+classification. Category distribution is a separate exact-string partition,
+checked against the same validated recorded expense total.
 
-Missing/duplicate/foreign decisions, observation mismatch, bad taxonomy/input or
-overflow return safe errors without partial totals. Bounds: 50,000 operations and
-120 months; arrays reject holes/accessors/extra properties. Monthly recording
-evidence distinguishes complete/missing/unverified independently from elapsed
-calendar time. Empty recorded months are not assumed real zero-spending months.
+Bounded P5 membership and batch checks precede reports. Missing/duplicate/foreign
+items, unsupported precision, changed facts/membership, failed batches, session
+transition or refresh invalidate the entire report. No cached previous-period
+report is displayed while fetching. Classification writes invalidate existing
+Expense/Income tags, refreshing the active aggregate and discarding prior evidence.
+The operation selector now shares the bounded paginated membership helper rather
+than downloading unbounded noPagination lists.
 
-Analytics exposes an explicitly selected fictional 2025 example, separate from
-real recorded analytics. Real classification reports remain unavailable until an
-approved coherent owner-scoped complete read boundary exists. No HTTP write,
-new backend API, persistence, source modification or H1–H10 approval is implied.
+Three independent properties remain explicit: complete response for stored records,
+classification coverage, and real-world recording completeness. No nonempty/empty
+month is automatically attested. P8 may accept explicit ephemeral user evidence;
+a checkbox is not cryptographic server proof. Multiple observations are non-atomic;
+A→B→A and later source/decision changes can escape detection. No new source revision,
+transaction, source mutation, persistent attestation or plan collection is added.
+
+Backend P5 must be reviewed/available with its default-off history read gate.
+Backend P6 writes additionally require approved real operational key/fleet/readiness
+wiring; the frontend cannot enable these production capabilities.

@@ -42,8 +42,8 @@ export const dataArray = (input: unknown, max: number): unknown[] | null => {
 };
 const observation = (x: unknown): x is string => typeof x === 'string' && x.length > 0 && x.length <= 128 && !/\s/.test(x);
 
-/** Pure accounting, not authentication or source attestation. A future trusted
- * coherent adapter must establish bindings; current C3.2 cannot. UI is synthetic only. */
+/** Pure accounting, not authentication or source attestation. P5/P7's trusted
+ * coherent adapter establishes bindings; a separate C3.2 GET cannot. */
 export const buildClassificationStatistics = (input: unknown): StatisticsResult => {
   const r = closedData(input, ['version', 'origin', 'taxonomyVersion', 'owner', 'period', 'observedAt', 'operations', 'decisions', 'monthEvidence']);
   if (!r || r.version !== 'classification-statistics-input-v1' || r.taxonomyVersion !== STABLE_TAXONOMY

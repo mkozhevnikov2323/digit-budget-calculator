@@ -1,10 +1,9 @@
 import { baseApi } from 'shared/api/baseApi';
 import { isCurrentSession } from 'shared/api/sessionBoundary';
 import type { CalendarPeriod } from 'features/FinancialAnalytics/model/period';
-import { toAnalyticsQueryParams } from 'features/FinancialAnalytics/model/apiRange';
-import { validateOwnedHistory, type OwnedHistory } from '../model/history';
+import type { OwnedHistory } from '../model/history';
 import { validateClassificationRead, type ClassificationRead } from '../model/contract';
-import { loadCoherentHistory, type CoherentHistory } from '../model/coherentHistory';
+import { loadCoherentHistory, loadRecordedMembership, type CoherentHistory } from '../model/coherentHistory';
 
 type Scope = { userId: string; sessionGeneration: number; requestScope: string };
 export type HistoryQuery = Scope & { period: CalendarPeriod };
@@ -25,15 +24,13 @@ export const historyApi = baseApi.injectEndpoints({ endpoints: builder => ({
     }, providesTags: ['Expense', 'Income'], keepUnusedDataFor: 0,
   }),
   getOwnedHistory: builder.query<OwnedHistory, HistoryQuery>({
-    async queryFn(args, _api, _options, query) {
-      const params = toAnalyticsQueryParams(args.period);
-      if (!params.ok || !isCurrentSession(args.sessionGeneration)) return error('INVALID_HISTORY_CONTEXT');
-      const suffix = new URLSearchParams({ ...params.value, noPagination: 'true' }).toString();
-      const [e, i] = await Promise.all([query(`/expenses?${suffix}`), query(`/incomes?${suffix}`)]);
-      if (!isCurrentSession(args.sessionGeneration)) return error('SESSION_CHANGED');
-      if (e.error || i.error) return error('HISTORY_UNAVAILABLE');
-      const checked = validateOwnedHistory(e.data, i.data, args.period, args.userId);
-      return checked.ok ? { data: checked.value } : error('INCOMPLETE_OR_INVALID_HISTORY');
+    async queryFn(args, api, _options, query) {
+      try {
+        const data = await loadRecordedMembership(async request => {
+          const result = await query(request); if (result.error) throw new Error('HISTORY_UNAVAILABLE'); return result.data;
+        }, args.userId, args.period, () => !api.signal.aborted && isCurrentSession(args.sessionGeneration));
+        return { data };
+      } catch { return error('INCOMPLETE_OR_INVALID_HISTORY'); }
     }, providesTags: ['Expense', 'Income'], keepUnusedDataFor: 0,
   }),
   readOperationClassification: builder.query<ClassificationRead, DecisionQuery>({

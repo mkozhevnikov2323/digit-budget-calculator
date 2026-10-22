@@ -66,7 +66,7 @@ const AnalyticsPage = () => {
         <RecurrenceSection />
         <Button onClick={() => setShowClassification(value => !value)}>Классификация исторических операций</Button>
         {showClassification && period.ok && <HistoricalClassification key={`${period.value.startInclusive}/${period.value.endExclusive}`} period={period.value} />}
-        <ClassificationStatistics />
+        {period.ok && <ClassificationStatistics key={`${period.value.startInclusive}/${period.value.endExclusive}`} period={period.value} />}
         <ExpenseForecast />
         <BudgetPlanning />
       </Stack>
