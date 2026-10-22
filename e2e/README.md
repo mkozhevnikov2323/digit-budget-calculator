@@ -113,3 +113,13 @@ rollout, rotation/revocation, healthy clock governance, writer drain or external
 APM/service-worker privacy. Production classification writes remain uninstalled.
 Budget plans remain memory-only; no BP persistence decisions are implemented.
 P11 operational work and architectural approval remain required before activation.
+
+## P11 operational-runtime compatibility
+
+The pinned backend now includes API PR #30 (strict configuration/key/clock policy)
+and dependent PR #31 (explicit managed operational adapter). The P10 bootstrap
+uses that same managed installer with clearly synthetic providers and an owned
+MongoDB namespace. All 14 browser scenarios remain unchanged, including the
+flags-only/default-off test. Review backend #30 -> #31 before this frontend pin.
+No production custody, durable fleet ledger, trusted time or maintenance exclusion
+is established by these synthetic providers. Production bootstrap remains uninstalled.
