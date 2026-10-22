@@ -9,7 +9,8 @@ import { useGetCoherentHistoryQuery } from 'features/HistoricalClassification/ap
 import type { CoherentHistory } from 'features/HistoricalClassification/model/coherentHistory';
 import { recordedCategories, recordedStatistics } from '../model/recordedHistory';
 import { STATUSES } from '../model/statistics';
-import { RealExpenseForecast } from 'features/ExpenseForecast/ui/RealExpenseForecast';
+import { RealExpenseForecast, type RecordedForecastSuggestion } from 'features/ExpenseForecast/ui/RealExpenseForecast';
+import { BudgetPlanning } from 'features/BudgetPlanning/ui/BudgetPlanning';
 const money = (n: number) => { const f = formatKopecks(n); return f.ok ? f.value : 'Недоступно'; };
 const percent = (n: number | null) => n === null ? 'нет знаменателя' : `${(n * 100).toFixed(1)}%`;
 
@@ -46,21 +47,27 @@ export const RecordedStatisticsReport = ({ cohort }: { cohort: CoherentHistory }
   </Stack>;
 };
 
-export const RealClassificationStatistics = ({ period }: { period: CalendarPeriod }) => {
+export const RealClassificationStatistics = ({ period }: { period: CalendarPeriod | null }) => {
   const owner = useVerifiedOwner(), instance = useId(), [open, setOpen] = useState(false);
+  const [suggestion, setSuggestion] = useState<RecordedForecastSuggestion | null>(null);
   const userId = owner.status === 'verified' ? owner.owner.userId : undefined;
   const generation = owner.status === 'verified' ? owner.owner.sessionGeneration : undefined;
-  const args = useMemo(() => open && userId && generation ? { userId, sessionGeneration: generation, period,
+  const args = useMemo(() => open && userId && generation && period ? { userId, sessionGeneration: generation, period,
     requestScope: `${instance}/${period.startInclusive}/${period.endExclusive}` } : skipToken, [open, userId, generation, period, instance]);
   const query = useGetCoherentHistoryQuery(args, { refetchOnMountOrArgChange: true });
-  const cohort = open && owner.status === 'verified' && args !== skipToken && !query.isFetching && !query.isError ? query.currentData : undefined;
+  const candidate = query.currentData;
+  const cohort = open && owner.status === 'verified' && args !== skipToken && !query.isFetching && !query.isError
+    && period && candidate && candidate.history.owner === userId && candidate.history.period.startInclusive === period.startInclusive
+    && candidate.history.period.endExclusive === period.endExclusive ? candidate : undefined;
   return <Stack spacing={1} component="section" aria-label="Анализ реальной классифицированной истории">
     <Typography component="h2" variant="h6">Историческая статистика по классификации</Typography>
-    <Button onClick={() => setOpen(v => !v)}>{open ? 'Закрыть реальную статистику' : 'Загрузить реальную статистику классификации'}</Button>
-    {open && (owner.status !== 'verified' ? <Alert severity="info" role="note">Нужна текущая проверка владельца.</Alert>
+    <Button disabled={!period} onClick={() => setOpen(v => !v)}>{open ? 'Закрыть реальную статистику' : 'Загрузить реальную статистику классификации'}</Button>
+    {open && (!period ? <Alert severity="info" role="note">Укажите корректный период. Черновик плана сохранён.</Alert>
+      : owner.status !== 'verified' ? <Alert severity="info" role="note">Нужна текущая проверка владельца.</Alert>
       : query.isError ? <Alert severity="warning" role="note">Полный когерентный источник недоступен или изменился. Проверьте доступность нового backend read gate; частичные итоги не показаны.</Alert>
         : !cohort ? <Typography role="status">Проверка всей записанной истории и состава периода…</Typography>
-          : <Stack key={query.requestId}><RecordedStatisticsReport cohort={cohort} /><RealExpenseForecast cohort={cohort} /></Stack>)}
-    {open && owner.status === 'verified' && <Button onClick={() => void query.refetch()}>Заново проверить состав и факты периода</Button>}
+          : <Stack key={query.requestId}><RecordedStatisticsReport cohort={cohort} /><RealExpenseForecast cohort={cohort} onCalculated={setSuggestion} /></Stack>)}
+    {open && period && owner.status === 'verified' && <Button onClick={() => void query.refetch()}>Заново проверить состав и факты периода</Button>}
+    <BudgetPlanning realMode cohort={cohort} suggestion={suggestion?.cohort === cohort ? suggestion ?? undefined : undefined} />
   </Stack>;
 };

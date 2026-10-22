@@ -36,10 +36,10 @@ const prepare = async () => {
   await screen.findByRole('heading', { name: 'Факты, проверенные сервером для этого решения' });
 };
 it('requires exact server facts and a separate final confirmation, escaping hostile-looking strings', async () => {
-  show(); expect(mockPrepare).not.toHaveBeenCalled(); expect(mockApply).not.toHaveBeenCalled(); await prepare();
+  show(); expect(mockPrepare).not.toHaveBeenCalled(); expect(mockApply.mock.calls.length).toBe(0); await prepare();
   const raw = screen.getByText(/12.340000000000002/); expect(raw).toHaveTextContent('<script>fictional</script>'); expect(raw.querySelector('script')).toBeNull();
   expect(raw).toHaveTextContent('2025-01-15T12:00:00.001Z'); expect(raw).toHaveTextContent('missing');
-  expect(screen.getByRole('button', { name: 'Сохранить классификацию на сервере' })).toBeDisabled(); expect(mockApply).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Сохранить классификацию на сервере' })).toBeDisabled(); expect(mockApply.mock.calls.length).toBe(0);
 });
 it('prevents double-click while awaiting acknowledgement and invalidates only after confirmed persistence', async () => {
   let resolve!: (value: unknown) => void; mockApply.mockReturnValue(new Promise(done => { resolve = done; }));
@@ -61,10 +61,17 @@ it('preserves the chosen context after a conflict without claiming success', asy
 });
 it('discards proof on page restoration and never resumes an apply automatically', async () => {
   show(); await prepare(); fireEvent(window, new PageTransitionEvent('pageshow', { persisted: true }));
-  await screen.findByText(/После возврата на страницу/); expect(screen.queryByRole('checkbox')).not.toBeInTheDocument(); expect(mockApply).not.toHaveBeenCalled();
+  await screen.findByText(/После возврата на страницу/); expect(screen.queryByRole('checkbox')).not.toBeInTheDocument(); expect(mockApply.mock.calls.length).toBe(0);
 });
 it('suppresses late responses after component unmount', async () => {
   let resolve!: (value: unknown) => void; mockPrepare.mockImplementation((_d, _i, request) => new Promise(done => { resolve = value => done({ ok: true, value: prepared(request), ...value as object }); }));
   const view = show(); fireEvent.click(screen.getByRole('button', { name: 'Подготовить серверную проверку' })); view.unmount(); resolve({});
-  await Promise.resolve(); expect(mockApply).not.toHaveBeenCalled(); expect(onSaved).not.toHaveBeenCalled();
+  await Promise.resolve(); expect(mockApply.mock.calls.length).toBe(0); expect(onSaved).not.toHaveBeenCalled();
+});
+it('purges proof state and blocks new writes when the server retires authentication', async () => {
+  mockApply.mockResolvedValue({ ok: false, code: 'session_changed' }); show(); await prepare(); fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить классификацию на сервере' }));
+  await screen.findByText(/Текущая проверка закрыта; исход прежнего сохранения/);
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Подготовить серверную проверку' })).toBeDisabled();
+  expect(onSaved).not.toHaveBeenCalled(); expect(mockApply).toHaveBeenCalledTimes(1);
 });

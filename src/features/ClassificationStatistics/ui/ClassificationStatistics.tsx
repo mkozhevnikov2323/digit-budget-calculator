@@ -7,10 +7,10 @@ import { syntheticClassifiedHistory } from '../model/synthetic';
 import { STATUSES } from '../model/statistics';
 const money = (x: number) => { const f = formatKopecks(x); return f.ok ? f.value : 'Недоступно'; };
 const RealStatistics = lazy(() => import('./RealClassificationStatistics').then(m => ({ default: m.RealClassificationStatistics })));
-export const ClassificationStatistics = ({ period }: { period?: CalendarPeriod } = {}) => {
+export const ClassificationStatistics = ({ period }: { period?: CalendarPeriod | null } = {}) => {
   const [demo, setDemo] = useState(false);
   const result = demo ? syntheticClassifiedHistory() : null;
-  if (period) return <Suspense fallback={<Typography role="status">Загрузка модуля классификации…</Typography>}><RealStatistics period={period} /></Suspense>;
+  if (period !== undefined) return <Suspense fallback={<Typography role="status">Загрузка модуля классификации…</Typography>}><RealStatistics period={period} /></Suspense>;
   return <Stack spacing={1} component="section" aria-label="Историческая статистика классификации">
     <Typography component="h2" variant="h6">Историческая статистика по классификации</Typography>
     <Alert severity="info" role="note">Реальные итоги по слоям недоступны: нужен согласованный полный источник, связывающий факты и решения. Отдельные classification GET не подтверждают соответствие суммам истории.</Alert>
