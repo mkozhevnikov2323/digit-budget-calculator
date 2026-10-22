@@ -7,7 +7,7 @@ import { formatKopecks } from 'features/FinancialAnalytics/model/money';
 import { FINANCIAL_LAYERS } from 'features/FinancialClassification/model/types';
 import { useGetCoherentHistoryQuery } from 'features/HistoricalClassification/api/historyApi';
 import type { CoherentHistory } from 'features/HistoricalClassification/model/coherentHistory';
-import { recordedCategories, recordedStatistics } from '../model/recordedHistory';
+import { recordedReport } from '../model/recordedHistory';
 import { STATUSES } from '../model/statistics';
 import { RealExpenseForecast, type RecordedForecastSuggestion } from 'features/ExpenseForecast/ui/RealExpenseForecast';
 import { BudgetPlanning } from 'features/BudgetPlanning/ui/BudgetPlanning';
@@ -15,7 +15,7 @@ const money = (n: number) => { const f = formatKopecks(n); return f.ok ? f.value
 const percent = (n: number | null) => n === null ? 'нет знаменателя' : `${(n * 100).toFixed(1)}%`;
 
 export const RecordedStatisticsReport = ({ cohort }: { cohort: CoherentHistory }) => {
-  const result = recordedStatistics(cohort), categories = recordedCategories(cohort);
+  const { result, categories } = useMemo(() => recordedReport(cohort), [cohort]);
   if (!result.ok || !categories) return <Alert severity="error">Проверка сверки не пройдена. Реальные итоги не рассчитаны.</Alert>;
   const stats = result.value;
   return <Stack spacing={1} aria-label="Реальная статистика классификации">

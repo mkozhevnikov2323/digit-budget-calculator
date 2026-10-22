@@ -22,8 +22,8 @@ export const recordedStatistics = (cohort: CoherentHistory) => buildClassificati
 
 /** Categories are an independent partition of recorded expenses, never a source
  * of classification authority. Reuse safe money arithmetic and verify its sum. */
-export const recordedCategories = (cohort: CoherentHistory): { category: string; kopecks: number; count: number }[] | null => {
-  const stats = recordedStatistics(cohort); if (!stats.ok) return null;
+const categoriesFor = (cohort: CoherentHistory, stats: ReturnType<typeof recordedStatistics>): { category: string; kopecks: number; count: number }[] | null => {
+  if (!stats.ok) return null;
   const groups = new Map<string, { category: string; kopecks: number; count: number }>();
   for (const op of cohort.history.operations) {
     if (op.dataset !== 'expenses') continue;
@@ -37,3 +37,11 @@ export const recordedCategories = (cohort: CoherentHistory): { category: string;
   return total.ok && total.value === stats.value.expenses.recorded.kopecks
     && result.reduce((n, x) => n + x.count, 0) === stats.value.expenses.recorded.count ? result : null;
 };
+
+/** Share one validated result only within this report calculation. No cache or
+ * caller-supplied statistics authority; forecast/evidence revalidation stays. */
+export const recordedReport = (cohort: CoherentHistory) => {
+  const result = recordedStatistics(cohort);
+  return { result, categories: categoriesFor(cohort, result) };
+};
+export const recordedCategories = (cohort: CoherentHistory) => recordedReport(cohort).categories;
