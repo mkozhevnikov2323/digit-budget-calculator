@@ -4,6 +4,7 @@ import type { CalendarPeriod } from 'features/FinancialAnalytics/model/period';
 import { toAnalyticsQueryParams } from 'features/FinancialAnalytics/model/apiRange';
 import { validateOwnedHistory, type OwnedHistory } from '../model/history';
 import { validateClassificationRead, type ClassificationRead } from '../model/contract';
+import { loadCoherentHistory, type CoherentHistory } from '../model/coherentHistory';
 
 type Scope = { userId: string; sessionGeneration: number; requestScope: string };
 export type HistoryQuery = Scope & { period: CalendarPeriod };
@@ -11,6 +12,18 @@ export type DecisionQuery = Scope & { dataset: 'expenses' | 'incomes'; operation
 const error = (code: string) => ({ error: { status: 'CUSTOM_ERROR' as const, error: code } });
 
 export const historyApi = baseApi.injectEndpoints({ endpoints: builder => ({
+  getCoherentHistory: builder.query<CoherentHistory, HistoryQuery>({
+    async queryFn(args, api, _options, query) {
+      try {
+        const data = await loadCoherentHistory(async request => {
+          const result = await query(request);
+          if (result.error) throw new Error('HISTORY_UNAVAILABLE');
+          return result.data;
+        }, args.userId, args.period, () => !api.signal.aborted && isCurrentSession(args.sessionGeneration), args.requestScope);
+        return { data };
+      } catch { return error('COHERENT_HISTORY_UNAVAILABLE'); }
+    }, providesTags: ['Expense', 'Income'], keepUnusedDataFor: 0,
+  }),
   getOwnedHistory: builder.query<OwnedHistory, HistoryQuery>({
     async queryFn(args, _api, _options, query) {
       const params = toAnalyticsQueryParams(args.period);
@@ -35,4 +48,4 @@ export const historyApi = baseApi.injectEndpoints({ endpoints: builder => ({
     }, providesTags: ['Expense', 'Income'], keepUnusedDataFor: 0,
   }),
 }) });
-export const { useGetOwnedHistoryQuery, useReadOperationClassificationQuery } = historyApi;
+export const { useGetOwnedHistoryQuery, useReadOperationClassificationQuery, useGetCoherentHistoryQuery } = historyApi;
