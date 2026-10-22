@@ -28,3 +28,7 @@ dist-ssr
 
 # Tests
 coverage
+# Browser test artifacts (synthetic data only)
+/test-results/
+/e2e-results/
+/playwright-report/
