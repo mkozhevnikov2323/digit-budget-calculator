@@ -32,3 +32,9 @@ coverage
 /test-results/
 /e2e-results/
 /playwright-report/
+
+# Disposable performance measurements
+benchmark-results/
+
+p12-e2e-results/
+test-results-p12/

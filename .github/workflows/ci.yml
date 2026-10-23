@@ -34,65 +34,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Explicit mocked regression suites keep CI independent of backend services.
-      # Assess the full suite separately before adding it to this job.
-      - name: Critical financial and modal regressions
-        run: >-
-          npm test -- --ci --runInBand --runTestsByPath
-          src/shared/api/tests/financialMutationApis.test.ts
-          src/shared/api/tests/sessionBoundary.test.tsx
-          src/shared/api/tests/crossTabSession.test.tsx
-          src/entities/User/model/tests/verifiedOwner.test.tsx
-          src/features/AddExpense/ui/tests/AddExpenseForm.test.tsx
-          src/features/AddIncome/ui/tests/AddIncomeForm.test.tsx
-          src/features/EditExpense/ui/tests/EditExpenseForm.test.tsx
-          src/features/EditIncome/ui/tests/EditIncomeForm.test.tsx
-          src/pages/IncomePage/ui/tests/IncomePage.test.tsx
-          src/pages/BalancePage/ui/tests/BalancePage.test.tsx
-          src/shared/ui/Modal/tests/Modal.test.tsx
-          src/widgets/Modals/AddExpenseModal/ui/tests/AddExpenseModal.test.tsx
-          src/widgets/Modals/AddIncomeModal/ui/tests/AddIncomeModal.test.tsx
-          src/features/FinancialAnalytics/model/tests/money.test.ts
-          src/features/FinancialAnalytics/model/tests/period.test.ts
-          src/features/FinancialAnalytics/model/tests/apiRange.test.ts
-          src/features/FinancialAnalytics/model/tests/validation.test.ts
-          src/features/FinancialAnalytics/model/tests/calculations.test.ts
-          src/features/FinancialAnalytics/model/tests/annualHistory.test.ts
-          src/features/HistoricalClassification/model/tests/contract.test.ts
-          src/features/HistoricalClassification/model/tests/historyApi.test.ts
-          src/features/HistoricalClassification/model/tests/coherentHistory.test.ts
-          src/features/HistoricalClassification/model/tests/manualClient.test.ts
-          src/features/HistoricalClassification/ui/tests/PersistentReview.test.tsx
-          src/features/HistoricalClassification/ui/tests/HistoricalClassification.test.tsx
-          src/features/ClassificationStatistics/model/tests/statistics.test.ts
-          src/features/ClassificationStatistics/model/tests/recordedHistory.test.ts
-          src/features/ClassificationStatistics/ui/tests/RealClassificationStatistics.test.tsx
-          src/features/ClassificationStatistics/ui/tests/ClassificationStatistics.test.tsx
-          src/features/ExpenseForecast/model/tests/forecast.test.ts
-          src/features/ExpenseForecast/model/tests/recordingEvidence.test.ts
-          src/features/ExpenseForecast/ui/tests/RealExpenseForecast.test.tsx
-          src/features/ExpenseForecast/ui/tests/ExpenseForecast.test.tsx
-          src/features/BudgetPlanning/model/tests/plan.test.ts
-          src/features/BudgetPlanning/model/tests/recordedPlan.test.ts
-          src/features/BudgetPlanning/ui/tests/RecordedBudgetPlanning.test.tsx
-          src/features/BudgetPlanning/ui/tests/RecordedPlanActual.test.tsx
-          src/features/BudgetPlanning/ui/tests/BudgetPlanning.test.tsx
-          src/features/FinancialAnalytics/model/tests/useFinancialAnalytics.test.tsx
-          src/pages/AnalyticsPage/ui/tests/AnalyticsPage.test.tsx
-          src/pages/AnalyticsPage/ui/tests/AnalyticsRoute.test.tsx
-          src/pages/AnalyticsPage/ui/tests/AnalyticsResults.test.tsx
-          src/features/RecurrenceAnalytics/model/tests/window.test.ts
-          src/features/RecurrenceAnalytics/model/tests/validation.test.ts
-          src/features/RecurrenceAnalytics/ui/tests/RecurrenceSection.test.tsx
-          src/features/FinancialClassification/model/tests/classification.test.ts
-          src/features/FinancialClassification/model/tests/snapshotAdapter.test.ts
-          src/features/FinancialClassification/model/tests/useOwnerClassificationData.test.tsx
-          src/features/FinancialClassification/model/tests/reviewSession.test.ts
-          src/features/FinancialClassification/model/tests/useOwnerClassificationReview.test.tsx
-          src/pages/ClassificationPreviewPage/ui/tests/ClassificationPreviewPage.test.tsx
-          src/pages/ClassificationPreviewPage/ui/tests/ClassificationPreviewRoute.test.tsx
-          src/features/FinancialClassification/ui/tests/ClassificationPreview.test.tsx
-          src/features/FinancialClassification/ui/tests/ClassificationReviewPrototype.test.tsx
+      # P12 measures the full suite locally and runs every existing regression.
+      # No retries, exclusions or increased Jest per-test deadlines.
+      - name: Full financial modal session and integrity regressions
+        run: npm test -- --ci --runInBand
 
   browser-e2e:
     name: Real full-stack Chromium
@@ -182,6 +127,33 @@ jobs:
             if (!s.complete || s.expected !== 14 || s.executed !== 14 || s.passed !== 14 || s.tests.some(t => !t.pass || !t.cleanupVerified || t.status !== "passed")) throw Error("Incomplete required browser run");
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, fs.readFileSync("e2e-results/summary.md", "utf8"));
           '
+
+      - name: Real browser mutation and late-response integrity scenarios
+        env:
+          BUDGET_E2E_BACKEND: ${{ github.workspace }}/backend
+          BUDGET_BROWSER_LOCAL_PROVIDER: '1'
+          MONGODB_INTEGRATION_TEST: '1'
+          MONGODB_TEST_BASE_URI: mongodb://127.0.0.1:27017
+          TZ: UTC
+        run: npm run test:e2e:p12
+
+      - name: Deterministic history request and query budgets (S/M)
+        env:
+          MONGODB_INTEGRATION_TEST: '1'
+          MONGODB_TEST_BASE_URI: mongodb://127.0.0.1:27017
+          TZ: UTC
+        run: npm run bench:p12 -- --backend ../backend --sizes 100,1000 --repetitions 1
+
+      - name: Upload sanitized P12 integrity and smoke metrics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: p12-smoke-results
+          path: |
+            frontend/p12-e2e-results/
+            frontend/benchmark-results/
+          if-no-files-found: error
+          retention-days: 5
 
       - name: Upload sanitized JUnit and browser summary
         if: ${{ !cancelled() }}

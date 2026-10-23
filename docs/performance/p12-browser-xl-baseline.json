@@ -1,0 +1,247 @@
+{
+  "version": "p12-performance-v1",
+  "mode": "chromium",
+  "frontendSHA": "ab3848addd1b5fca735903b7ee4e3e36ad929852",
+  "backendSHA": "81ee073d2acadb22dc212a48a2e1c6a5c020a9a2",
+  "node": "v22.23.3",
+  "containerLimits": {
+    "memory.max": "8589934592",
+    "cpu.max": "200000 100000"
+  },
+  "host": {
+    "architecture": "x64",
+    "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logicalCPUs": 2,
+    "totalMemoryBytes": 10452471808
+  },
+  "profiles": [
+    {
+      "count": 50000,
+      "runs": [
+        {
+          "temperature": "first-after-seed",
+          "loadingMilliseconds": 145219.90000000596,
+          "validationMilliseconds": {
+            "validateOwnedHistoryCalls": 50002,
+            "validateOwnedHistory": 2229.8000000566244,
+            "parseSourceFactsCalls": 50000,
+            "parseSourceFacts": 503.7000001370907,
+            "validateClassificationReadCalls": 50000,
+            "validateClassificationRead": 464.99999998509884
+          },
+          "aggregationMilliseconds": 1168.0999999940395,
+          "evidenceAndForecastMilliseconds": 1066.5,
+          "financialInvariants": true,
+          "uniqueOperations": 50000,
+          "requests": {
+            "total": 1500,
+            "membership": 1000,
+            "classification": 500,
+            "peak": 4
+          },
+          "jsonBytes": 58003114,
+          "parseMilliseconds": 470.40000019967556,
+          "fetchCumulativeMilliseconds": 217164.69999986887,
+          "reactActualMilliseconds": 1213.8999999910593,
+          "sampledHeapPeakBytes": 215793956,
+          "longestHeartbeatGapMilliseconds": 4052.0999999940395,
+          "backend": {
+            "http": {
+              "GET": 1000,
+              "POST": 500,
+              "OPTIONS": 0,
+              "OTHER": 0
+            },
+            "responseBytes": 58003114,
+            "peakActive": 4,
+            "aborted": 0,
+            "httpLatencyMs": {
+              "p50": 100.63486900000134,
+              "p95": 255.648549000005,
+              "max": 1464.6932679999882
+            },
+            "mongo": {
+              "expenses/aggregate": {
+                "count": 800,
+                "milliseconds": 25481,
+                "maxMilliseconds": 245
+              },
+              "expenses/find": {
+                "count": 1300,
+                "milliseconds": 76282,
+                "maxMilliseconds": 769
+              },
+              "incomes/aggregate": {
+                "count": 200,
+                "milliseconds": 1782,
+                "maxMilliseconds": 44
+              },
+              "incomes/find": {
+                "count": 606,
+                "milliseconds": 8992,
+                "maxMilliseconds": 197
+              },
+              "users/find": {
+                "count": 500,
+                "milliseconds": 7048,
+                "maxMilliseconds": 258
+              },
+              "metadata/listCollections": {
+                "count": 1000,
+                "milliseconds": 11184,
+                "maxMilliseconds": 767
+              },
+              "operation_classifications/listIndexes": {
+                "count": 1000,
+                "milliseconds": 10355,
+                "maxMilliseconds": 806
+              },
+              "operation_classifications/find": {
+                "count": 500,
+                "milliseconds": 11501,
+                "maxMilliseconds": 435
+              }
+            },
+            "sampledHeapPeakBytes": 170200280,
+            "cpuMicroseconds": {
+              "user": 29911094,
+              "system": 2024288
+            },
+            "maxRSSKiB": 368388
+          }
+        }
+      ],
+      "queryPlans": {
+        "baseline": {
+          "expenses": {
+            "first": {
+              "docsExamined": 44002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 32,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "deep": {
+              "docsExamined": 44002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 78,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "count": {
+              "docsExamined": 44002,
+              "keysExamined": 0,
+              "returned": 40000,
+              "executionTimeMillis": 28,
+              "stages": [
+                "COLLSCAN"
+              ]
+            },
+            "indexes": [
+              {
+                "name": "_id_",
+                "key": {
+                  "_id": 1
+                }
+              }
+            ],
+            "indexBytes": 438272
+          },
+          "incomes": {
+            "first": {
+              "docsExamined": 11002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 7,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "deep": {
+              "docsExamined": 11002,
+              "keysExamined": 0,
+              "returned": 100,
+              "executionTimeMillis": 20,
+              "stages": [
+                "COLLSCAN",
+                "SORT"
+              ]
+            },
+            "count": {
+              "docsExamined": 11002,
+              "keysExamined": 0,
+              "returned": 10000,
+              "executionTimeMillis": 7,
+              "stages": [
+                "COLLSCAN"
+              ]
+            },
+            "indexes": [
+              {
+                "name": "_id_",
+                "key": {
+                  "_id": 1
+                }
+              }
+            ],
+            "indexBytes": 110592
+          },
+          "sourceObservation": {
+            "docsExamined": 80,
+            "keysExamined": 81,
+            "returned": 80,
+            "executionTimeMillis": 0,
+            "stages": [
+              "FETCH",
+              "IXSCAN"
+            ]
+          },
+          "decisions": {
+            "docsExamined": 90,
+            "keysExamined": 90,
+            "returned": 90,
+            "executionTimeMillis": 7,
+            "stages": [
+              "FETCH",
+              "IXSCAN"
+            ]
+          },
+          "account": {
+            "docsExamined": 1,
+            "keysExamined": 1,
+            "returned": 1,
+            "executionTimeMillis": 0,
+            "stages": [
+              "IDHACK"
+            ]
+          }
+        }
+      },
+      "cleanup": {
+        "cleanupVerified": true,
+        "sourceBsonUnchanged": true
+      },
+      "versions": {
+        "node": "v22.23.3",
+        "mongo": "7.0.45"
+      },
+      "latencyMs": {
+        "p50": 145219.90000000596,
+        "p95": "UNMEASURED (n<3)",
+        "max": 145219.90000000596,
+        "repetitions": 1
+      }
+    }
+  ],
+  "memoryMethod": "10ms sampled heap; backend maxRSS includes setup; not exact transient peaks",
+  "coldMethod": "first pipeline after seeding (DB cache NOT cold); later repetitions warm; no OS cache eviction",
+  "caveat": "Local/CI synthetic data, not home Ubuntu performance. Cumulative overlapping request times are not wall latency.",
+  "browser": "154.0.8037.57"
+}
