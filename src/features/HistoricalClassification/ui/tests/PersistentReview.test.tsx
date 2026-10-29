@@ -12,7 +12,7 @@ jest.mock('shared/api/baseApi', () => {
     tagTypes: ['Expense', 'Income'], endpoints: () => ({}) }) };
 });
 const id = '1'.repeat(24);
-const prepared = (request: ReviewRequest): PreparedReview => ({ request, reviewProof: 'synthetic-opaque-token', expiresAt: 4102444800,
+const prepared = (request: ReviewRequest): PreparedReview => ({ request, preparationId: 'A'.repeat(43), expiresAt: 4102444800000,
   facts: { amount: { format: 'binary64-roundtrip-decimal', value: '12.340000000000002' }, dateEpochMs: 1736942400001,
     category: 'Транспорт', title: '<script>fictional</script>', recipient: 'Fictional recipient', comment: { kind: 'missing' } },
   currentDecision: { storedState: null, decisionRevision: null } });
@@ -74,4 +74,9 @@ it('purges proof state and blocks new writes when the server retires authenticat
   await screen.findByText(/Текущая проверка закрыта; исход прежнего сохранения/);
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Подготовить серверную проверку' })).toBeDisabled();
   expect(onSaved).not.toHaveBeenCalled(); expect(mockApply).toHaveBeenCalledTimes(1);
+});
+
+it('lost context allows refresh only and never prepares or saves again automatically',async()=>{
+ mockApply.mockResolvedValue({ok:false,code:'context_lost'});show();await prepare();fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Сохранить классификацию на сервере'}));
+ await screen.findByText(/контекст утрачен/);expect(screen.getByRole('button',{name:'Подготовить серверную проверку'})).toBeDisabled();fireEvent.click(screen.getByRole('button',{name:'Обновить состояние без повторной записи'}));expect(onSaved).toHaveBeenCalledTimes(1);expect(mockPrepare).toHaveBeenCalledTimes(1);expect(mockApply).toHaveBeenCalledTimes(1);
 });

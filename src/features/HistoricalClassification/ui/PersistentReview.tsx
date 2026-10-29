@@ -7,7 +7,7 @@ import type { DecisionQuery } from '../api/historyApi';
 import type { ClassificationRead, DecisionState, StableAssignment } from '../model/contract';
 import type { HistoryOperation } from '../model/history';
 
-/** Keyed by operation/draft/session/period. Proofs stay only in component memory. */
+/** Keyed by operation/draft/session/period. Preparation IDs stay only in component memory. */
 export const PersistentReview = ({ operation, scope, decision, state, assignment, onSaved }: {
   operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; decision: ClassificationRead;
   state: DecisionState; assignment?: StableAssignment; onSaved: () => void;
@@ -16,7 +16,6 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
   const [prepared, setPrepared] = useState<PreparedReview | null>(null), [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false), [uncertain, setUncertain] = useState(false), [message, setMessage] = useState('');
   const live = useRef(true), active = useRef(false), controller = useRef(new AbortController());
-  const [context] = useState(() => crypto.randomUUID());
   useEffect(() => {
     live.current = true;
     // StrictMode remount must not reuse an aborted controller.
@@ -42,7 +41,7 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
     try {
       if (action === 'prepare') {
         setPrepared(null); setChecked(false);
-        const request: ReviewRequest = { version: 'classification-review-request-v1', browserReviewContext: context,
+        const request: ReviewRequest = { version: 'classification-c-v1',
           requestId: crypto.randomUUID(), expectedRevision: decision.decisionRevision, state, ...(assignment ? { assignment } : {}) };
         const result = await client().prepare(operation.dataset, operation.operationId, request);
         if (!live.current) return;
@@ -50,19 +49,20 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
         else setMessage(result.code === 'session_changed' ? 'Сессия изменилась или истекла. Текущая серверная проверка закрыта.'
           : result.code === 'conflict' ? 'Ревизия изменилась. Обновите историю и повторите ручную проверку.' : 'Подготовка проверки недоступна. Введённый выбор сохранён в памяти.');
       } else if (prepared) {
-        if (action === 'apply' && (!checked || uncertain || Date.now() >= prepared.expiresAt * 1000)) {
+        if (action === 'apply' && (!checked || uncertain || Date.now() >= prepared.expiresAt)) {
           setMessage('Нужно заново подготовить и проверить факты.'); return;
         }
         const result = await client()[action](operation.dataset, operation.operationId, prepared);
         if (!live.current) return;
         if (result.ok && result.value === 'applied') success();
         else if (result.ok) { setUncertain(true); setMessage('Результат остаётся неопределённым. Новая запись автоматически не отправляется.'); }
+        else if (result.code === 'context_lost') { setPrepared(null); setChecked(false); setUncertain(true); setMessage('Срок проверки истёк или контекст утрачен. Исход сохранения неизвестен. Обновите состояние без повторной записи.'); }
         else if (result.code === 'unknown_outcome') { setUncertain(true); setMessage('Ответ о сохранении не получен. Запись могла сохраниться. Доступна только проверка результата.'); }
         else { if (action === 'apply' || result.code === 'session_changed') setPrepared(null);
           if (result.code === 'session_changed') { setChecked(false); setUncertain(true); }
           setMessage(result.code === 'session_changed' ? 'Сессия изменилась или истекла. Текущая проверка закрыта; исход прежнего сохранения может быть неопределённым.'
             : result.code === 'conflict' ? 'Конфликт решения или изменённые факты. Обновите историю; выбор сохранён.'
-            : result.code === 'expired' ? 'Срок проверки истёк. Истёкший proof не используется для новой записи.'
+            : result.code === 'expired' ? 'Срок проверки истёк. Контекст больше недоступен; обновите состояние без повторной записи.'
               : 'Действие недоступно. Успешное сохранение не подтверждено; выбор сохранён.'); }
       }
     } finally { active.current = false; if (live.current) setBusy(false); }
@@ -74,13 +74,14 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
       <Typography component="h4">Факты, проверенные сервером для этого решения</Typography>
       <Typography component="pre" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(prepared.facts, null, 2)}
         {'\nUTC: '}{new Date(Number(prepared.facts.dateEpochMs)).toISOString()}</Typography>
-      <Typography>Срок допуска: {new Date(prepared.expiresAt * 1000).toISOString()}. Наблюдение неатомарное; изменения после чтения возможны.</Typography>
+      <Typography>Срок допуска: {new Date(prepared.expiresAt).toISOString()}. Наблюдение неатомарное; изменения после чтения возможны.</Typography>
       <FormControlLabel control={<Checkbox checked={checked} disabled={busy || uncertain} onChange={e => setChecked(e.target.checked)} />}
         label="Я проверил(а) именно серверные факты и явно подтверждаю новое решение" />
-      <Button disabled={busy || uncertain || !checked || Date.now() >= prepared.expiresAt * 1000} onClick={() => void run('apply')}>Сохранить классификацию на сервере</Button>
+      <Button disabled={busy || uncertain || !checked || Date.now() >= prepared.expiresAt} onClick={() => void run('apply')}>Сохранить классификацию на сервере</Button>
       {uncertain && <Button disabled={busy} onClick={() => void run('reconcile')}>Проверить результат без записи</Button>}
     </>}
     {busy && <Typography role="status">Ожидание сервера…</Typography>}
+    {uncertain && <Button disabled={busy} onClick={() => { setPrepared(null); setChecked(false); onSaved(); }}>Обновить состояние без повторной записи</Button>}
     {message && <Alert severity={uncertain ? 'warning' : 'info'}>{message}</Alert>}
     {!live.current && <Button onClick={onSaved}>Обновить состояние после возврата</Button>}
   </Stack>;

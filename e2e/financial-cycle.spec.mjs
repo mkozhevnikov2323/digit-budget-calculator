@@ -72,6 +72,18 @@ test('E2E-04 Reload reads the persisted decision and continuous revision from Mo
     await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Есть подтверждённое решение\. Ревизия: 1/)).toBeVisible();
     expect((await assertSources(stack)).primaryRevision).toBe(1);
   });
+  await test.step('income C approval survives reload without changing financial sources', async()=>{
+    const salary='0000000000000000000000c8';
+    await page.getByRole('button',{name:new RegExp('incomes.*'+salary)}).click();
+    const review=page.getByRole('region',{name:'Сохранение ручной классификации'});
+    await prepare(page,review);
+    const applied=page.waitForResponse(r=>/\/c-v1\/apply$/.test(r.url())&&r.request().method()==='POST');
+    await review.getByRole('button',{name:'Сохранить классификацию на сервере',exact:true}).click();expect((await applied).status()).toBe(200);
+    await page.reload();await analytics(page);await selectPrimary(page,stack);
+    await page.getByRole('button',{name:new RegExp('incomes.*'+salary)}).click();
+    await expect(page.getByRole('region',{name:'Проверка операции'}).getByText(/Есть подтверждённое решение\. Ревизия: 2/)).toBeVisible();await assertSources(stack);
+  });
+
 });
 
 test('E2E-05 Classification buckets roles layers and coverage reconcile exactly', async ({ page, stack }) => {
@@ -202,7 +214,7 @@ test('E2E-11 Financial edit rejects stale review without overwriting source fact
   await start(page); const review = await selectPrimary(page, stack); await prepare(page, review);
   await test.step('source changed after preparation cannot silently inherit approval', async () => {
     await stack.rpc('changeSource');
-    const response = page.waitForResponse(r => /\/commands$/.test(r.url()) && r.request().method() === 'POST');
+    const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
     await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
     expect((await response).status()).toBe(409);
     await expect(review.getByText('Конфликт решения или изменённые факты. Обновите историю; выбор сохранён.', { exact: true })).toBeVisible();
@@ -214,12 +226,12 @@ test('E2E-12 Concurrent CAS duplicate click unknown commit reconciliation and ex
   await start(page); let review = await selectPrimary(page, stack); await prepare(page, review);
   const second = await context.newPage(); await analytics(second); const other = await selectPrimary(second, stack); await prepare(second, other);
   await test.step('independent prepared intents conflict and synchronous double click sends once', async () => {
-    let commands = 0; page.on('request', r => { if (/\/commands$/.test(r.url()) && r.method() === 'POST') commands++; });
-    const response = page.waitForResponse(r => /\/commands$/.test(r.url()) && r.request().method() === 'POST');
+    let commands = 0; page.on('request', r => { if (/\/c-v1\/apply$/.test(r.url()) && r.method() === 'POST') commands++; });
+    const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
     await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).evaluate(button => { button.click(); button.click(); });
     expect((await response).status()).toBe(201);
     await reopenAfterSave(page, stack.primary); expect(commands).toBe(1);
-    const conflict = second.waitForResponse(r => /\/commands$/.test(r.url()) && r.request().method() === 'POST');
+    const conflict = second.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
     await other.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click(); expect((await conflict).status()).toBe(409);
     await expect(other.getByText(/Конфликт решения или изменённые факты/)).toBeVisible();
   });
@@ -228,7 +240,7 @@ test('E2E-12 Concurrent CAS duplicate click unknown commit reconciliation and ex
     await page.getByRole('button', { name: new RegExp(stack.misc) }).click();
     review = page.getByRole('region', { name: 'Сохранение ручной классификации' }); await prepare(page, review);
     await stack.rpc('loseAcknowledgement'); let writes = 0;
-    page.on('request', r => { if (/\/commands$/.test(r.url()) && r.method() === 'POST') writes++; });
+    page.on('request', r => { if (/\/c-v1\/apply$/.test(r.url()) && r.method() === 'POST') writes++; });
     await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
     await expect(review.getByText(/Запись могла сохраниться/)).toBeVisible();
     await expect(review.getByRole('button', { name: 'Подготовить серверную проверку', exact: true })).toBeDisabled();
@@ -242,7 +254,7 @@ test('E2E-12 Concurrent CAS duplicate click unknown commit reconciliation and ex
     await page.getByRole('button', { name: new RegExp(stack.primary) }).click();
     review = page.getByRole('region', { name: 'Сохранение ручной классификации' }); await prepare(page, review);
     const before = await stack.rpc('inspect'); await stack.rpc('expireProof');
-    const response = page.waitForResponse(r => /\/commands$/.test(r.url()) && r.request().method() === 'POST');
+    const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
     await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
     expect((await response).status()).toBe(410); await expect(review.getByText(/Срок проверки истёк/)).toBeVisible();
     expect((await assertSources(stack)).classifications).toBe(before.classifications);
@@ -273,7 +285,7 @@ test('E2E-13 Transport unavailability preserves draft and precision fails withou
 test('E2E-14 Feature flags alone cannot activate writes without protocol installation', async ({ page, stack }) => {
   await start(page); const review = await selectPrimary(page, stack); const before = await stack.rpc('inspect');
   await test.step('real default bootstrap remains fail-closed even with flags enabled', async () => {
-    const response = page.waitForResponse(r => /\/reviews$/.test(r.url()) && r.request().method() === 'POST');
+    const response = page.waitForResponse(r => /\/c-v1\/prepare$/.test(r.url()) && r.request().method() === 'POST');
     await review.getByRole('button', { name: 'Подготовить серверную проверку', exact: true }).click();
     expect((await response).status()).toBe(503);
     await expect(review.getByText(/Подготовка проверки недоступна/)).toBeVisible();
