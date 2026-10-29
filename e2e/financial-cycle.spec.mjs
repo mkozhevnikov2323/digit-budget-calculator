@@ -285,6 +285,12 @@ test('E2E-13 Transport unavailability preserves draft and precision fails withou
 test('E2E-14 Feature flags alone cannot activate writes without protocol installation', async ({ page, stack }) => {
   await start(page); const review = await selectPrimary(page, stack); const before = await stack.rpc('inspect');
   await test.step('real default bootstrap remains fail-closed even with flags enabled', async () => {
+    const legacyStatus = await page.evaluate(async ({baseUrl, operationId}) => {
+      const r = await fetch(`${baseUrl}/classifications/expenses/${operationId}/reviews`, {method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${localStorage.getItem('token')}`},body:'{}'});
+      return r.status;
+    }, {baseUrl:stack.baseUrl,operationId:stack.primary});
+    expect(legacyStatus).toBe(503);
+
     const response = page.waitForResponse(r => /\/c-v1\/prepare$/.test(r.url()) && r.request().method() === 'POST');
     await review.getByRole('button', { name: 'Подготовить серверную проверку', exact: true }).click();
     expect((await response).status()).toBe(503);
