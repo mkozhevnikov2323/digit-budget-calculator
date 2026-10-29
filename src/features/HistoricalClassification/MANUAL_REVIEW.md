@@ -32,3 +32,24 @@ same-token logout and concurrent account erasure retain the approved limitations
 The CI branch filter includes the named parent branches for this finite PR stack
 so each focused PR receives actual Node22 build/critical tests without merging
 parents or disguising a main-only unrun stacked job as passed. No checks removed.
+
+## P11-C2 current frontend transport
+
+The UI now uses the additive architecture-C `c-v1/prepare`, `c-v1/apply`,
+`c-v1/reconcile` protocol (`classification-c-v1`), pinned to backend merge #36.
+Preparation IDs live only in component memory. Prepare responses strictly bind
+operation, intent and expected revision, validate exact source facts and the
+current read DTO; expiry is epoch milliseconds. Apply sends only the preparation
+ID and explicit confirmation. No source facts or client owner authorize writes.
+
+Lost/invalid acknowledgements permit read-only reconciliation, never an automatic
+apply retry. A missing/expired context blocks further saves and offers an explicit
+read-state refresh; it does not prove that an earlier write failed. Session/JWT
+transitions and page lifecycle changes discard the prepared context. No production
+gate, migration or old P11 endpoint is changed. Activation and Ubuntu verification
+remain separate approvals.
+
+Browser tests preload C only inside the guarded disposable IPC backend process.
+The existing P11 fixture remains unchanged; its synthetic clock expiry command
+also advances the C process-local monotonic test clock. No production entrypoint
+loads this preload and no HTTP test endpoint is added.

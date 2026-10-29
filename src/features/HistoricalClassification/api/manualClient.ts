@@ -1,14 +1,14 @@
-/** Ephemeral proof transport, deliberately outside Redux/RTK cache/actions. */
+/** Ephemeral C preparation transport, deliberately outside Redux/RTK cache/actions. */
 import { isCurrentSession } from 'shared/api/sessionBoundary';
 import { checkCredentialChange } from 'shared/api/credentialObservation';
-import { closedData, stableAssignment, STABLE_TAXONOMY, type DecisionState, type StableAssignment } from '../model/contract';
+import { closedData, stableAssignment, validateClassificationRead, type DecisionState, type StableAssignment } from '../model/contract';
 import { parseSourceFacts } from '../model/coherentHistory';
 type Dataset = 'expenses' | 'incomes';
 export type ManualIntent = { requestId: string; expectedRevision: number | null; state: DecisionState; assignment?: StableAssignment };
-export type ReviewRequest = ManualIntent & { version: 'classification-review-request-v1'; browserReviewContext: string };
-export type PreparedReview = { request: ReviewRequest; reviewProof: string; expiresAt: number;
+export type ReviewRequest = ManualIntent & { version: 'classification-c-v1' };
+export type PreparedReview = { request: ReviewRequest; preparationId: string; expiresAt: number;
   facts: Record<string, unknown>; currentDecision: { storedState: DecisionState | null; decisionRevision: number | null } };
-export type ManualResult<T> = { ok: true; value: T } | { ok: false; code: 'session_changed' | 'unavailable' | 'conflict' | 'expired' | 'unknown_outcome' | 'invalid_response' };
+export type ManualResult<T> = { ok: true; value: T } | { ok: false; code: 'session_changed' | 'unavailable' | 'conflict' | 'expired' | 'context_lost' | 'unknown_outcome' | 'invalid_response' };
 const uuid = (x: unknown): x is string => typeof x === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(x);
 
 export const createManualClient = (options: { baseUrl: string; generation: number; current: () => boolean; signal: AbortSignal;
@@ -25,59 +25,63 @@ export const createManualClient = (options: { baseUrl: string; generation: numbe
       });
       if (!current() || credential() !== token) return { ok: false, code: 'session_changed' };
       // Never preserve Request/Response, raw driver text or sensitive server errors.
-      if (!res.ok) return { ok: false, code: res.status === 401 ? 'session_changed' : res.status === 409 ? 'conflict' : res.status === 410 ? 'expired'
-        : mutation && res.status >= 500 ? 'unknown_outcome' : 'unavailable' };
+      if (!res.ok) {
+        let persistence: unknown;
+        try {
+          const e = closedData(await res.json(), ['version','result','error','persistence']);
+          const result = e && closedData(e.result, ['ok','error','persistence']);
+          if (e?.version === 'classification-c-v1') persistence = result?.ok === false ? result.persistence : e.persistence;
+        } catch { /* Never infer a failed write from an unreadable error. */ }
+        return { ok: false, code: res.status === 401 ? 'session_changed' : res.status === 410 ? 'context_lost'
+          : mutation && (res.status >= 500 || persistence === 'unknown' || (res.status === 409 && persistence !== 'not_applied')) ? 'unknown_outcome'
+            : res.status === 409 ? 'conflict' : 'unavailable' };
+      }
       const data: unknown = await res.json();
       return current() && credential() === token ? { ok: true, value: data } : { ok: false, code: 'session_changed' };
     } catch { return { ok: false, code: !current() ? 'session_changed' : mutation ? 'unknown_outcome' : 'unavailable' }; }
   };
   return {
     async prepare(dataset: Dataset, operationId: string, request: ReviewRequest): Promise<ManualResult<PreparedReview>> {
-      const response = await post(dataset, operationId, 'reviews', request, false); if (!response.ok) return response;
-      const r = closedData(response.value, ['version', 'dataset', 'operationId', 'taxonomyVersion', 'browserReviewContext',
-        'currentDecision', 'intent', 'facts', 'reviewProof', 'expiresAt', 'consistency']);
-      const intent = r && closedData(r.intent, ['requestId', 'expectedRevision', 'state', 'assignment']);
-      const d = r && closedData(r.currentDecision, ['storedState', 'decisionRevision']);
-      const f = r && closedData(r.facts, ['amount', 'dateEpochMs', 'comment', ...(dataset === 'expenses' ? ['category', 'title', 'recipient'] : ['source'])]);
-      const normalized = f && typeof f.dateEpochMs === 'number' && Number.isFinite(new Date(f.dateEpochMs).getTime())
-        ? parseSourceFacts({ ...f, date: new Date(f.dateEpochMs).toISOString() }, dataset) : null;
-      const assignment = intent && Object.prototype.hasOwnProperty.call(intent, 'assignment') ? stableAssignment(intent.assignment, dataset) : undefined;
-      if (!r || Object.keys(r).length !== 11 || r.version !== 'classification-review-v1' || r.dataset !== dataset || r.operationId !== operationId
-        || r.taxonomyVersion !== STABLE_TAXONOMY || r.browserReviewContext !== request.browserReviewContext || !uuid(request.requestId)
-        || !intent || intent.requestId !== request.requestId || intent.expectedRevision !== request.expectedRevision || intent.state !== request.state
-        || JSON.stringify(assignment) !== JSON.stringify(request.assignment) || !d || Object.keys(d).length !== 2
-        || d.decisionRevision !== request.expectedRevision || (d.decisionRevision === null ? d.storedState !== null : !['approved', 'explicit_unclassified', 'cleared'].includes(String(d.storedState)))
-        || !normalized || typeof r.reviewProof !== 'string' || r.reviewProof.length > 4096 || !/^crp1\.[a-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(r.reviewProof)
-        || typeof r.expiresAt !== 'number' || !Number.isSafeInteger(r.expiresAt) || r.expiresAt < 0 || r.expiresAt > 253402300799
+      const command = { kind: 'manual_classification', dataset, operationId, requestId: request.requestId,
+        expectedRevision: request.expectedRevision, state: request.state, ...(request.assignment ? { assignment: request.assignment } : {}) };
+      const response = await post(dataset, operationId, 'c-v1/prepare', { version: 'classification-c-v1', command }, false);
+      if (!response.ok) return response;
+      const r = closedData(response.value, ['version','preparationId','expiresAt','command','facts','currentDecision','consistency']);
+      const c = r && closedData(r.command, Object.keys(command));
+      const assignment = c && Object.prototype.hasOwnProperty.call(c, 'assignment') ? stableAssignment(c.assignment, dataset) : undefined;
+      const d = r && validateClassificationRead(r.currentDecision, dataset, operationId);
+      const facts = r && parseSourceFacts(r.facts, dataset);
+      if (!r || Object.keys(r).length !== 7 || r.version !== 'classification-c-v1' || !uuid(request.requestId)
+        || !c || Object.keys(c).length !== Object.keys(command).length || c.kind !== command.kind || c.dataset !== dataset || c.operationId !== operationId
+        || c.requestId !== request.requestId || c.expectedRevision !== request.expectedRevision || c.state !== request.state
+        || JSON.stringify(assignment) !== JSON.stringify(request.assignment) || !d || d.status === 'blocked' || d.decisionRevision !== request.expectedRevision
+        || !facts || typeof r.preparationId !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(r.preparationId)
+        || typeof r.expiresAt !== 'number' || !Number.isSafeInteger(r.expiresAt) || r.expiresAt <= Date.now() || r.expiresAt > 253402300799999
         || r.consistency !== 'observed_only_non_atomic') return { ok: false, code: 'invalid_response' };
-      // Copy safe JSON only; no RTK Query cache or browser storage.
       return { ok: true, value: { request: { ...request, ...(request.assignment ? { assignment: { ...request.assignment } } : {}) },
-        facts: JSON.parse(JSON.stringify(f)), reviewProof: r.reviewProof, expiresAt: r.expiresAt,
-        currentDecision: { storedState: d.storedState as DecisionState | null, decisionRevision: request.expectedRevision } } };
+        facts: JSON.parse(JSON.stringify(r.facts)), preparationId: r.preparationId, expiresAt: r.expiresAt,
+        currentDecision: { storedState: d.storedState, decisionRevision: d.decisionRevision } } };
     },
     async apply(dataset: Dataset, operationId: string, prepared: PreparedReview): Promise<ManualResult<'applied'>> {
-      const response = await post(dataset, operationId, 'commands', { ...prepared.request, version: 'classification-command-v1', reviewProof: prepared.reviewProof }, true);
+      const response = await post(dataset, operationId, 'c-v1/apply', { version: 'classification-c-v1', preparationId: prepared.preparationId, confirmation: 'confirm_prepared_intent' }, true);
       if (!response.ok) return response;
-      const r = closedData(response.value, ['version', 'dataset', 'operationId', 'requestId', 'outcome', 'storedState', 'decisionRevision', 'sourceStatus', 'confirmed', 'consistency']);
-      const c = prepared.request;
-      if (!r || Object.keys(r).length !== 10 || r.version !== 'classification-write-ack-v1' || r.dataset !== dataset || r.operationId !== operationId || r.requestId !== c.requestId
-        || !['created', 'updated', 'replayed'].includes(String(r.outcome)) || r.storedState !== c.state || r.decisionRevision !== (c.expectedRevision === null ? 1 : c.expectedRevision + 1)
-        || !['matching_observed', 'stale', 'missing', 'invalid', 'unavailable'].includes(String(r.sourceStatus)) || r.confirmed !== null || r.consistency !== 'observed_only_non_atomic')
+      const envelope = closedData(response.value, ['version','result']);
+      const result = envelope && closedData(envelope.result, ['ok','value']);
+      const r = result && closedData(result.value, ['version','outcome','storedState','decisionRevision','sourceStatus','confirmed','consistency']);
+      if (!envelope || Object.keys(envelope).length !== 2 || envelope.version !== 'classification-c-v1' || !result || Object.keys(result).length !== 2 || result.ok !== true
+        || !r || Object.keys(r).length !== 7 || r.version !== 'classification-write-result-v1' || !['created','updated','replayed'].includes(String(r.outcome))
+        || r.storedState !== prepared.request.state || r.decisionRevision !== (prepared.request.expectedRevision ?? 0) + 1
+        || !['matching_observed','stale','missing','invalid','unavailable'].includes(String(r.sourceStatus)) || r.confirmed !== null || r.consistency !== 'observed_only_non_atomic')
         return { ok: false, code: 'unknown_outcome' };
       return { ok: true, value: 'applied' };
     },
     async reconcile(dataset: Dataset, operationId: string, prepared: PreparedReview): Promise<ManualResult<'applied' | 'indeterminate'>> {
-      const response = await post(dataset, operationId, 'commands/reconcile', { ...prepared.request, version: 'classification-reconcile-request-v1', reviewProof: prepared.reviewProof }, false);
+      const response = await post(dataset, operationId, 'c-v1/reconcile', { version: 'classification-c-v1', preparationId: prepared.preparationId }, false);
       if (!response.ok) return response;
-      const r = closedData(response.value, ['version', 'dataset', 'operationId', 'requestId', 'result', 'receipt', 'confirmed', 'consistency']);
-      if (!r || Object.keys(r).length !== 8 || r.version !== 'classification-reconcile-v1' || r.dataset !== dataset || r.operationId !== operationId
-        || r.requestId !== prepared.request.requestId || r.confirmed !== null || r.consistency !== 'observed_only_non_atomic') return { ok: false, code: 'invalid_response' };
-      if (r.result === 'indeterminate' && r.receipt === null) return { ok: true, value: 'indeterminate' };
-      const receipt = closedData(r.receipt, ['storedState', 'decisionRevision', 'sourceStatus']);
-      if (r.result !== 'latest_applied' || !receipt || Object.keys(receipt).length !== 3 || receipt.storedState !== prepared.request.state
-        || receipt.decisionRevision !== (prepared.request.expectedRevision === null ? 1 : prepared.request.expectedRevision + 1)
-        || !['matching_observed', 'stale'].includes(String(receipt.sourceStatus))) return { ok: false, code: 'invalid_response' };
-      return { ok: true, value: 'applied' };
+      const r = closedData(response.value, ['version','outcome','consistency']);
+      if (!r || Object.keys(r).length !== 3 || r.version !== 'classification-c-v1' || !['latest_applied','indeterminate'].includes(String(r.outcome))
+        || r.consistency !== 'observed_only_non_atomic') return { ok: false, code: 'invalid_response' };
+      return { ok: true, value: r.outcome === 'latest_applied' ? 'applied' : 'indeterminate' };
     },
   };
 };

@@ -19,6 +19,7 @@ async function startBackend(defaultOff) {
   expect(head === manifest.commit, 'Backend must be at the reviewed immutable revision').toBe(true);
   const child = fork(path.join(backendRoot, 'tests/browser/server.cjs'), [], {
     cwd: backendRoot, stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+    execArgv: ['--require', path.join(root, 'e2e/c-preload.cjs')],
     env: { ...process.env, BUDGET_BROWSER_TEST: '1', BUDGET_BROWSER_DEFAULT_OFF: defaultOff ? '1' : '0' },
   });
   const exited = once(child, 'exit'); let sequence = 0; const pending = new Map();
@@ -119,11 +120,11 @@ export async function reopenAfterSave(page, operationId) {
   await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Ревизия: 1/)).toBeVisible();
 }
 export async function save(page, review) {
-  const response = page.waitForResponse(r => /\/commands$/.test(r.url()) && r.request().method() === 'POST');
+  const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
   await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
   const acknowledgement = await response;
   expect(acknowledgement.status()).toBe(201);
-  await reopenAfterSave(page, acknowledgement.url().split('/').at(-2));
+  await reopenAfterSave(page, acknowledgement.url().split('/').at(-3));
 }
 export async function statistics(page) {
   await page.getByRole('button', { name: 'Загрузить реальную статистику классификации', exact: true }).click();
