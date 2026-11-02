@@ -40,3 +40,8 @@ it('does not show cached operations while history is refetching or unavailable',
   render(<HistoricalClassification period={selectedPeriod()} />);
   expect(screen.queryByRole('button', { name: /Расходы ·/ })).not.toBeInTheDocument();
 });
+
+it('history-only selection displays source facts without querying a decision or mounting confirmation controls',()=>{
+ decision.mockClear();render(<HistoricalClassification period={selectedPeriod()} readOnly/>);fireEvent.click(screen.getByRole('button',{name:/Расходы ·/}));
+ expect(screen.getByText(/Fictional fuel/)).toBeInTheDocument();expect(decision).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:'Подготовить серверную проверку'})).not.toBeInTheDocument();expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+});
