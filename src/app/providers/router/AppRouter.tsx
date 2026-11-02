@@ -1,20 +1,11 @@
 import { Suspense } from 'react';
-import { Route, Routes } from 'react-router';
+import { useRoutes } from 'react-router';
 
 import { routeConfig, classificationPreviewRoutes } from './routeConfig';
 
-const AppRouter = () => (
-  <Routes>
-    {[...Object.values(routeConfig), ...classificationPreviewRoutes].map(({ element, path }) => (
-      <Route
-        key={path}
-        element={
-          <Suspense fallback={<div>Loading...</div>}>{element}</Suspense>
-        }
-        path={path}
-      />
-    ))}
-  </Routes>
-);
+const AppRouter = () => {
+  const routes = useRoutes([...Object.values(routeConfig), ...classificationPreviewRoutes]);
+  return <Suspense fallback={<div role="status">Загрузка страницы…</div>}>{routes}</Suspense>;
+};
 
 export default AppRouter;

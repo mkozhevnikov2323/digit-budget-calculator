@@ -22,6 +22,31 @@ test('E2E-01 Authentication through real login and protected analytics', async (
     await start(page); await expect(page.getByText('Количество записей расходов', { exact: true })).toBeVisible();
     await assertSources(stack);
   });
+  await test.step('all Analytics shell links support direct entry and real reload', async () => {
+    const tabs = page.getByRole('navigation', { name: 'Разделы аналитики' }).getByRole('tab');
+    await expect(tabs).toHaveCount(9);
+    const destinations = await tabs.evaluateAll(elements => elements.map(el => ({href:el.getAttribute('href'),label:el.textContent})));
+    for (const {href,label} of destinations) {
+      await page.getByRole('tab',{name:label,exact:true}).click();
+      await expect(page).toHaveURL(new RegExp(`${href}$`));
+      await page.reload();
+      await expect(page.getByRole('tab',{name:label,exact:true})).toHaveAttribute('aria-current','page');
+      if(href==='/analytics') await expect(page.getByRole('heading',{name:'Финансовая аналитика',exact:true})).toBeVisible();
+      else {
+        await expect(page.getByRole('heading',{name:label,exact:true})).toBeVisible();
+        await expect(page.getByRole('heading',{name:'Финансовая аналитика',exact:true})).toHaveCount(0);
+      }
+    }
+    await page.setViewportSize({width:360,height:800});
+    const navigation=page.getByRole('navigation',{name:'Разделы аналитики'});
+    const bounds=await navigation.boundingBox();expect(bounds.width).toBeLessThanOrEqual(360);
+    await page.getByRole('tab',{name:'Расширенная аналитика',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Финансовая аналитика',exact:true})).toBeVisible();
+    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();
+    await expect(page.getByRole('tab',{name:'Планирование бюджета',exact:true})).toHaveAttribute('aria-current','page');
+    await page.setViewportSize({width:1440,height:1000});
+    await assertSources(stack);
+  });
 });
 
 test('E2E-02 Exact annual monthly category loan and UTC-boundary reconciliation', async ({ page, stack }) => {

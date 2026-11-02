@@ -11,6 +11,9 @@ import { NotFoundPage } from 'pages/NotFoundPage';
 import { Protected } from './ProtectedRoute';
 import { LoansPage } from 'pages/LoansPage';
 import { AnalyticsPage } from 'pages/AnalyticsPage';
+import { AnalyticsLayout } from 'pages/AnalyticsPage/ui/AnalyticsLayout';
+import { AnalyticsSectionPage } from 'pages/AnalyticsPage/ui/AnalyticsSectionPage';
+import { analyticsNavigation } from 'pages/AnalyticsPage/model/navigation';
 
 // The production literal is false, including builds in development mode. Keep
 // the dynamic import inside the guard so no demo chunk is shipped by build.
@@ -44,7 +47,14 @@ export const RoutePath: Record<AppRoutes, string> = {
 export const routeConfig: Record<AppRoutes, RouteObject> = {
   [AppRoutes.ANALYTICS]: {
     path: RoutePath.analytics,
-    element: <Protected><AnalyticsPage /></Protected>,
+    element: <Protected><AnalyticsLayout /></Protected>,
+    children: [
+      { index: true, element: <AnalyticsPage /> },
+      ...analyticsNavigation.slice(1).map(item => ({
+        path: item.path.slice('/analytics/'.length),
+        element: <AnalyticsSectionPage title={item.label} />,
+      })),
+    ],
   },
   [AppRoutes.MAIN]: {
     path: RoutePath.main,
