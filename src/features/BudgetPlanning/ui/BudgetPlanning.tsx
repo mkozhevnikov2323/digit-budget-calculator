@@ -75,7 +75,7 @@ const PlanningWorkspace = ({ cohort, suggestion, realMode = false }: PlanningPro
         if (!suggestion || !suggestionReviewed || !parsed.ok) return;
         const result = planFromRecordedHistory(parsed.value, suggestion.input, { asOf: Date.now(), adjustmentBasisPoints: suggestion.forecast.adjustmentBasisPoints }, protectedLayers);
         if (!result.ok) { setMessage('Рекомендации неприменимы: проверьте базу, полноту истории и ручной план. Черновик сохранён.'); return; }
-        edit(draftFromPlan(result.value)); setProvenance(`Приняты рекомендации по записанной истории ${draft.firstDate} — ${draft.lastDate}; сценарий ${suggestion.forecast.adjustmentBasisPoints / 100}%. Это пользовательские цели, не серверное подтверждение и не расходы.`);
+        edit(draftFromPlan(result.value)); setProvenance(`Приняты рекомендации по записанной истории ${dateLabel(draft.firstDate)} — ${dateLabel(draft.lastDate)}; сценарий ${suggestion.forecast.adjustmentBasisPoints / 100}%. Это пользовательские цели, не серверное подтверждение и не расходы.`);
       }}>Применить рекомендации к не изменённым вручную слоям</Button>
       {provenance && <Typography role="status">{provenance}</Typography>}
     </Stack>}
