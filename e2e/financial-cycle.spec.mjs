@@ -210,20 +210,20 @@ test('E2E-09 Explicit budget-plan-v1 export import rejects malformed and unsuppo
     await p.getByLabel('Год плана',{exact:true}).fill('2028');
     await p.getByLabel('Повседневные расходы месяц 1',{exact:true}).fill('111.12');
     await p.getByLabel('Новая годовая сумма Резерв',{exact:true}).fill('321.45');
-    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();
+    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await expect(page.getByRole('heading',{name:'Операции по категориям',exact:true,level:1})).toBeVisible();
     await page.getByLabel('Период',{exact:true}).selectOption('month');await page.getByLabel('Год',{exact:true}).fill('2025');await page.getByLabel('Месяц',{exact:true}).selectOption('9');
-    await page.getByRole('tab',{name:'Классификация',exact:true}).click();
+    await page.getByRole('tab',{name:'Классификация',exact:true}).click();await expect(page.getByRole('heading',{name:'Классификация',exact:true,level:1})).toBeVisible();
     await page.getByLabel('Период',{exact:true}).selectOption('month');await page.getByLabel('Год',{exact:true}).fill('2025');await page.getByLabel('Месяц',{exact:true}).selectOption('10');
-    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('9');
-    await page.getByRole('tab',{name:'Классификация',exact:true}).click();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('10');
-    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();
+    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await expect(page.getByRole('heading',{name:'Операции по категориям',exact:true,level:1})).toBeVisible();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('9');
+    await page.getByRole('tab',{name:'Классификация',exact:true}).click();await expect(page.getByRole('heading',{name:'Классификация',exact:true,level:1})).toBeVisible();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('10');
+    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();await expect(page.getByRole('heading',{name:'Планирование бюджета',exact:true,level:1})).toBeVisible();
     await expect(p.getByLabel('Год плана',{exact:true})).toHaveValue('2028');
     await expect(p.getByLabel('Повседневные расходы месяц 1',{exact:true})).toHaveValue('111.12');
     await expect(p.getByLabel('Новая годовая сумма Резерв',{exact:true})).toHaveValue('321.45');
     const preferences=await page.evaluate(()=>localStorage.getItem('budget-analytics-display-v1'));
     expect(preferences.includes('111.12')||preferences.includes('321.45')||preferences.includes('preparationId')).toBe(false);
-    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await page.reload();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('9');
-    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();await expect(page.getByLabel('Повседневные расходы месяц 1',{exact:true})).toHaveCount(0);
+    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await expect(page.getByRole('heading',{name:'Операции по категориям',exact:true,level:1})).toBeVisible();await page.reload();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('9');
+    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();await expect(page.getByRole('heading',{name:'Планирование бюджета',exact:true,level:1})).toBeVisible();await expect(page.getByLabel('Повседневные расходы месяц 1',{exact:true})).toHaveCount(0);
     await assertSources(stack);
   });
 
