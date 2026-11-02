@@ -30,7 +30,7 @@ it('binds evidence to the exact accepted cohort and clears old estimates on refr
 it('keeps partial classification and uncovered amounts explicit', () => {
   const c = recordedCohort(); c.decisions = c.decisions.map((d, i) => i === 0 ? { ...d, status: 'stale', confirmed: null } : d);
   render(<RealExpenseForecast cohort={c} asOf={now} />); confirmAll(); calculate();
-  expect(screen.getByText(/Покрытие классификации: partial/)).toHaveTextContent('12,34');
+  expect(screen.getByText(/Покрытие классификации: Частичное/)).toHaveTextContent('12,34');
 });
 it('requires separate recording confirmation for previous-year comparison', () => {
   const previous = recordedCohort(2024); query.mockReturnValue({ currentData: previous, isFetching: false, isError: false, requestId: 'previous1', refetch: jest.fn() } as ReturnType<typeof useGetCoherentHistoryQuery>);

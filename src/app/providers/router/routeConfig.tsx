@@ -10,9 +10,9 @@ import { ProfilePage } from 'pages/ProfilePage';
 import { NotFoundPage } from 'pages/NotFoundPage';
 import { Protected } from './ProtectedRoute';
 import { LoansPage } from 'pages/LoansPage';
-import { AnalyticsPage } from 'pages/AnalyticsPage';
+const AnalyticsDestination = lazy(() => import('pages/AnalyticsPage/ui/AnalyticsDestination').then(m => ({default:m.AnalyticsDestination})));
+import { analyticsPages } from 'features/AnalyticsState/model/slice';
 import { AnalyticsLayout } from 'pages/AnalyticsPage/ui/AnalyticsLayout';
-import { AnalyticsSectionPage } from 'pages/AnalyticsPage/ui/AnalyticsSectionPage';
 import { analyticsNavigation } from 'pages/AnalyticsPage/model/navigation';
 
 // The production literal is false, including builds in development mode. Keep
@@ -49,10 +49,10 @@ export const routeConfig: Record<AppRoutes, RouteObject> = {
     path: RoutePath.analytics,
     element: <Protected><AnalyticsLayout /></Protected>,
     children: [
-      { index: true, element: <AnalyticsPage /> },
-      ...analyticsNavigation.slice(1).map(item => ({
+      { index: true, element: <AnalyticsDestination page="overview" /> },
+      ...analyticsNavigation.slice(1).map((item,index) => ({
         path: item.path.slice('/analytics/'.length),
-        element: <AnalyticsSectionPage title={item.label} />,
+        element: <AnalyticsDestination page={analyticsPages[index+1]} />,
       })),
     ],
   },

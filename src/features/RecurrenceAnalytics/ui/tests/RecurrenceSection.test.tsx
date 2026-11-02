@@ -103,7 +103,7 @@ describe('recurrence UI with real RTK/session boundary and synthetic transport',
     const store = makeStore(); stores.push(store); const frames: string[] = [];
     render(<Provider store={store}><ThemeProvider theme={theme}><MemoryRouter><UserProvider>
       <Profiler id="recurrence" onRender={() => frames.push(document.body.textContent ?? '')}>
-        {page ? <AnalyticsPage /> : <RecurrenceSection />}
+        {page ? <><AnalyticsPage /><RecurrenceSection /></> : <RecurrenceSection />}
       </Profiler>
     </UserProvider></MemoryRouter></ThemeProvider></Provider>);
     return { store, frames };
@@ -152,7 +152,7 @@ describe('recurrence UI with real RTK/session boundary and synthetic transport',
     // JSDOM does not implement summary's native Enter default action. Check
     // its tab stop/click here; Chromium acceptance also exercises Enter.
     await user.click(document.activeElement!);
-    expect(category.getByText(/Активные месяцы \(UTC\): 2025-01, 2025-02, 2025-03/)).toBeInTheDocument();
+    expect(category.getByText(/Активные месяцы \(UTC\): январь 2025 г., февраль 2025 г., март 2025 г./)).toBeInTheDocument();
     expect(category.getByText(/Активные месяцы \(UTC\):/).closest('details')).toHaveAttribute('open');
   });
   it.each(['6', '12'])('selects %s completed months without changing the financial selector', async months => {

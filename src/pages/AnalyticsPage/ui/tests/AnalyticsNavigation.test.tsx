@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import AppRouter from 'app/providers/router/AppRouter';
 
 const mockAnalytics = jest.fn(() => <div>Existing complete analytics</div>);
-jest.mock('pages/AnalyticsPage', () => ({ AnalyticsPage: () => mockAnalytics() }));
+jest.mock('pages/AnalyticsPage/ui/AnalyticsDestination', () => ({ AnalyticsDestination: ({page}:{page:string}) => page==='overview'?mockAnalytics():<h1>{{categories:'Операции по категориям',recurrence:'Повторяемость операций',similar:'Похожие операции','income-sources':'Источники поступлений',history:'История операций',classification:'Классификация','classification-stats':'Статистика классификации',planning:'Планирование бюджета'}[page]}</h1> }));
 jest.mock('pages/MainPage', () => ({ MainPage: () => <div>Public entry</div> }));
 jest.mock('pages/IncomePage', () => ({ IncomePage: () => <div>Income page</div> }));
 jest.mock('pages/ExpensesPage', () => ({ ExpensesPage: () => null }));
@@ -28,17 +28,17 @@ const destinations = [
 const Location = () => {
   const location = useLocation(), navigate = useNavigate();
   return <><output aria-label="Current URL">{location.pathname}{location.search}</output>
-    <button onClick={() => navigate(-1)}>Back</button></>;
+    <button onClick={() => navigate(-1)}>Back</button><button onClick={() => navigate(1)}>Forward</button></>;
 };
 const show = (path: string) => render(<MemoryRouter initialEntries={[path]}><AppRouter /><Location /></MemoryRouter>);
 beforeEach(() => { localStorage.clear(); mockAnalytics.mockClear(); });
 afterEach(() => localStorage.clear());
 
 for (const [path, label] of destinations) {
-  it('supports a direct protected entry and remount at ' + path, () => {
+  it('supports a direct protected entry and remount at ' + path, async () => {
     localStorage.setItem('token', 'synthetic-navigation-only');
     const view = show(path);
-    const nav = screen.getByRole('navigation', { name: 'Разделы аналитики' });
+    const nav = await screen.findByRole('navigation', { name: 'Разделы аналитики' });
     expect(within(nav).getAllByRole('tab')).toHaveLength(9);
     expect(within(nav).getByRole('tab', { name: label, selected: true })).toHaveAttribute('aria-current', 'page');
     if (path === '/analytics') expect(screen.getByText('Existing complete analytics')).toBeInTheDocument();
@@ -49,9 +49,10 @@ for (const [path, label] of destinations) {
     }
     view.unmount();
     show(path);
+    await screen.findByRole('navigation',{name:'Разделы аналитики'});
     expect(screen.getByRole('tab', { name: label, selected: true })).toBeInTheDocument();
   });
-  it('protects unauthenticated direct entry at ' + path, () => {
+  it('protects unauthenticated direct entry at ' + path, async () => {
     show(path);
     expect(screen.getByText('Public entry')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Разделы аналитики' })).not.toBeInTheDocument();
@@ -59,9 +60,10 @@ for (const [path, label] of destinations) {
     expect(screen.getByLabelText('Current URL')).toHaveTextContent(/^\/$/);
   });
 }
-it('navigates using real hrefs, selects only the exact route and supports browser Back', () => {
+it('navigates using real hrefs, selects only the exact route and supports browser Back', async () => {
   localStorage.setItem('token', 'synthetic-navigation-only');
   show('/analytics');
+  await screen.findByRole('navigation',{name:'Разделы аналитики'});
   const tab = screen.getByRole('tab', { name: 'Классификация' });
   expect(tab).toHaveAttribute('href', '/analytics/classification');
   fireEvent.click(tab);
@@ -74,20 +76,24 @@ it('navigates using real hrefs, selects only the exact route and supports browse
   expect(screen.queryByRole('heading', { name: 'Классификация' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByRole('tab', { name: 'Классификация', selected: true })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Forward'}));
+  expect(screen.getByRole('tab',{name:'Планирование бюджета',selected:true})).toBeInTheDocument();
 });
 it('supports keyboard navigation and activation of linked tabs', async () => {
   localStorage.setItem('token', 'synthetic-navigation-only');
   const user = userEvent.setup();
   show('/analytics');
+  await screen.findByRole('navigation',{name:'Разделы аналитики'});
   act(() => screen.getByRole('tab', { name: 'Расширенная аналитика' }).focus());
   await user.keyboard('{ArrowRight}');
   expect(screen.getByRole('tab', { name: 'Операции по категориям' })).toHaveFocus();
   await user.keyboard('{Enter}');
   expect(screen.getByRole('heading', { name: 'Операции по категориям' })).toBeInTheDocument();
 });
-it('normalizes trailing slash only for tab selection and keeps other routes working', () => {
+it('normalizes trailing slash only for tab selection and keeps other routes working', async () => {
   localStorage.setItem('token', 'synthetic-navigation-only');
   const view = show('/analytics/history/?existing=value');
+  await screen.findByRole('navigation',{name:'Разделы аналитики'});
   expect(screen.getByRole('tab', { name: 'История операций', selected: true })).toBeInTheDocument();
   expect(screen.getByLabelText('Current URL')).toHaveTextContent('/analytics/history/?existing=value');
   view.unmount(); show('/income');

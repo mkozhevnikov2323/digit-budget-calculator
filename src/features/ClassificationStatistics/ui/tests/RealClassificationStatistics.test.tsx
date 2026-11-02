@@ -11,8 +11,8 @@ beforeEach(() => { owner.mockReturnValue({ status: 'verified', owner: { userId: 
 const open = () => fireEvent.click(screen.getByRole('button', { name: 'Загрузить реальную статистику классификации' }));
 it('requires explicit loading and displays only actual coherent-origin classification totals', () => {
   render(<RealClassificationStatistics period={cohort.history.period} />); expect(screen.queryByRole('table')).not.toBeInTheDocument(); open();
-  expect(screen.getByRole('region', { name: 'Классификация expenses' })).toHaveTextContent('148,08');
-  expect(screen.getByRole('region', { name: 'Классификация incomes' })).toHaveTextContent('681,36');
+  expect(screen.getByRole('region', { name: 'Классификация расходов' })).toHaveTextContent('148,08');
+  expect(screen.getByRole('region', { name: 'Классификация поступлений' })).toHaveTextContent('681,36');
   expect(screen.getByRole('table', { name: 'Реальные категории независимо от слоёв' })).toHaveTextContent('Транспорт');
   expect(screen.queryByText(/ДЕМО/)).not.toBeInTheDocument();
 });
@@ -36,11 +36,11 @@ it('never publishes a cached cohort belonging to another selected period or owne
   view.rerender(<RealClassificationStatistics period={cohort.history.period} />); expect(screen.queryByRole('table')).not.toBeInTheDocument();
 });
 it('preserves the local plan even while the selected history period is temporarily invalid', async () => {
-  const view = render(<RealClassificationStatistics period={cohort.history.period} />);
+  const view = render(<RealClassificationStatistics mode="planning" period={cohort.history.period} />);
   fireEvent.click(screen.getByRole('button', { name: 'Открыть локальный план' }));
   await screen.findByText(/У этого года ещё нет завершённых месяцев/);
-  fireEvent.change(screen.getByLabelText('everyday месяц 1'), { target: { value: '123.45' } });
-  view.rerender(<RealClassificationStatistics period={null} />);
-  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('123.45');
+  fireEvent.change(screen.getByLabelText('Повседневные расходы месяц 1'), { target: { value: '123.45' } });
+  view.rerender(<RealClassificationStatistics mode="planning" period={null} />);
+  expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('123.45');
   expect(screen.queryByRole('table', { name: 'Реальные финансовые слои' })).not.toBeInTheDocument();
 });

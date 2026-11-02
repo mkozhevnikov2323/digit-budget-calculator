@@ -13,26 +13,26 @@ it('edits memory-only targets, exports explicitly and preserves the draft after 
   const network = jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Real transport forbidden in synthetic test'));
   render(<BudgetPlanning />); fireEvent.click(screen.getByRole('button', { name: 'Открыть локальный план' }));
   expect(screen.queryByLabelText('Экспорт JSON — скопируйте явно')).not.toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Новая годовая сумма everyday'), { target: { value: '1200' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Распределить everyday по 12 месяцам' }));
-  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('100.00');
+  fireEvent.change(screen.getByLabelText('Новая годовая сумма Повседневные расходы'), { target: { value: '1200' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Распределить Повседневные расходы по 12 месяцам' }));
+  expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('100.00');
   fireEvent.click(screen.getByRole('button', { name: 'Экспортировать JSON по запросу' }));
   expect(screen.getByLabelText('Экспорт JSON — скопируйте явно')).toHaveDisplayValue(/budget-plan-v1/);
   fireEvent.change(screen.getByLabelText('JSON для импорта'), { target: { value: '{invalid' } });
   fireEvent.click(screen.getByRole('button', { name: 'Импортировать JSON — заменить черновик' }));
-  expect(screen.getByText(/Импорт отклонён/)).toBeInTheDocument(); expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('100.00');
-  fireEvent.change(screen.getByLabelText('everyday месяц 1'), { target: { value: '1.005' } });
+  expect(screen.getByText(/Импорт отклонён/)).toBeInTheDocument(); expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('100.00');
+  fireEvent.change(screen.getByLabelText('Повседневные расходы месяц 1'), { target: { value: '1.005' } });
   expect(screen.getByRole('button', { name: 'Экспортировать JSON по запросу' })).toBeDisabled();
-  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('1.005');
+  expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('1.005');
   expect(storage).not.toHaveBeenCalled(); expect(network).not.toHaveBeenCalled();
 });
 it('destroys local financial drafts on owner verification loss', () => {
   const view = render(<BudgetPlanning />); fireEvent.click(screen.getByRole('button', { name: 'Открыть локальный план' }));
-  fireEvent.change(screen.getByLabelText('everyday месяц 1'), { target: { value: '123.45' } });
+  fireEvent.change(screen.getByLabelText('Повседневные расходы месяц 1'), { target: { value: '123.45' } });
   owner.mockReturnValue({ status: 'verifying' }); view.rerender(<BudgetPlanning />);
-  expect(screen.queryByLabelText('everyday месяц 1')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Повседневные расходы месяц 1')).not.toBeInTheDocument();
   owner.mockReturnValue({ status: 'verified', owner: { userId: 'a'.repeat(24), sessionGeneration: 2 } }); view.rerender(<BudgetPlanning />);
-  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('0.00');
+  expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('0.00');
 });
 it('labels suggested plans and actual comparisons as fictional', () => {
   render(<BudgetPlanning />); fireEvent.click(screen.getByRole('button', { name: 'Открыть локальный план' }));

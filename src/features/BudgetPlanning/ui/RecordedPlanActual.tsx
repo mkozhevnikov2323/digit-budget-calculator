@@ -1,3 +1,5 @@
+import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
+import { layerLabel } from 'shared/lib/analytics/presentation';
 import { useId, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Alert, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
@@ -13,7 +15,7 @@ import { comparePlanActual, type BudgetPlan } from '../model/plan';
 const money = (n: number) => { const f = formatKopecks(n); return f.ok ? f.value : 'Недоступно'; };
 
 export const RecordedPlanActual = ({ plan, asOf = Date.now() }: { plan: BudgetPlan; asOf?: number }) => {
-  const owner = useVerifiedOwner(), instance = useId(), [open, setOpen] = useState(false);
+  const owner = useVerifiedOwner(), instance = useId(), [open, setOpen] = useAnalyticsState('actualOpen',false);
   const period = yearPeriod(plan.year), firstMonth = monthPeriod(plan.year, 1);
   const hasElapsed = firstMonth.ok && firstMonth.value.endExclusive <= asOf;
   const args = open && hasElapsed && period.ok && plan.basis === 'manual' && owner.status === 'verified'
@@ -40,7 +42,7 @@ const ActualEvidence = ({ cohort, plan, asOf }: { cohort: CoherentHistory; plan:
     {result?.ok ? <>
       <Typography>Завершённых месяцев: {result.value.elapsedMonths}. План: {money(result.value.plannedElapsedKopecks)}. Реальный подтверждённый факт: {money(result.value.actualElapsedKopecks)}. Отклонение (факт − план): {money(result.value.varianceKopecks)}. Осталось по расписанию: {money(result.value.remainingScheduledKopecks)}. Остаток годовой цели после факта: {money(result.value.remainingAgainstAnnualTargetKopecks)}.</Typography>
       <Table size="small" aria-label="Реальный план и факт по слоям"><TableHead><TableRow>{['Слой', 'План', 'Факт', 'Отклонение'].map(x => <TableCell key={x}>{x}</TableCell>)}</TableRow></TableHead>
-        <TableBody>{FINANCIAL_LAYERS.map(layer => <TableRow key={layer}><TableCell>{layer}</TableCell><TableCell>{money(result.value.layers[layer].plannedKopecks)}</TableCell>
+        <TableBody>{FINANCIAL_LAYERS.map(layer => <TableRow key={layer}><TableCell>{layerLabel(layer)}</TableCell><TableCell>{money(result.value.layers[layer].plannedKopecks)}</TableCell>
           <TableCell>{money(result.value.layers[layer].actualKopecks)}</TableCell><TableCell>{money(result.value.layers[layer].varianceKopecks)}</TableCell></TableRow>)}</TableBody>
       </Table>
       <Typography>Резерв, займы, переводы и прочие непотребительские роли не входят в факт потребления. Текущие и будущие месяцы исключены. Записи и классификации после наблюдения могут измениться.</Typography>

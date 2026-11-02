@@ -1,3 +1,5 @@
+import { useAnalyticsState, useResetAnalyticsInput } from 'features/AnalyticsState/model/useAnalyticsState';
+import { layerLabel, statusLabel, dateLabel } from 'shared/lib/analytics/presentation';
 import { lazy, Suspense, useState } from 'react';
 import { Alert, Button, Checkbox, FormControlLabel, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
@@ -24,12 +26,12 @@ const rows: readonly Row[] = [...FINANCIAL_LAYERS, 'reserve'];
 type PlanningProps = { cohort?: CoherentHistory; suggestion?: RecordedForecastSuggestion; realMode?: boolean };
 const ActualComparison = lazy(() => import('./RecordedPlanActual').then(m => ({ default: m.RecordedPlanActual })));
 const PlanningWorkspace = ({ cohort, suggestion, realMode = false }: PlanningProps) => {
-  const [draft, setDraft] = useState(emptyDraft), [annual, setAnnual] = useState<Record<Row, string>>(
+  const [draft, setDraft] = useAnalyticsState('draft',emptyDraft), [annual, setAnnual] = useAnalyticsState<Record<Row, string>>('annual',
     () => Object.fromEntries(rows.map(l => [l, '0'])) as Record<Row, string>);
-  const [exported, setExported] = useState(''), [imported, setImported] = useState(''), [message, setMessage] = useState('');
+  const [exported, setExported] = useAnalyticsState('exported',''), [imported, setImported] = useAnalyticsState('imported',''), [message, setMessage] = useState('');
   const [showActual, setShowActual] = useState(false);
-  const [protectedLayers, setProtectedLayers] = useState<FinancialLayer[]>([]);
-  const [reviewedSuggestion, setReviewedSuggestion] = useState<RecordedForecastSuggestion | null>(null), [provenance, setProvenance] = useState('');
+  const [protectedLayers, setProtectedLayers] = useAnalyticsState<FinancialLayer[]>('protectedLayers',[]);
+  const [reviewedSuggestion, setReviewedSuggestion] = useState<RecordedForecastSuggestion | null>(null), [provenance, setProvenance] = useAnalyticsState('provenance','');
   const parsed = planFromDraft(draft), totals = parsed.ok ? budgetPlanTotals(parsed.value) : null;
   const edit = (next: PlanDraft, protectedRow?: Row) => {
     if (protectedRow && protectedRow !== 'reserve') setProtectedLayers(values => values.includes(protectedRow) ? values : [...values, protectedRow]);
@@ -42,7 +44,7 @@ const PlanningWorkspace = ({ cohort, suggestion, realMode = false }: PlanningPro
   const fictionalActual = showActual ? { ...syntheticHistoryInput(2027, false), observedAt: asOf } : null;
   const comparison = parsed.ok && fictionalActual ? comparePlanActual(parsed.value, fictionalActual, asOf) : null;
   return <Stack spacing={1} component="section" aria-label="Локальный план бюджета">
-    <Alert severity="info" role="note">Несохранённый локальный черновик. Только память этой сессии: закрытие, перезагрузка или смена владельца удаляют план. Автоматического сохранения, загрузки на сервер и создания расходов нет.</Alert>
+    <Alert severity="info" role="note">Несохранённый локальный черновик. Только память этой сессии: переходы по вкладкам сохраняют ввод; закрытие, перезагрузка или смена владельца/сессии удаляют план. Перед перезагрузкой экспортируйте JSON. Автоматического сохранения, загрузки на сервер и создания расходов нет.</Alert>
     {draft.basis === 'synthetic_suggestion' && <Alert severity="warning" role="note">ДЕМО · План основан на вымышленном прогнозе 2025 года, не на вашей истории. Ручные правки не превращают источник в реальный.</Alert>}
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
       <TextField label="Год плана" value={draft.year} onChange={e => edit({ ...draft, year: e.target.value })} />
@@ -62,11 +64,11 @@ const PlanningWorkspace = ({ cohort, suggestion, realMode = false }: PlanningPro
     </Stack>
     {realMode && <Stack spacing={1} component="section" aria-label="Рекомендации из записанной истории">
       {cohort ? <>
-        <Typography>Выбранная записанная база: {cohort.history.period.firstDate} — {cohort.history.period.lastDate}. Изменение базы или поступление новых расходов не переписывает суммы плана.</Typography>
+        <Typography>Выбранная записанная база: {dateLabel(cohort.history.period.firstDate)} — {dateLabel(cohort.history.period.lastDate)}. Изменение базы или поступление новых расходов не переписывает суммы плана.</Typography>
         <Button onClick={() => edit({ ...draft, firstDate: cohort.history.period.firstDate, lastDate: cohort.history.period.lastDate })}>Использовать выбранный период как базу без изменения сумм</Button>
       </> : <Typography>Рекомендации недоступны без проверенной истории. Ручное планирование и текущий ввод доступны.</Typography>}
-      {suggestion && <Typography>Источник рекомендации: записанная история {suggestion.forecast.referencePeriod.firstDate} — {suggestion.forecast.referencePeriod.lastDate}. Классификация: {suggestion.forecast.classificationCoverage}; сценарий: {suggestion.forecast.adjustmentBasisPoints / 100}%. Непокрытая сумма: {money(suggestion.forecast.uncoveredKopecks)}. Подтверждения записи временные; оценка только подтверждённых компонентов.</Typography>}
-      <Typography>Защищённые ручные слои: {protectedLayers.join(', ') || 'нет'}. Ручные изменения, включая нули, сохраняются. Цели, долгосрочный капитал и резерв рекомендациями не заменяются.</Typography>
+      {suggestion && <Typography>Источник рекомендации: записанная история {dateLabel(suggestion.forecast.referencePeriod.firstDate)} — {dateLabel(suggestion.forecast.referencePeriod.lastDate)}. Классификация: {statusLabel(suggestion.forecast.classificationCoverage)}; сценарий: {suggestion.forecast.adjustmentBasisPoints / 100}%. Непокрытая сумма: {money(suggestion.forecast.uncoveredKopecks)}. Подтверждения записи временные; оценка только подтверждённых компонентов.</Typography>}
+      <Typography>Защищённые ручные слои: {protectedLayers.map(layerLabel).join(', ') || 'нет'}. Ручные изменения, включая нули, сохраняются. Цели, долгосрочный капитал и резерв рекомендациями не заменяются.</Typography>
       <FormControlLabel control={<Checkbox checked={suggestionReviewed} disabled={!suggestion || !referenceMatches || !parsed.ok}
         onChange={e => setReviewedSuggestion(e.target.checked ? suggestion ?? null : null)} />} label="Я проверил(а) рекомендации и ограничения; ручные слои и резерв сохранить" />
       <Button disabled={!suggestionReviewed || !referenceMatches || !parsed.ok} onClick={() => {
@@ -77,20 +79,20 @@ const PlanningWorkspace = ({ cohort, suggestion, realMode = false }: PlanningPro
       }}>Применить рекомендации к не изменённым вручную слоям</Button>
       {provenance && <Typography role="status">{provenance}</Typography>}
     </Stack>}
-    <Typography variant="body2">Рекомендации необязательны. Для major_goals/long_term_capital и резерва суммы задаются вручную. Новые расходы никогда автоматически не меняют план.</Typography>
+    <Typography variant="body2">Рекомендации необязательны. Для крупных целей, долгосрочного капитала и резерва суммы задаются вручную. Новые расходы никогда автоматически не меняют план.</Typography>
     <Table size="small" aria-label="Годовые цели и распределение"><TableHead><TableRow><TableCell>Назначение</TableCell><TableCell>Годовая сумма, ₽</TableCell><TableCell>Действие</TableCell></TableRow></TableHead>
-      <TableBody>{rows.map(row => <TableRow key={row}><TableCell>{row === 'reserve' ? 'Резерв (не расход)' : row}</TableCell><TableCell>
-        <TextField label={`Новая годовая сумма ${row}`} helperText="Для перераспределения; текущий план — в месячных полях" value={annual[row]} onChange={e => setAnnual(a => ({ ...a, [row]: e.target.value }))} />
+      <TableBody>{rows.map(row => <TableRow key={row}><TableCell>{row === 'reserve' ? 'Резерв (не расход)' : layerLabel(row)}</TableCell><TableCell>
+        <TextField label={`Новая годовая сумма ${layerLabel(row)}`} helperText="Для перераспределения; текущий план — в месячных полях" value={annual[row]} onChange={e => setAnnual(a => ({ ...a, [row]: e.target.value }))} />
       </TableCell><TableCell><Button onClick={() => {
         const n = rublesToKopecks(annual[row]), split = n.ok ? allocateAnnual(n.value) : null;
         if (!split?.ok) { setMessage('Некорректная годовая сумма. Ввод не удалён.'); return; }
         const values = split.value.map(decimal);
         edit(row === 'reserve' ? { ...draft, reserve: values } : { ...draft, layers: { ...draft.layers, [row]: values } }, row);
-      }}>Распределить {row} по 12 месяцам</Button></TableCell></TableRow>)}</TableBody>
+      }}>Распределить {layerLabel(row)} по 12 месяцам</Button></TableCell></TableRow>)}</TableBody>
     </Table>
-    <Stack sx={{ overflowX: 'auto' }}><Table size="small" aria-label="Месячные цели бюджета"><TableHead><TableRow><TableCell>Месяц</TableCell>{rows.map(row => <TableCell key={row}>{row}</TableCell>)}</TableRow></TableHead>
+    <Stack sx={{ overflowX: 'auto' }}><Table size="small" aria-label="Месячные цели бюджета"><TableHead><TableRow><TableCell>Месяц</TableCell>{rows.map(row => <TableCell key={row}>{layerLabel(row)}</TableCell>)}</TableRow></TableHead>
       <TableBody>{Array.from({ length: 12 }, (_, i) => <TableRow key={i}><TableCell>{i + 1}</TableCell>{rows.map(row => <TableCell key={row}>
-        <TextField size="small" sx={{ minWidth: 110 }} label={`${row} месяц ${i + 1}`} value={row === 'reserve' ? draft.reserve[i] : draft.layers[row][i]} onChange={e => {
+        <TextField size="small" sx={{ minWidth: 110 }} label={`${layerLabel(row)} месяц ${i + 1}`} value={row === 'reserve' ? draft.reserve[i] : draft.layers[row][i]} onChange={e => {
           const values = [...(row === 'reserve' ? draft.reserve : draft.layers[row])]; values[i] = e.target.value;
           edit(row === 'reserve' ? { ...draft, reserve: values } : { ...draft, layers: { ...draft.layers, [row]: values } }, row);
         }} />
@@ -116,12 +118,13 @@ const PlanningWorkspace = ({ cohort, suggestion, realMode = false }: PlanningPro
 };
 
 export const BudgetPlanning = ({ cohort, suggestion, realMode = false }: PlanningProps = {}) => {
-  const owner = useVerifiedOwner(), [open, setOpen] = useState(false);
+  const owner = useVerifiedOwner(), [open, setOpen] = useAnalyticsState('planningOpen',false);
+  const resetInput = useResetAnalyticsInput();
   const currentCohort = owner.status === 'verified' && cohort?.history.owner === owner.owner.userId ? cohort : undefined;
   const currentSuggestion = currentCohort && suggestion?.cohort === currentCohort ? suggestion : undefined;
   return <Stack spacing={1}>
     <Typography component="h2" variant="h6">Локальное планирование бюджета</Typography>
-    <Button onClick={() => setOpen(v => !v)}>{open ? 'Закрыть и удалить локальный черновик' : 'Открыть локальный план'}</Button>
+    <Button onClick={() => { if(open)resetInput(); setOpen(v => !v); }}>{open ? 'Закрыть и удалить локальный черновик' : 'Открыть локальный план'}</Button>
     {open && (owner.status === 'verified' ? <PlanningWorkspace key={`${owner.owner.userId}/${owner.owner.sessionGeneration}`} cohort={currentCohort} suggestion={currentSuggestion} realMode={realMode} />
       : <Alert severity="info" role="note">Нужна текущая проверка владельца. Предыдущий черновик удалён.</Alert>)}
   </Stack>;

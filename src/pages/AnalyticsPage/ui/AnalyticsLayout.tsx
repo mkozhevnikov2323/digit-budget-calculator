@@ -1,6 +1,9 @@
-import { Box, Container, Tab, Tabs } from '@mui/material';
+import { AnalyticsPageContext, useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
+import { Alert, Box, Container, Tab, Tabs } from '@mui/material';
 import { Link, Outlet, useLocation } from 'react-router';
 import { analyticsNavigation } from '../model/navigation';
+
+const PlanningMemoryNotice=()=>{const [open]=useAnalyticsState('planningOpen',false);return open?<Container maxWidth="lg" sx={{pt:1}}><Alert severity="info">В памяти этой сессии есть несохранённый план бюджета. Переходы по вкладкам сохраняют ввод. Перезагрузка страницы или выход из сессии удалит его; используйте экспорт JSON на странице планирования.</Alert></Container>:null;};
 
 export const AnalyticsLayout = () => {
   const location = useLocation();
@@ -14,6 +17,7 @@ export const AnalyticsLayout = () => {
           component={Link} to={item.path} aria-current={active === item.path ? 'page' : undefined} />)}
       </Tabs>
     </Container>
+    <AnalyticsPageContext.Provider value="planning"><PlanningMemoryNotice /></AnalyticsPageContext.Provider>
     <Outlet />
   </Box>;
 };
