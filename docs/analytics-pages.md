@@ -1,0 +1,67 @@
+# Analytics pages
+
+The navigation introduced by PR41 is reused without merging that PR. All nine
+routes now mount real functionality, one page at a time:
+
+- `/analytics`: validated raw cash-flow summary, monthly table and dynamics.
+- `/analytics/categories`: existing category sums/shares/chart.
+- `/analytics/recurrence`: category activity, intervals and consecutive months.
+- `/analytics/similar`: existing exact category/title/recipient expense groups.
+- `/analytics/income-sources`: existing source activity, not income forecasting.
+- `/analytics/history`: owned history, pagination, selection and fact inspection;
+  no decision reads or mutations are initiated by selecting a history row.
+- `/analytics/classification`: manual C flow with separate server-fact confirmation.
+- `/analytics/classification-stats`: coherent history, status/role/layer/category
+  partitions, monthly statistics and classification coverage.
+- `/analytics/planning`: coherent historical basis, explicit recording attestations,
+  existing forecast engine, manual plan/recommendation acceptance, JSON import/export
+  and completed-month plan/actual comparison.
+
+## State and privacy
+
+`analyticsUI` is a normal Redux Toolkit slice, reset by the existing root LOGOUT.
+The existing credential lifecycle also clears it at the start of a transition.
+Page settings are independent; owner/session scope prevents private input from
+being relabeled as another user's data. The optional component bridge uses the
+same Redux store; standalone/demo components retain their prior local lifecycle.
+No second store, server persistence, period URL parser or new financial model.
+
+Only the versioned `budget-analytics-display-v1` preference object is persisted.
+It is constructed from an explicit whitelist: validated calendar selection,
+3/6/12-month recurrence mode, bounded page/visible counts. It never serializes the
+store. Invalid/unknown fields, financial targets, raw facts, category labels,
+selected operation IDs, JWTs, preparation IDs, proofs and confirmations are excluded.
+Storage failure does not block UI editing. Public display preferences can be reused
+by another account on this browser; private input cannot.
+
+Plan fields, annual-input text (including invalid intermediate strings), manual
+protections and imported/exported JSON survive tab changes only in session memory.
+Explicit close/new-plan/import retain their existing meanings. Reload/session loss
+clears private input; a visible warning and explicit JSON export remain available.
+No recording attestations, forecast acceptance or prepared mutation are restored.
+
+Classification preparation IDs and server facts stay inside the current form.
+On navigation its AbortController is retired. An unresolved-risk boolean may
+survive in Redux; it contains no preparation or proof and prevents silently
+starting a fresh apply after returning. Explicit read-state refresh is available.
+Restart/reload is still not evidence that an old write did not commit.
+
+## Queries and calculations
+
+Server data stays in existing RTK Query endpoints, not the UI slice. Overview and
+category pages share fulfilled raw-history cache entries for identical arguments;
+Expense/Income tags retain existing invalidation and the session boundary clears
+old credentials' cache. Coherent history and classification decisions deliberately
+retain fresh request scopes/rechecks on re-entry; cached totals never replace the
+existing before/batch/after consistency checks. These reads are not atomic snapshots.
+
+The financial calculation, money, calendar, source fingerprint, forecast and plan
+engines are unchanged. Russian labels and UTC date/time formatting are presentation
+only; exact identity/category strings and API formats are preserved. A single
+calendar month has an explanation/table instead of a misleading one-point line.
+Zero months remain in multi-month charts. Unknown data is never converted to zero.
+
+Production C flags, backend APIs, MongoDB schemas/configuration and deployment are
+unchanged. Test-only C activation remains confined to the existing disposable
+browser fixture. Previous P10/P12 assertions are adapted to destinations/labels,
+with additional filter, reload, cache reuse, input-retention and privacy checks.

@@ -95,15 +95,21 @@ export async function login(page, user = 'a') {
   await expect(page).toHaveURL(/\/expenses$/);
   await expect(page.getByRole('button', { name: 'Выйти', exact: true })).toBeVisible();
 }
-export async function analytics(page) {
-  await page.goto('/analytics');
-  await expect(page.getByRole('heading', { name: 'Финансовая аналитика', exact: true })).toBeVisible();
-  await page.getByLabel('Период', { exact: true }).selectOption('year');
-  await page.getByLabel('Год', { exact: true }).fill('2025');
-  await expect(page.getByRole('table', { name: 'Помесячный денежный поток' })).toBeVisible();
+export const layerName = layer => ({everyday:'Повседневные расходы',irregular:'Нерегулярные расходы',emergency:'Непредвиденные расходы',major_goals:'Крупные цели',long_term_capital:'Долгосрочный капитал',reserve:'Резерв'}[layer]);
+export async function analytics(page, section='overview') {
+  const destinations={overview:['/analytics','Расширенная аналитика'],categories:['/analytics/categories','Операции по категориям'],classification:['/analytics/classification','Классификация'],'classification-stats':['/analytics/classification-stats','Статистика классификации'],planning:['/analytics/planning','Планирование бюджета']};
+  const [url,label]=destinations[section];
+  if(new URL(page.url()).pathname!==url){
+    if(await page.getByRole('tab',{name:label,exact:true}).count())await page.getByRole('tab',{name:label,exact:true}).click();
+    else await page.goto(url);
+  }
+  await expect(page.getByRole('heading',{name:section==='overview'?'Финансовая аналитика':label,exact:true,level:1})).toBeVisible();
+  await page.getByLabel('Период',{exact:true}).selectOption('year');
+  await page.getByLabel('Год',{exact:true}).fill('2025');
+  if(section==='overview')await expect(page.getByRole('table',{name:'Помесячный денежный поток'})).toBeVisible();
 }
 export async function selectPrimary(page, stack) {
-  await page.getByRole('button', { name: 'Классификация исторических операций', exact: true }).click();
+  await analytics(page,'classification');
   await page.getByRole('button', { name: new RegExp(stack.primary) }).click();
   await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Ревизия:/)).toBeVisible();
   return page.getByRole('region', { name: 'Сохранение ручной классификации' });
@@ -126,21 +132,28 @@ export async function save(page, review) {
   expect(acknowledgement.status()).toBe(201);
   await reopenAfterSave(page, acknowledgement.url().split('/').at(-3));
 }
-export async function statistics(page) {
-  await page.getByRole('button', { name: 'Загрузить реальную статистику классификации', exact: true }).click();
-  await expect(page.getByRole('table', { name: 'Статусы и роли expenses' })).toBeVisible();
-  return page.getByRole('region', { name: 'Прогноз по записанной истории' });
+export async function statistics(page, mode='statistics') {
+  await analytics(page,mode==='planning'?'planning':'classification-stats');
+  const load=page.getByRole('button',{name:'Загрузить реальную статистику классификации',exact:true});
+  if(await load.count())await load.click();
+  if(mode==='planning') {await expect(page.getByRole('region',{name:'Прогноз по записанной истории'})).toBeVisible();return page.getByRole('region',{name:'Прогноз по записанной истории'});}
+  await expect(page.getByRole('table',{name:'Статусы и роли расходов'})).toBeVisible();
+  return page.getByRole('region',{name:'Классификация расходов',exact:true});
 }
 export async function confirmMonths(region, count = 12) {
-  for (let i = 1; i <= count; i++) await region.getByRole('checkbox', { name: new RegExp(`Подтверждаю полноту записи 2025-${String(i).padStart(2, '0')}$`) }).check();
+  for(let i=1;i<=count;i++){
+    const month=new Intl.DateTimeFormat('ru-RU',{timeZone:'UTC',month:'long',year:'numeric'}).format(new Date(Date.UTC(2025,i-1,1)));
+    await region.getByRole('checkbox',{name:`Подтверждаю полноту записи ${month}`,exact:true}).check();
+  }
 }
 export async function plan(page) {
-  await page.getByRole('button', { name: 'Открыть локальный план', exact: true }).click();
-  return page.getByRole('region', { name: 'Локальный план бюджета' });
+  if(new URL(page.url()).pathname!=='/analytics/planning')await analytics(page,'planning');
+  const open=page.getByRole('button',{name:'Открыть локальный план',exact:true});if(await open.count())await open.click();
+  return page.getByRole('region',{name:'Локальный план бюджета'});
 }
-export async function distribute(region, layer, rubles) {
-  await region.getByLabel(`Новая годовая сумма ${layer}`, { exact: true }).fill(rubles);
-  await region.getByRole('button', { name: `Распределить ${layer} по 12 месяцам`, exact: true }).click();
+export async function distribute(region,layer,rubles){
+ await region.getByLabel(`Новая годовая сумма ${layerName(layer)}`,{exact:true}).fill(rubles);
+ await region.getByRole('button',{name:`Распределить ${layerName(layer)} по 12 месяцам`,exact:true}).click();
 }
 export async function exportPlan(region) {
   await region.getByRole('button', { name: 'Экспортировать JSON по запросу', exact: true }).click();
