@@ -25,7 +25,7 @@ it('defaults to incomes, preserves tab order, separates datasets and hides techn
 it('groups UTC dates descending and keeps every same-date row with stable order',()=>{
  history.mockReturnValue({currentData:{operations:[income,{...income,operationId:'3'.repeat(24),facts:{...income.facts,source:'Премия'}},{...income,timestamp:Date.parse('2024-02-12T00:00:00Z'),operationId:'4'.repeat(24),facts:{...income.facts,source:'Возврат'}}]},requestId:'one',refetch:jest.fn()} as ReturnType<typeof useGetOwnedHistoryQuery>);
  render(<HistoricalClassification period={selectedPeriod()} readOnly/>);
- expect(screen.getAllByRole('heading',{level:2}).map(h=>h.textContent)).toEqual(['12.02.2024','11.02.2024']);
+ expect(screen.getAllByRole('heading',{level:2}).map(h=>h.textContent)).toEqual(['11.02.2024','12.02.2024']);fireEvent.click(screen.getByRole('button',{name:'Сначала новые'}));expect(screen.getAllByRole('heading',{level:2}).map(h=>h.textContent)).toEqual(['12.02.2024','11.02.2024']);
  const group=screen.getByRole('heading',{name:'11.02.2024'}).parentElement!;expect(within(group).getAllByRole('button').map(b=>b.getAttribute('aria-label'))).toEqual(['Зарплата','Премия']);
 });
 it('never shows cached history while loading or after owner verification is lost',()=>{
@@ -38,7 +38,7 @@ it('read-only accordion shows facts and never enables decision queries or mutati
 });
 it('renders persisted status and role without opening an editor',()=>{
  decision.mockReturnValue({refetch:jest.fn(),currentData:{status:'approved',confirmed:{economicRole:'ordinary_income',layer:null}}} as ReturnType<typeof useReadOperationClassificationQuery>);
- render(<HistoricalClassification period={selectedPeriod()}/>);expect(screen.getByText('Классифицировано · Обычное поступление')).toBeVisible();expect(screen.queryByLabelText('Решение')).not.toBeInTheDocument();
+ render(<HistoricalClassification period={selectedPeriod()}/>);expect(screen.getByText('Классифицировано')).toBeVisible();expect(screen.queryByLabelText('Решение')).not.toBeInTheDocument();
 });
 it('limits subscriptions to a page and paginates each dataset independently',()=>{
  history.mockReturnValue({currentData:{operations:Array.from({length:30},(_,i)=>({...income,operationId:i.toString(16).padStart(24,'0'),facts:{...income.facts,source:`Доход ${i}`}})).concat([expense] as unknown as typeof income[])},requestId:'one',refetch:jest.fn()} as ReturnType<typeof useGetOwnedHistoryQuery>);

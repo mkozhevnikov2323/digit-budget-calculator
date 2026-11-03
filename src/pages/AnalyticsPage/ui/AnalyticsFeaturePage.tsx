@@ -39,11 +39,11 @@ export const AnalyticsFeaturePage = ({
           onChange={setSelection}
           period={period.ok ? period.value : null}
         />
-        <Typography>
+        {mode !== 'classification' && <Typography>
           Учитываются записанные расходы и поступления выбранного периода.
           Полнота записи и полнота классификации проверяются отдельно. Границы
           периода — UTC.
-        </Typography>
+        </Typography>}
         {mode === 'planning' ? (
           <RealClassificationStatistics
             period={period.ok ? period.value : null}

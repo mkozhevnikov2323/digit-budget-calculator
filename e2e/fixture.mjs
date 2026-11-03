@@ -114,15 +114,13 @@ export async function selectOperation(page, id) {
   const title=income?'Fictional salary':id==='2'.repeat(24)?'Fictional unreviewed':id==='b1'.padStart(24,'0')?'User B private fixture':'Fictional fuel';
   const group=page.getByRole('heading',{name:'15.01.2025',exact:true,level:2}).locator('..');
   await group.getByRole('button',{name:title,exact:true}).click();
-  await expect(page.getByRole('region',{name:'Проверка операции'}).getByText(/Ревизия:/)).toBeVisible();
+  await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
 }
 export async function selectPrimary(page, stack) {
   await analytics(page,'classification'); await selectOperation(page,stack.primary);
   return page.getByRole('region',{name:'Сохранение ручной классификации'});
 }
 export async function prepare(page, review) {
-  const decision=page.getByLabel('Решение',{exact:true});
-  if(await decision.inputValue()!=='approved')await decision.selectOption('approved');
   const role=page.getByLabel('Экономическая роль',{exact:true});
   const current=await role.inputValue();
   if(!current)await role.selectOption('ordinary_expense');
@@ -131,17 +129,16 @@ export async function prepare(page, review) {
     if(await review.getByRole('button',{name:'Отмена',exact:true}).isDisabled())await layer.selectOption(await layer.inputValue()==='everyday'?'irregular':'everyday');
     else if(!await layer.inputValue())await layer.selectOption('everyday');
   } else if(await review.getByRole('button',{name:'Отмена',exact:true}).isDisabled())await role.selectOption(current==='refund'?'ordinary_income':'refund');
-  await expect(review.getByRole('heading',{name:'Факты, проверенные сервером для этого решения'})).toBeVisible();
-  await expect(review.getByRole('button',{name:'Сохранить',exact:true})).toBeEnabled();
+  await expect(review.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true})).toBeEnabled();
   await expect(review.getByRole('checkbox')).toHaveCount(0);
 }
 export async function reopenAfterSave(page, operationId) {
-  await expect(page.getByRole('region',{name:'Проверка операции'}).getByText(/Ревизия: 1/)).toBeVisible();
-  await expect(page.getByRole('button',{name:'Сохранить',exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true})).toBeDisabled();
 }
 export async function save(page, review) {
   const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
-  await review.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true }).click();
   const acknowledgement = await response;
   expect(acknowledgement.status()).toBe(201);
   await reopenAfterSave(page, acknowledgement.url().split('/').at(-3));

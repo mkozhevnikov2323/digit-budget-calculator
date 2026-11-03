@@ -49,7 +49,7 @@ export const PeriodSelector = ({ value, onChange, period }: Props) => {
         </>}
       </Stack>
       <Typography variant="body2" sx={{ mt: 1 }} aria-live="polite">
-        {period ? `${dateLabel(period.firstDate)} — ${dateLabel(period.lastDate)} (включительно, UTC)` : 'Период не выбран: исправьте даты.'}
+        {period ? `Выбран период: ${dateLabel(period.firstDate)} — ${dateLabel(period.lastDate)}` : 'Период не выбран: исправьте даты.'}
       </Typography>
     </Paper>
   );
