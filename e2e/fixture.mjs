@@ -89,7 +89,7 @@ export async function login(page, user = 'a') {
   await page.getByRole('textbox', { name: 'Электронная почта' }).fill(`browser-${user}@example.com`);
   await page.getByLabel(/^Пароль/).fill('Fictional-browser-account-42!');
   expect(await page.getByLabel(/^Пароль/).inputValue() === 'Fictional-browser-account-42!').toBe(true);
-  const loginResponse = page.waitForResponse(r => r.url().endsWith('/signin') && r.request().method() === 'PUT');
+  const loginResponse = page.waitForResponse(r => r.url().endsWith('/signin') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   expect((await loginResponse).status()).toBe(200);
   await expect(page).toHaveURL(/\/expenses$/);
