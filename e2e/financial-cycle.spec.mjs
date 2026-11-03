@@ -348,7 +348,7 @@ test('E2E-14 Feature flags alone cannot activate writes without protocol install
     const response = page.waitForResponse(r => /\/c-v1\/prepare$/.test(r.url()) && r.request().method() === 'POST');
     await review.getByRole('button',{name:'Оставить без классификации',exact:true}).click();
     expect((await response).status()).toBe(503);
-    await expect(review.getByText(/Подготовка недоступна/)).toBeVisible();
+    await expect(review.getByText(/Не удалось подготовить действие/)).toBeVisible();
     await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeDisabled();
     const after = await assertSources(stack); expect(after.classifications).toBe(before.classifications); expect(after.primaryRevision).toBeNull();
   });
