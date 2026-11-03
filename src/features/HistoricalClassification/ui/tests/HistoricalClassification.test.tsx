@@ -19,7 +19,7 @@ beforeEach(() => {
 it('fetches only a selected classification, displays all facts, and never enables persistence', () => {
   render(<HistoricalClassification period={selectedPeriod()} />);
   expect(decision).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: /expenses ·/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Расходы ·/ }));
   expect(decision).toHaveBeenCalled(); expect(screen.getByText(/Fictional fuel/)).toHaveTextContent('Fictional station');
   expect(screen.getByText(/Это не означает «не рассмотрена»/)).toBeInTheDocument();
   const confirm = screen.getByRole('button', { name: 'Подтвердить временный выбор' }); expect(confirm).toBeDisabled();
@@ -31,12 +31,17 @@ it('fetches only a selected classification, displays all facts, and never enable
 });
 it('removes selected facts/drafts when authentication is no longer verified', () => {
   const view = render(<HistoricalClassification period={selectedPeriod()} />);
-  fireEvent.click(screen.getByRole('button', { name: /expenses ·/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Расходы ·/ }));
   owner.mockReturnValue({ status: 'verifying' }); view.rerender(<HistoricalClassification period={selectedPeriod()} />);
   expect(screen.queryByText(/Fictional fuel/)).not.toBeInTheDocument();
 });
 it('does not show cached operations while history is refetching or unavailable', () => {
   history.mockReturnValue({ currentData: { operations }, isFetching: true, isError: false, refetch: jest.fn() } as ReturnType<typeof useGetOwnedHistoryQuery>);
   render(<HistoricalClassification period={selectedPeriod()} />);
-  expect(screen.queryByRole('button', { name: /expenses ·/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Расходы ·/ })).not.toBeInTheDocument();
+});
+
+it('history-only selection displays source facts without querying a decision or mounting confirmation controls',()=>{
+ decision.mockClear();render(<HistoricalClassification period={selectedPeriod()} readOnly/>);fireEvent.click(screen.getByRole('button',{name:/Расходы ·/}));
+ expect(screen.getByText(/Fictional fuel/)).toBeInTheDocument();expect(decision).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:'Подготовить серверную проверку'})).not.toBeInTheDocument();expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
 });

@@ -10,7 +10,10 @@ import { ProfilePage } from 'pages/ProfilePage';
 import { NotFoundPage } from 'pages/NotFoundPage';
 import { Protected } from './ProtectedRoute';
 import { LoansPage } from 'pages/LoansPage';
-import { AnalyticsPage } from 'pages/AnalyticsPage';
+const AnalyticsDestination = lazy(() => import('pages/AnalyticsPage/ui/AnalyticsDestination').then(m => ({default:m.AnalyticsDestination})));
+import { analyticsPages } from 'features/AnalyticsState/model/slice';
+import { AnalyticsLayout } from 'pages/AnalyticsPage/ui/AnalyticsLayout';
+import { analyticsNavigation } from 'pages/AnalyticsPage/model/navigation';
 
 // The production literal is false, including builds in development mode. Keep
 // the dynamic import inside the guard so no demo chunk is shipped by build.
@@ -44,7 +47,14 @@ export const RoutePath: Record<AppRoutes, string> = {
 export const routeConfig: Record<AppRoutes, RouteObject> = {
   [AppRoutes.ANALYTICS]: {
     path: RoutePath.analytics,
-    element: <Protected><AnalyticsPage /></Protected>,
+    element: <Protected><AnalyticsLayout /></Protected>,
+    children: [
+      { index: true, element: <AnalyticsDestination page="overview" /> },
+      ...analyticsNavigation.slice(1).map((item,index) => ({
+        path: item.path.slice('/analytics/'.length),
+        element: <AnalyticsDestination page={analyticsPages[index+1]} />,
+      })),
+    ],
   },
   [AppRoutes.MAIN]: {
     path: RoutePath.main,

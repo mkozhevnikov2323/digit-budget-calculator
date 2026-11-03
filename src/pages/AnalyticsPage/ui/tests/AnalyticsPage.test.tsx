@@ -90,7 +90,7 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     for (const label of ['Записанные поступления', 'Записанные расходы', 'Разность поступлений и расходов']) {
       expect(summary(label).getByText('0,00 ₽')).toBeInTheDocument();
     }
-    expect(screen.getByText(/2024-02-01 — 2024-02-29/)).toHaveTextContent('UTC');
+    expect(screen.getByText(/01.02.2024 — 29.02.2024/)).toHaveTextContent('UTC');
     expect(screen.getByText(/постоянный часовой пояс/)).toHaveTextContent('ещё не утверждён');
     expect(mockFetch).toHaveBeenCalledTimes(2);
     for (const [input, init] of mockFetch.mock.calls) {
@@ -98,8 +98,8 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
         startDate: '2024-02-01T00:00:00.000Z', endDate: '2024-02-29T23:59:59.999Z', noPagination: 'true',
       });
     }
-    expect(lineProps().xAxis?.[0].data).toEqual(['2024-02']);
-    expect(lineProps().series[0].data).toEqual([0]);
+    expect(LineChart).not.toHaveBeenCalled();
+    expect(screen.getByText(/Для сравнения месячной динамики/)).toBeInTheDocument();
   });
 
   it('shows exact totals, operation counts, percentages and loans without double counting', async () => {
@@ -122,14 +122,13 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     const formatter = barProps().series[0].valueFormatter;
     expect(formatter?.(20, { dataIndex: 0 })).toBe('0,20 ₽');
     const categoryAmountAxis = barProps().xAxis?.[0];
-    const dynamicsAmountAxis = lineProps().yAxis?.[0];
-    if (categoryAmountAxis?.scaleType !== 'linear' || dynamicsAmountAxis?.scaleType !== 'linear') {
+    // One-month values remain in the table, not an artificial chart.
+    if (categoryAmountAxis?.scaleType !== 'linear') {
       throw new Error('Monetary chart axes must use the configured linear scale');
     }
     expect(categoryAmountAxis.valueFormatter?.(20, { location: 'legend' })).toBe('0,20 ₽');
-    expect(dynamicsAmountAxis.valueFormatter?.(30, { location: 'legend' })).toBe('0,30 ₽');
-    expect(lineProps().series[0].showMark).toBe(true);
-    expect(lineProps().series[0].data).toEqual([30]);
+    expect(LineChart).not.toHaveBeenCalled();
+    expect(within(screen.getByRole('table',{name:'Помесячный денежный поток'})).getByText('0,30 ₽')).toBeInTheDocument();
   });
 
   it('displays a negative difference without rounding', async () => {
@@ -153,7 +152,8 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     expect(zeroRow.getByText('0,00 ₽')).toBeInTheDocument();
     expect(zeroRow.getByText('0%')).toBeInTheDocument();
     expect(zeroRow.getByText('1')).toBeInTheDocument();
-    expect(lineProps().series[0].data).toEqual([1]);
+    expect(LineChart).not.toHaveBeenCalled();
+    expect(within(screen.getByRole('table',{name:'Помесячный денежный поток'})).getAllByText('0,01 ₽')).toHaveLength(2);
   });
 
   it('renders special keys, full Unicode category names and the missing-label group from real analytics', async () => {
@@ -201,6 +201,10 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     expect(summary('Количество записей расходов').getByText('2')).toBeInTheDocument();
     expect(lineProps().xAxis?.[0].data).toEqual(['2024-12', '2025-01']);
     expect(lineProps().series[0].data).toEqual([1, 2]);
+    expect(lineProps().series[0].showMark).toBe(true);
+    const axis=lineProps().yAxis?.[0];
+    if(axis?.scaleType!=='linear')throw Error('Expected monetary linear dynamics axis');
+    expect(axis.valueFormatter?.(30,{location:'legend'})).toBe('0,30 ₽');
     const calls = mockFetch.mock.calls.slice(-2);
     expect(calls.map(([input, init]) => urlOf(input, init).pathname).sort()).toEqual(['/expenses', '/incomes']);
     for (const [input, init] of calls) {
@@ -225,20 +229,20 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
   it('supports previous/current/selected month, quarter/year and calendar navigation', async () => {
     setup(); await ready();
     click('Предыдущий месяц'); await ready();
-    expect(screen.getByText(/2024-01-01 — 2024-01-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.01.2024 — 31.01.2024/)).toBeInTheDocument();
     click('Текущий месяц'); await ready();
     change('Месяц', '12'); change('Год', '2023'); await ready();
-    expect(screen.getByText(/2023-12-01 — 2023-12-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.12.2023 — 31.12.2023/)).toBeInTheDocument();
     change('Период', 'quarter'); await ready();
-    expect(screen.getByText(/2023-10-01 — 2023-12-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.10.2023 — 31.12.2023/)).toBeInTheDocument();
     click('Следующий календарный период'); await ready();
-    expect(screen.getByText(/2024-01-01 — 2024-03-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.01.2024 — 31.03.2024/)).toBeInTheDocument();
     change('Квартал', '2'); await ready();
-    expect(screen.getByText(/2024-04-01 — 2024-06-30/)).toBeInTheDocument();
+    expect(screen.getByText(/01.04.2024 — 30.06.2024/)).toBeInTheDocument();
     change('Период', 'year'); await ready();
-    expect(screen.getByText(/2024-01-01 — 2024-12-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.01.2024 — 31.12.2024/)).toBeInTheDocument();
     click('Предыдущий календарный период'); await ready();
-    expect(screen.getByText(/2023-01-01 — 2023-12-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.01.2023 — 31.12.2023/)).toBeInTheDocument();
   });
 
   it('validates custom input, retains it for correction, hides totals and skips requests', async () => {
@@ -257,7 +261,7 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     expect(mockFetch).toHaveBeenCalledTimes(count);
     change('Конечная дата', '2024-03-31');
     change('Начальная дата', '2024-03-01'); await ready();
-    expect(screen.getByText(/2024-03-01 — 2024-03-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.03.2024 — 31.03.2024/)).toBeInTheDocument();
   });
 
   it('uses monthly dynamics across years, including zero months, for short custom ranges too', async () => {
@@ -275,13 +279,13 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
   it.each(['month', 'quarter', 'year'])('handles calendar domain boundaries for %s without an arbitrary 2020 minimum', async (kind) => {
     setup(); await ready();
     change('Месяц', '1'); change('Период', kind); change('Год', '1'); await ready();
-    expect(screen.getByText(/0001-01-01 —/)).toBeInTheDocument();
+    expect(screen.getByText(/01.01.0001 —/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Предыдущий календарный период' })).toBeDisabled();
     change('Год', '9999');
     if (kind === 'month') change('Месяц', '12');
     if (kind === 'quarter') change('Квартал', '4');
     await ready();
-    expect(screen.getByText(/— 9999-12-31/)).toBeInTheDocument();
+    expect(screen.getByText(/— 31.12.9999/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Следующий календарный период' })).toBeDisabled();
     const count = mockFetch.mock.calls.length;
     change('Год', '10000');
@@ -346,7 +350,7 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     });
     expect(summary('Разность поступлений и расходов').getByText('3,00 ₽')).toBeInTheDocument();
     expect(screen.queryByText('99,99 ₽')).not.toBeInTheDocument();
-    expect(screen.getByText(/2024-03-01 — 2024-03-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.03.2024 — 31.03.2024/)).toBeInTheDocument();
   });
 
   it.each(['expenses', 'incomes'])('shows %s API failure instead of zero totals', async (side) => {
@@ -381,7 +385,7 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     setup(); await ready();
     act(() => { screen.getByRole('button', { name: 'Предыдущий месяц' }).focus(); });
     await user.keyboard('{Enter}'); await ready();
-    expect(screen.getByText(/2024-01-01 — 2024-01-31/)).toBeInTheDocument();
+    expect(screen.getByText(/01.01.2024 — 31.01.2024/)).toBeInTheDocument();
     change('Период', 'year'); await ready();
     expect(screen.getByLabelText('Год')).toBeInTheDocument();
     for (const [input, init] of mockFetch.mock.calls) {

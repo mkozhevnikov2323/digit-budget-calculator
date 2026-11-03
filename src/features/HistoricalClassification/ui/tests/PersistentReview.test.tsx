@@ -1,3 +1,5 @@
+import { analyticsUIReducer } from 'features/AnalyticsState/model/slice';
+import { AnalyticsPageContext } from 'features/AnalyticsState/model/useAnalyticsState';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
@@ -17,14 +19,16 @@ const prepared = (request: ReviewRequest): PreparedReview => ({ request, prepara
     category: 'Транспорт', title: '<script>fictional</script>', recipient: 'Fictional recipient', comment: { kind: 'missing' } },
   currentDecision: { storedState: null, decisionRevision: null } });
 const onSaved = jest.fn();
-const show = () => {
-  const store = configureStore({ reducer: { [baseApi.reducerPath]: baseApi.reducer }, middleware: get => get().concat(baseApi.middleware) });
-  return render(<Provider store={store}><PersistentReview operation={{ dataset: 'expenses', operationId: id, kopecks: 1234,
+const show = (persist=false) => {
+  const store = configureStore({ reducer: { analyticsUI: analyticsUIReducer, [baseApi.reducerPath]: baseApi.reducer }, middleware: get => get().concat(baseApi.middleware) });
+  const review=<PersistentReview operation={{ dataset: 'expenses', operationId: id, kopecks: 1234,
     timestamp: 1736942400001, facts: { amount: 12.34, date: '2025-01-15T12:00:00.001Z' } }}
     scope={{ userId: 'a'.repeat(24), sessionGeneration: 1, requestScope: 'test' }}
     decision={{ version: 'classification-read-v1', dataset: 'expenses', operationId: id, status: 'unreviewed', storedState: null,
       decisionRevision: null, confirmed: null, consistency: 'observed_only_non_atomic' }} state="approved"
-    assignment={{ economicRole: 'ordinary_expense', layer: 'everyday' }} onSaved={onSaved} /></Provider>);
+    assignment={{ economicRole: 'ordinary_expense', layer: 'everyday' }} onSaved={onSaved} />;
+  const content=<Provider store={store}>{persist?<AnalyticsPageContext.Provider value="classification">{review}</AnalyticsPageContext.Provider>:review}</Provider>;
+  return {...render(content),store,content};
 };
 beforeEach(() => {
   jest.clearAllMocks();
@@ -38,7 +42,7 @@ const prepare = async () => {
 it('requires exact server facts and a separate final confirmation, escaping hostile-looking strings', async () => {
   show(); expect(mockPrepare).not.toHaveBeenCalled(); expect(mockApply.mock.calls.length).toBe(0); await prepare();
   const raw = screen.getByText(/12.340000000000002/); expect(raw).toHaveTextContent('<script>fictional</script>'); expect(raw.querySelector('script')).toBeNull();
-  expect(raw).toHaveTextContent('2025-01-15T12:00:00.001Z'); expect(raw).toHaveTextContent('missing');
+  expect(raw).toHaveTextContent('15.01.2025'); expect(raw).toHaveTextContent('отсутствует');
   expect(screen.getByRole('button', { name: 'Сохранить классификацию на сервере' })).toBeDisabled(); expect(mockApply.mock.calls.length).toBe(0);
 });
 it('prevents double-click while awaiting acknowledgement and invalidates only after confirmed persistence', async () => {
@@ -57,7 +61,7 @@ it('keeps unknown writes blocked and reconciles explicitly without a new apply',
 it('preserves the chosen context after a conflict without claiming success', async () => {
   mockApply.mockResolvedValue({ ok: false, code: 'conflict' }); show(); await prepare(); fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить классификацию на сервере' })); await screen.findByText(/выбор сохранён/);
-  expect(screen.getByText(/Новое решение: approved/)).toBeInTheDocument(); expect(onSaved).not.toHaveBeenCalled();
+  expect(screen.getByText(/Новое решение: Подтверждено/)).toBeInTheDocument(); expect(onSaved).not.toHaveBeenCalled();
 });
 it('discards proof on page restoration and never resumes an apply automatically', async () => {
   show(); await prepare(); fireEvent(window, new PageTransitionEvent('pageshow', { persisted: true }));
@@ -79,4 +83,12 @@ it('purges proof state and blocks new writes when the server retires authenticat
 it('lost context allows refresh only and never prepares or saves again automatically',async()=>{
  mockApply.mockResolvedValue({ok:false,code:'context_lost'});show();await prepare();fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Сохранить классификацию на сервере'}));
  await screen.findByText(/контекст утрачен/);expect(screen.getByRole('button',{name:'Подготовить серверную проверку'})).toBeDisabled();fireEvent.click(screen.getByRole('button',{name:'Обновить состояние без повторной записи'}));expect(onSaved).toHaveBeenCalledTimes(1);expect(mockPrepare).toHaveBeenCalledTimes(1);expect(mockApply).toHaveBeenCalledTimes(1);
+});
+
+it('tab unmount retains only unresolved risk, never a preparation ID or an automatic retry',async()=>{
+ mockApply.mockResolvedValue({ok:false,code:'unknown_outcome'});const view=show(true);await prepare();fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Сохранить классификацию на сервере'}));
+ await screen.findByText(/Запись могла сохраниться/);view.rerender(<div>Other tab</div>);view.rerender(view.content);
+ expect(screen.getByRole('button',{name:'Подготовить серверную проверку'})).toBeDisabled();expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+ expect(JSON.stringify(view.store.getState().analyticsUI)).not.toContain('A'.repeat(43));
+ fireEvent.click(screen.getByRole('button',{name:'Обновить состояние без повторной записи'}));expect(mockApply).toHaveBeenCalledTimes(1);expect(mockPrepare).toHaveBeenCalledTimes(1);expect(onSaved).toHaveBeenCalledTimes(1);
 });

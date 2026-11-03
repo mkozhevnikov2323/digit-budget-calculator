@@ -19,8 +19,8 @@ async function hold(page) {
 const open = page => page.getByRole('button', { name: 'Загрузить реальную статистику классификации', exact: true }).click();
 const observed = page => page.waitForFunction(() => window.__p12Observed === true);
 const release = page => page.evaluate(() => window.__p12Release());
-const table = page => page.getByRole('table', { name: 'Статусы и роли expenses', exact: true });
-const start = async page => { await login(page); await analytics(page); await hold(page); await open(page); await observed(page); };
+const table = page => page.getByRole('table', { name: 'Статусы и роли расходов', exact: true });
+const start = async page => { await login(page); await analytics(page,'classification-stats'); await hold(page); await open(page); await observed(page); };
 
 test('P12-01 Source edit after a real batch prevents complete report publication', async ({ page, stack }) => {
   await start(page);
@@ -34,7 +34,7 @@ test('P12-01 Source edit after a real batch prevents complete report publication
 test('P12-02 Logout and owner switch reject a late financial response', async ({ page, stack }) => {
   await start(page); await page.getByRole('button', { name: 'Выйти', exact: true }).click();
   await release(page); await login(page, 'b'); await analytics(page); await statistics(page);
-  const section = page.getByRole('region', { name: 'Классификация expenses', exact: true });
+  const section = page.getByRole('region', { name: 'Классификация расходов', exact: true });
   await expect(section).toContainText('777,00 ₽'); await expect(section).not.toContainText('1790,00 ₽');
   expect((await stack.rpc('inspect')).sourcesUnchanged).toBe(true);
 });
@@ -42,7 +42,7 @@ test('P12-02 Logout and owner switch reject a late financial response', async ({
 test('P12-03 Reporting period change cannot publish old annual totals', async ({ page, stack }) => {
   await start(page); await page.getByLabel('Год', { exact: true }).fill('2024'); await release(page);
   await expect(table(page)).toBeVisible();
-  const section = page.getByRole('region', { name: 'Классификация expenses', exact: true });
+  const section = page.getByRole('region', { name: 'Классификация расходов', exact: true });
   await expect(section).toContainText('999,00 ₽'); await expect(section).not.toContainText('1790,00 ₽');
   expect((await stack.rpc('inspect')).sourcesUnchanged).toBe(true);
 });
@@ -50,7 +50,7 @@ test('P12-03 Reporting period change cannot publish old annual totals', async ({
 test('P12-04 Closing a loading report hides late totals and reopening validates afresh', async ({ page, stack }) => {
   await start(page); await page.getByRole('button', { name: 'Закрыть реальную статистику', exact: true }).click();
   await release(page); await expect(table(page)).toHaveCount(0);
-  await statistics(page); await expect(page.getByRole('region', { name: 'Классификация expenses', exact: true })).toContainText('1790,00 ₽');
+  await statistics(page); await expect(page.getByRole('region', { name: 'Классификация расходов', exact: true })).toContainText('1790,00 ₽');
   expect((await stack.rpc('inspect')).sourcesUnchanged).toBe(true);
 });
 
@@ -58,7 +58,7 @@ test('P12-05 Independent tabs share no in-flight publication or partial totals',
   await start(page); const second = await context.newPage();
   try { await analytics(second); await statistics(second); await expect(table(page)).toHaveCount(0);
     await expect(table(second)).toBeVisible(); await release(page); await expect(table(page)).toBeVisible();
-    for (const tab of [page, second]) await expect(tab.getByRole('region', { name: 'Классификация expenses', exact: true })).toContainText('1790,00 ₽');
+    for (const tab of [page, second]) await expect(tab.getByRole('region', { name: 'Классификация расходов', exact: true })).toContainText('1790,00 ₽');
   } finally { await second.close(); }
   expect((await stack.rpc('inspect')).sourcesUnchanged).toBe(true);
 });

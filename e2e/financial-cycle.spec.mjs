@@ -22,6 +22,31 @@ test('E2E-01 Authentication through real login and protected analytics', async (
     await start(page); await expect(page.getByText('Количество записей расходов', { exact: true })).toBeVisible();
     await assertSources(stack);
   });
+  await test.step('all Analytics shell links support direct entry and real reload', async () => {
+    const tabs = page.getByRole('navigation', { name: 'Разделы аналитики' }).getByRole('tab');
+    await expect(tabs).toHaveCount(9);
+    const destinations = await tabs.evaluateAll(elements => elements.map(el => ({href:el.getAttribute('href'),label:el.textContent})));
+    for (const {href,label} of destinations) {
+      await page.getByRole('tab',{name:label,exact:true}).click();
+      await expect(page).toHaveURL(new RegExp(`${href}$`));
+      await page.reload();
+      await expect(page.getByRole('tab',{name:label,exact:true})).toHaveAttribute('aria-current','page');
+      if(href==='/analytics') await expect(page.getByRole('heading',{name:'Финансовая аналитика',exact:true})).toBeVisible();
+      else {
+        await expect(page.getByRole('heading',{name:label,exact:true,level:1})).toBeVisible();
+        await expect(page.getByRole('heading',{name:'Финансовая аналитика',exact:true})).toHaveCount(0);
+      }
+    }
+    await page.setViewportSize({width:360,height:800});
+    const navigation=page.getByRole('navigation',{name:'Разделы аналитики'});
+    const bounds=await navigation.boundingBox();expect(bounds.width).toBeLessThanOrEqual(360);
+    await page.getByRole('tab',{name:'Расширенная аналитика',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Финансовая аналитика',exact:true})).toBeVisible();
+    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();
+    await expect(page.getByRole('tab',{name:'Планирование бюджета',exact:true})).toHaveAttribute('aria-current','page');
+    await page.setViewportSize({width:1440,height:1000});
+    await assertSources(stack);
+  });
 });
 
 test('E2E-02 Exact annual monthly category loan and UTC-boundary reconciliation', async ({ page, stack }) => {
@@ -37,12 +62,13 @@ test('E2E-02 Exact annual monthly category loan and UTC-boundary reconciliation'
     const expenses = [], incomes = [];
     for (let i = 1; i <= 12; i++) {
       const c = cells[i].getByRole('cell');
-      expect(await c.nth(0).innerText()).toBe(`2025-${String(i).padStart(2, '0')}`);
+      expect(await c.nth(0).innerText()).toBe(new Intl.DateTimeFormat('ru-RU',{timeZone:'UTC',month:'long',year:'numeric'}).format(new Date(Date.UTC(2025,i-1,1))));
       expenses.push(money(await c.nth(3).innerText())); incomes.push(money(await c.nth(2).innerText()));
       expect(await c.nth(4).innerText()).toBe(i === 1 ? '2 / 4' : '1 / 1');
     }
     expect(expenses).toEqual([69000, ...Array(11).fill(10000)]);
     expect(sum(expenses)).toBe(179000); expect(sum(incomes)).toBe(1205000);
+    await analytics(page,'categories');
     const categories = page.getByRole('table', { name: 'Расходные операции по категориям', exact: true });
     const categoryRows = await categories.getByRole('row').all(); expect(categoryRows.length).toBe(4);
     const totals = []; for (const row of categoryRows.slice(1)) totals.push(money(await row.getByRole('cell').nth(0).innerText()));
@@ -74,13 +100,13 @@ test('E2E-04 Reload reads the persisted decision and continuous revision from Mo
   });
   await test.step('income C approval survives reload without changing financial sources', async()=>{
     const salary='0000000000000000000000c8';
-    await page.getByRole('button',{name:new RegExp('incomes.*'+salary)}).click();
+    await page.getByRole('button',{name:new RegExp('Поступления.*'+salary)}).click();
     const review=page.getByRole('region',{name:'Сохранение ручной классификации'});
     await prepare(page,review);
     const applied=page.waitForResponse(r=>/\/c-v1\/apply$/.test(r.url())&&r.request().method()==='POST');
     await review.getByRole('button',{name:'Сохранить классификацию на сервере',exact:true}).click();expect((await applied).status()).toBe(200);
     await page.reload();await analytics(page);await selectPrimary(page,stack);
-    await page.getByRole('button',{name:new RegExp('incomes.*'+salary)}).click();
+    await page.getByRole('button',{name:new RegExp('Поступления.*'+salary)}).click();
     await expect(page.getByRole('region',{name:'Проверка операции'}).getByText(/Есть подтверждённое решение\. Ревизия: 2/)).toBeVisible();await assertSources(stack);
   });
 
@@ -89,16 +115,16 @@ test('E2E-04 Reload reads the persisted decision and continuous revision from Mo
 test('E2E-05 Classification buckets roles layers and coverage reconcile exactly', async ({ page, stack }) => {
   await start(page); await classify(page, stack); await statistics(page);
   await test.step('no duplicate accounting across status role and layer views', async () => {
-    const table = page.getByRole('table', { name: 'Статусы и роли expenses', exact: true });
-    const approved = await rowMoney(table, 'approved'), unreviewed = await rowMoney(table, 'unreviewed');
+    const table = page.getByRole('table', { name: 'Статусы и роли расходов', exact: true });
+    const approved = await rowMoney(table, 'Подтверждено'), unreviewed = await rowMoney(table, 'Не рассмотрено');
     expect(approved).toBe(174000); expect(unreviewed).toBe(5000); expect(approved + unreviewed).toBe(179000);
-    for (const status of ['explicit_unclassified', 'cleared', 'stale', 'blocked']) expect(await rowMoney(table, status)).toBe(0);
-    expect(await rowMoney(table, 'Роль: loan_issuance')).toBe(30000);
-    expect(await rowMoney(table, 'Роль: ordinary_expense')).toBe(144000);
-    const expenses = page.getByRole('region', { name: 'Классификация expenses', exact: true });
+    for (const status of ['Явно без классификации', 'Сброшено', 'Устарело', 'Заблокировано']) expect(await rowMoney(table, status)).toBe(0);
+    expect(await rowMoney(table, 'Роль: Выдача займа')).toBe(30000);
+    expect(await rowMoney(table, 'Роль: Обычный расход')).toBe(144000);
+    const expenses = page.getByRole('region', { name: 'Классификация расходов', exact: true });
     await expect(expenses.getByText('Покрытие классификации по количеству: 93.3%; по сумме: 97.2%.', { exact: true })).toBeVisible();
     const layers = page.getByRole('table', { name: 'Реальные финансовые слои', exact: true });
-    expect(await rowMoney(layers, 'everyday')).toBe(120000); expect(await rowMoney(layers, 'irregular')).toBe(24000);
+    expect(await rowMoney(layers, 'Повседневные расходы')).toBe(120000); expect(await rowMoney(layers, 'Нерегулярные расходы')).toBe(24000);
     const categories = page.getByRole('table', { name: 'Реальные категории независимо от слоёв', exact: true });
     expect(await rowMoney(categories, 'Транспорт')).toBe(144000);
     await assertSources(stack);
@@ -106,19 +132,19 @@ test('E2E-05 Classification buckets roles layers and coverage reconcile exactly'
 });
 
 test('E2E-06 Forecast needs twelve explicit recording confirmations and clears on reload', async ({ page, stack }) => {
-  await start(page); await classify(page, stack); const forecast = await statistics(page);
+  await start(page); await classify(page, stack); const forecast = await statistics(page,'planning');
   await test.step('insufficient evidence cannot become a forecast', async () => {
     await expect(page.getByRole('table', { name: 'Прогноз по реальным финансовым слоям', exact: true })).toHaveCount(0);
     await confirmMonths(forecast, 11); await forecast.getByRole('button', { name: 'Рассчитать оценку по записанной истории', exact: true }).click();
     await expect(forecast.getByText(/Прогноз недоступен:/)).toBeVisible();
     await confirmMonths(forecast); await forecast.getByRole('button', { name: 'Рассчитать оценку по записанной истории', exact: true }).click();
     const table = page.getByRole('table', { name: 'Прогноз по реальным финансовым слоям', exact: true });
-    expect(await rowMoney(table, 'everyday / median_monthly', 7)).toBe(10000);
-    expect(await rowMoney(table, 'everyday / median_monthly', 8)).toBe(120000);
-    expect(await rowMoney(table, 'irregular / historical_allocation', 7)).toBe(2000);
-    expect(await rowMoney(table, 'irregular / historical_allocation', 8)).toBe(24000);
-    await expect(forecast.getByText(/Покрытие классификации: partial.*Не покрыто: 50,00 ₽ \/ 1 операций/)).toBeVisible();
-    await page.reload(); await analytics(page); const fresh = await statistics(page);
+    expect(await rowMoney(table, 'Повседневные расходы / Медиана по месяцам', 7)).toBe(10000);
+    expect(await rowMoney(table, 'Повседневные расходы / Медиана по месяцам', 8)).toBe(120000);
+    expect(await rowMoney(table, 'Нерегулярные расходы / Распределение истории', 7)).toBe(2000);
+    expect(await rowMoney(table, 'Нерегулярные расходы / Распределение истории', 8)).toBe(24000);
+    await expect(forecast.getByText(/Покрытие классификации: Частичное.*Не покрыто: 50,00 ₽ \/ 1 операций/)).toBeVisible();
+    await page.reload(); await analytics(page); const fresh = await statistics(page,'planning');
     await expect(fresh.getByRole('checkbox', { checked: true })).toHaveCount(0);
     await expect(page.getByRole('table', { name: 'Прогноз по реальным финансовым слоям', exact: true })).toHaveCount(0);
     await assertSources(stack);
@@ -126,7 +152,7 @@ test('E2E-06 Forecast needs twelve explicit recording confirmations and clears o
 });
 
 test('E2E-07 Forecast acceptance preserves manual targets and separate reserve', async ({ page, stack }) => {
-  await start(page); await classify(page, stack); const forecast = await statistics(page);
+  await start(page); await classify(page, stack); const forecast = await statistics(page,'planning');
   await confirmMonths(forecast); await forecast.getByRole('button', { name: 'Рассчитать оценку по записанной истории', exact: true }).click();
   await test.step('explicit recommendation acceptance changes only eligible unprotected layers', async () => {
     const p = await plan(page); await p.getByLabel('Год плана', { exact: true }).fill('2027');
@@ -180,10 +206,31 @@ test('E2E-09 Explicit budget-plan-v1 export import rejects malformed and unsuppo
     }
     await assertSources(stack);
   });
+  await test.step('page-specific filters and private budget input survive tabs; reload keeps only safe preferences',async()=>{
+    await p.getByLabel('Год плана',{exact:true}).fill('2028');
+    await p.getByLabel('Повседневные расходы месяц 1',{exact:true}).fill('111.12');
+    await p.getByLabel('Новая годовая сумма Резерв',{exact:true}).fill('321.45');
+    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await expect(page.getByRole('heading',{name:'Операции по категориям',exact:true,level:1})).toBeVisible();
+    await page.getByLabel('Период',{exact:true}).selectOption('month');await page.getByLabel('Год',{exact:true}).fill('2025');await page.getByLabel('Месяц',{exact:true}).selectOption('9');
+    await page.getByRole('tab',{name:'Классификация',exact:true}).click();await expect(page.getByRole('heading',{name:'Классификация',exact:true,level:1})).toBeVisible();
+    await page.getByLabel('Период',{exact:true}).selectOption('month');await page.getByLabel('Год',{exact:true}).fill('2025');await page.getByLabel('Месяц',{exact:true}).selectOption('10');
+    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await expect(page.getByRole('heading',{name:'Операции по категориям',exact:true,level:1})).toBeVisible();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('9');
+    await page.getByRole('tab',{name:'Классификация',exact:true}).click();await expect(page.getByRole('heading',{name:'Классификация',exact:true,level:1})).toBeVisible();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('10');
+    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();await expect(page.getByRole('heading',{name:'Планирование бюджета',exact:true,level:1})).toBeVisible();
+    await expect(p.getByLabel('Год плана',{exact:true})).toHaveValue('2028');
+    await expect(p.getByLabel('Повседневные расходы месяц 1',{exact:true})).toHaveValue('111.12');
+    await expect(p.getByLabel('Новая годовая сумма Резерв',{exact:true})).toHaveValue('321.45');
+    const preferences=await page.evaluate(()=>localStorage.getItem('budget-analytics-display-v1'));
+    expect(preferences.includes('111.12')||preferences.includes('321.45')||preferences.includes('preparationId')).toBe(false);
+    await page.getByRole('tab',{name:'Операции по категориям',exact:true}).click();await expect(page.getByRole('heading',{name:'Операции по категориям',exact:true,level:1})).toBeVisible();await page.reload();await expect(page.getByLabel('Месяц',{exact:true})).toHaveValue('9');
+    await page.getByRole('tab',{name:'Планирование бюджета',exact:true}).click();await expect(page.getByRole('heading',{name:'Планирование бюджета',exact:true,level:1})).toBeVisible();await expect(page.getByLabel('Повседневные расходы месяц 1',{exact:true})).toHaveCount(0);
+    await assertSources(stack);
+  });
+
 });
 
 test('E2E-10 Cross-owner HTTP access and account switching isolate decisions drafts and evidence', async ({ page, stack }) => {
-  await start(page); await classify(page, stack); const forecast = await statistics(page); await confirmMonths(forecast, 2);
+  await start(page); await classify(page, stack); const forecast = await statistics(page,'planning'); await confirmMonths(forecast, 2);
   const p = await plan(page); await distribute(p, 'everyday', '999');
   await test.step('real browser credential cannot authorize foreign source reads or preparation', async () => {
     const statuses = await page.evaluate(async ({ baseUrl, foreign }) => {
@@ -201,8 +248,8 @@ test('E2E-10 Cross-owner HTTP access and account switching isolate decisions dra
     await page.getByRole('button', { name: 'Выйти', exact: true }).click(); await login(page, 'b'); await analytics(page);
     await expect(page.getByText('Количество записей расходов', { exact: true }).locator('..')).toContainText('1');
     const bPlan = await plan(page); expect(sum((await exportPlan(bPlan)).layers.everyday)).toBe(0);
-    const bForecast = await statistics(page); await expect(bForecast.getByRole('checkbox', { checked: true })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Классификация исторических операций', exact: true }).click();
+    const bForecast = await statistics(page,'planning'); await expect(bForecast.getByRole('checkbox', { checked: true })).toHaveCount(0);
+    await analytics(page,'classification');
     await expect(page.getByRole('button', { name: new RegExp(stack.primary) })).toHaveCount(0);
     await page.getByRole('button', { name: new RegExp(stack.foreign) }).click();
     await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Не рассмотрена\. Ревизия: нет/)).toBeVisible();
@@ -267,15 +314,16 @@ test('E2E-13 Transport unavailability preserves draft and precision fails withou
   await stack.rpc('unsupportedPrecision'); await login(page); await page.goto('/analytics');
   await page.getByLabel('Период', { exact: true }).selectOption('year');
   await page.getByLabel('Год', { exact: true }).fill('2025');
-  const p = await plan(page); await distribute(p, 'everyday', '123.45');
   await test.step('unsupported source precision produces explicit unavailable report', async () => {
     await expect(page.getByText(/более двух знаков после запятой/)).toBeVisible();
     await expect(page.getByRole('table', { name: 'Помесячный денежный поток', exact: true })).toHaveCount(0);
   });
+  const p = await plan(page); await distribute(p, 'everyday', '123.45');
   await test.step('backend network failure cannot produce complete reporting or erase local plan', async () => {
     await page.route(`${stack.baseUrl}/**`, route => route.abort('connectionrefused'));
     await page.getByLabel('Год', { exact: true }).fill('2023');
-    await expect(page.getByText('Не удалось загрузить операции выбранного периода. Итоги периода не рассчитаны.', { exact: true })).toBeVisible();
+    await page.getByRole('button',{name:'Загрузить реальную статистику классификации',exact:true}).click();
+    await expect(page.getByText(/Полный когерентный источник недоступен или изменился/)).toBeVisible();
     expect(sum((await exportPlan(p)).layers.everyday)).toBe(12345);
     await expect(page.getByText(/Сервер подтвердил сохранение/)).toHaveCount(0);
     await page.unrouteAll(); await assertSources(stack);

@@ -1,3 +1,5 @@
+import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
+import { layerLabel, statusLabel, methodLabel } from 'shared/lib/analytics/presentation';
 import { useId, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Alert, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
@@ -17,7 +19,7 @@ const money = (n: number | null) => { const f = n === null ? null : formatKopeck
 export const RealExpenseForecast = ({ cohort, asOf = Date.now(), onCalculated }: { cohort: CoherentHistory; asOf?: number;
   onCalculated?: (value: RecordedForecastSuggestion | null) => void }) => {
   const [evidence, setEvidence] = useState<{ cohort: CoherentHistory; months: string[] }>({ cohort, months: [] });
-  const [adjustment, setAdjustment] = useState('0'), [requested, setRequested] = useState(false);
+  const [adjustment, setAdjustment] = useAnalyticsState('forecastAdjustment','0'), [requested, setRequested] = useState(false);
   const months = evidence.cohort === cohort ? evidence.months : [];
   const input = recordingEvidenceInput(cohort, months, asOf);
   const bps = /^-?\d{1,4}$/.test(adjustment) ? Number(adjustment) * 100 : NaN;
@@ -34,17 +36,17 @@ export const RealExpenseForecast = ({ cohort, asOf = Date.now(), onCalculated }:
       const r = input.ok ? forecastExpenses(input.value, { asOf, adjustmentBasisPoints: bps }) : null;
       onCalculated?.(r?.ok && input.ok ? { cohort, input: input.value, forecast: r.value } : null);
     }}>Рассчитать оценку по записанной истории</Button>
-    {requested && (!input.ok || !result?.ok) && <Alert severity="warning" role="note">Прогноз недоступен: {result && !result.ok ? result.error.code : 'invalid_recording_evidence'}. Нужны 12 полностью выбранных завершённых месяцев, подтверждённая запись и подтверждённые обычные расходы. Неизвестные суммы не экстраполируются.</Alert>}
+    {requested && (!input.ok || !result?.ok) && <Alert severity="warning" role="note">Прогноз недоступен: недостаточно проверенной истории или некорректные параметры. Нужны 12 полностью выбранных завершённых месяцев, подтверждённая запись и подтверждённые обычные расходы. Неизвестные суммы не экстраполируются.</Alert>}
     {result?.ok && input.ok && <>
-      <Typography>12 подтверждённых месяцев записи. Покрытие классификации: {result.value.classificationCoverage}. По сумме: {coverage?.byAmount == null ? 'нет знаменателя' : `${(coverage.byAmount * 100).toFixed(1)}%`}; по количеству: {coverage?.byCount == null ? 'нет знаменателя' : `${(coverage.byCount * 100).toFixed(1)}%`}. Не покрыто: {money(result.value.uncoveredKopecks)} / {result.value.uncoveredCount} операций.</Typography>
+      <Typography>12 подтверждённых месяцев записи. Покрытие классификации: {statusLabel(result.value.classificationCoverage)}. По сумме: {coverage?.byAmount == null ? 'нет знаменателя' : `${(coverage.byAmount * 100).toFixed(1)}%`}; по количеству: {coverage?.byCount == null ? 'нет знаменателя' : `${(coverage.byCount * 100).toFixed(1)}%`}. Не покрыто: {money(result.value.uncoveredKopecks)} / {result.value.uncoveredCount} операций.</Typography>
       <Alert severity={result.value.classificationCoverage === 'partial' ? 'warning' : 'info'} role="note">Оценка только подтверждённых компонентов, не полного необходимого бюджета. Займы, переводы и капитал не превращаются в повседневное потребление. Реальная полнота записи подтверждена вами только в этой памяти.</Alert>
-      <Table size="small" aria-label="Прогноз по реальным финансовым слоям"><TableHead><TableRow>{['Слой / метод', 'История', 'Среднее/мес', 'Медиана/мес', 'Min–max', 'Размах', 'Тренд двух полугодий', 'Оценка/мес', 'Проекция/год'].map(x => <TableCell key={x}>{x}</TableCell>)}</TableRow></TableHead>
+      <Table size="small" aria-label="Прогноз по реальным финансовым слоям"><TableHead><TableRow>{['Слой / метод', 'История', 'Среднее/мес', 'Медиана/мес', 'Минимум–максимум', 'Размах', 'Тренд двух полугодий', 'Оценка/мес', 'Проекция/год'].map(x => <TableCell key={x}>{x}</TableCell>)}</TableRow></TableHead>
         <TableBody>{FINANCIAL_LAYERS.map(layer => { const s = result.value.layers[layer]; return <TableRow key={layer}>
-          <TableCell>{layer} / {s.method}</TableCell><TableCell>{money(s.historicalKopecks)}</TableCell><TableCell>{money(s.meanMonthlyKopecks)}</TableCell><TableCell>{money(s.medianMonthlyKopecks)}</TableCell>
+          <TableCell>{layerLabel(layer)} / {methodLabel(s.method)}</TableCell><TableCell>{money(s.historicalKopecks)}</TableCell><TableCell>{money(s.meanMonthlyKopecks)}</TableCell><TableCell>{money(s.medianMonthlyKopecks)}</TableCell>
           <TableCell>{money(s.minMonthlyKopecks)} — {money(s.maxMonthlyKopecks)}</TableCell><TableCell>{money(s.variationRangeKopecks)}</TableCell><TableCell>{money(s.recentHalfChangeKopecks)}</TableCell>
           <TableCell>{money(s.monthlyEstimateKopecks)}</TableCell><TableCell>{money(s.projectedAnnualKopecks)}</TableCell></TableRow>; })}</TableBody>
       </Table>
-      <Typography>everyday: медиана; irregular/emergency: распределение исторической годовой суммы по месяцам, не предсказание времени событий. Цели и долгосрочный капитал задаются вручную. Исходные деньги не округляются, производные оценки округляются до копейки. Выбросы остаются в истории.</Typography>
+      <Typography>Повседневные: медиана; нерегулярные и непредвиденные: распределение исторической годовой суммы по месяцам, не предсказание времени событий. Цели и долгосрочный капитал задаются вручную. Исходные деньги не округляются, производные оценки округляются до копейки. Выбросы остаются в истории.</Typography>
       <PreviousYearComparison current={cohort} currentInput={input.value} adjustmentBasisPoints={bps} asOf={asOf} />
     </>}
   </Stack>;
@@ -80,7 +82,7 @@ const YearComparisonEvidence = ({ previous, currentInput, adjustmentBasisPoints,
     <Typography>Отдельно проверьте запись предыдущего года. Сравниваются только подтверждённые компоненты обоих лет; различия покрытия могут влиять на суммы.</Typography>
     <RecordingEvidenceControls cohort={previous} confirmed={confirmed} onChange={setConfirmed} asOf={comparisonAsOf} />
     {result?.ok ? <Table size="small" aria-label="Изменения подтверждённых расходов между годами"><TableBody>{FINANCIAL_LAYERS.map(layer => <TableRow key={layer}>
-      <TableCell>{layer}</TableCell><TableCell>{money(result.value[layer])}</TableCell></TableRow>)}</TableBody></Table>
+      <TableCell>{layerLabel(layer)}</TableCell><TableCell>{money(result.value[layer])}</TableCell></TableRow>)}</TableBody></Table>
       : <Typography>Сравнение пока недоступно: нужны сопоставимые полные годы и отдельное подтверждение записи.</Typography>}
   </Stack>;
 };

@@ -1,3 +1,4 @@
+import { monthLabel } from 'shared/lib/analytics/presentation';
 import { Alert, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
@@ -12,7 +13,7 @@ const moneyLabel = (kopecks: number | null): string => {
   return formatted.ok ? formatted.value : 'Некорректная сумма';
 };
 
-export const AnalyticsResults = ({ data, observedAt = Date.now() }: { data: FinancialAnalytics; observedAt?: number }) => {
+export const AnalyticsResults = ({ data, observedAt = Date.now(), view = 'all' }: { data: FinancialAnalytics; observedAt?: number; view?: 'all'|'overview'|'categories' }) => {
   const cards = [
     ['Записанные поступления', moneyLabel(data.incomeKopecks)],
     ['Записанные расходы', moneyLabel(data.expenseKopecks)],
@@ -25,6 +26,7 @@ export const AnalyticsResults = ({ data, observedAt = Date.now() }: { data: Fina
   const chartCategories = data.categories.slice(0, 12);
   return (
     <>
+      {view !== 'categories' && <>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 1 }}>
         {cards.map(([label, value]) => (
           <Paper key={label} variant="outlined" sx={{ p: 2, minWidth: 0 }}>
@@ -39,13 +41,15 @@ export const AnalyticsResults = ({ data, observedAt = Date.now() }: { data: Fina
         <Table size="small" aria-label="Помесячный денежный поток">
           <TableHead><TableRow>{['Месяц UTC', 'История', 'Поступления', 'Расходы', 'Записей доходов / расходов'].map(label => <TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
           <TableBody>{data.months?.map(month => <TableRow key={month.key}>
-            <TableCell>{month.key}</TableCell><TableCell>{({ elapsed: 'Период завершён', partial_period: 'Выбрана часть месяца',
+            <TableCell>{monthLabel(month.key)}</TableCell><TableCell>{({ elapsed: 'Период завершён', partial_period: 'Выбрана часть месяца',
               current_partial: 'Месяц не завершён', future: 'Будущий месяц', unavailable: 'Статус недоступен' })[historyMonthStatus(month.key, data.period, observedAt)]}</TableCell>
             <TableCell>{moneyLabel(month.incomeKopecks)}</TableCell><TableCell>{moneyLabel(month.expenseKopecks)}</TableCell>
             <TableCell>{month.incomeCount} / {month.expenseCount}</TableCell>
           </TableRow>)}</TableBody>
         </Table>
       </TableContainer>
+      </>}
+      {view !== 'overview' && <>
       <Paper variant="outlined" sx={{ p: { xs: 1, sm: 2 }, minWidth: 0 }}>
         <Typography variant="h6" component="h2">Расходные операции по категориям</Typography>
         <Typography variant="body2" color="text.secondary">
@@ -79,18 +83,21 @@ export const AnalyticsResults = ({ data, observedAt = Date.now() }: { data: Fina
           </TableContainer>
         </>}
       </Paper>
+      </>}
+      {view !== 'categories' && <>
       <Paper variant="outlined" sx={{ p: { xs: 1, sm: 2 }, minWidth: 0 }}>
         <Typography variant="h6" component="h2">Месячная динамика расходов</Typography>
         <Typography variant="body2" color="text.secondary">Расходы по календарным месяцам UTC, включая месяцы без расходов. Это не дневные значения.</Typography>
         <Box sx={{ width: '100%', minWidth: 0, overflow: 'hidden' }}>
-          <LineChart height={300} margin={{ left: 65, right: 20 }}
+          {data.dynamics.length < 2 ? <Alert severity="info">Для сравнения месячной динамики выберите несколько месяцев. За один месяц используйте показатели и таблицу выше.</Alert> : <LineChart height={300} margin={{ left: 65, right: 20 }}
             aria-label="Месячная динамика расходов" skipAnimation
-            xAxis={[{ scaleType: 'point', data: data.dynamics.map((point) => point.key), label: 'Месяц (UTC)', tickLabelMinGap: 30 }]}
+            xAxis={[{ scaleType: 'point', data: data.dynamics.map((point) => point.key), valueFormatter: monthLabel, label: 'Месяц (UTC)', tickLabelMinGap: 30 }]}
             yAxis={[{ scaleType: 'linear', label: '₽', tickMinStep: 1, valueFormatter: moneyLabel }]}
             series={[{ label: 'Расходные операции', data: data.dynamics.map((point) => point.kopecks), showMark: true,
-              valueFormatter: moneyLabel }]} />
+              valueFormatter: moneyLabel }]} />}
         </Box>
       </Paper>
+      </>}
     </>
   );
 };

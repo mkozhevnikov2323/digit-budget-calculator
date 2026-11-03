@@ -23,7 +23,7 @@ describe('AnalyticsResults with real MUI charts', () => {
       return style;
     });
     const result = buildAnalytics(expenseResponse([expense('e', 0.3, 'Очень длинная категория расходов для узкого экрана')]),
-      incomeResponse([income('i', 1)]), selectedPeriod());
+      incomeResponse([income('i', 1)]), selectedPeriod('2024-01-01','2024-02-29'));
     if (!result.ok) throw new Error('Invalid synthetic analytics');
     const { container } = render(<AnalyticsResults data={result.value} />);
     expect(screen.getByRole('heading', { level: 2, name: 'Месячная динамика расходов' })).toBeInTheDocument();
@@ -58,4 +58,10 @@ describe('AnalyticsResults with real MUI charts', () => {
     expect(table.getAllByText('Будущий месяц')).toHaveLength(2);
     expect(screen.getByText(/Ноль записей не доказывает/)).toBeInTheDocument();
   });
+});
+
+it('single calendar month has an explanation and exact table, without a one-point line chart',()=>{
+ const result=buildAnalytics(expenseResponse([expense('e',0.3)]),incomeResponse(),selectedPeriod());if(!result.ok)throw Error('Fixture');
+ render(<AnalyticsResults data={result.value}/>);expect(screen.queryByLabelText('Месячная динамика расходов')).not.toBeInTheDocument();
+ expect(screen.getByText(/Для сравнения месячной динамики/)).toBeInTheDocument();expect(within(screen.getByRole('table',{name:'Помесячный денежный поток'})).getByText('0,30 ₽')).toBeInTheDocument();
 });

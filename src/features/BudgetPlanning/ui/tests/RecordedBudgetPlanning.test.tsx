@@ -21,30 +21,30 @@ const accept = () => { fireEvent.click(screen.getByLabelText('Я провери�
 it('offers a real eligible suggestion without automatic replacement, then requires explicit review', async () => {
   const s = suggestion(); render(<BudgetPlanning realMode cohort={s.cohort} suggestion={s} />); open();
   await screen.findByTestId('recorded-actual-fixture');
-  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('0.00');
+  expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('0.00');
   expect(screen.getByRole('button', { name: 'Применить рекомендации к не изменённым вручную слоям' })).toBeDisabled(); accept();
-  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('12.34'); expect(screen.getByText(/Приняты рекомендации по записанной истории/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('12.34'); expect(screen.getByText(/Приняты рекомендации по записанной истории/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /вымышленными рекомендациями/ })).not.toBeInTheDocument();
 });
 it('preserves manual overrides including zero, separate reserve and goals', async () => {
   const s = suggestion(); render(<BudgetPlanning realMode cohort={s.cohort} suggestion={s} />); open();
   await screen.findByTestId('recorded-actual-fixture');
-  for (const [label, value] of [['everyday месяц 1', '1.00'], ['everyday месяц 1', '0.00'], ['irregular месяц 1', '77.00'],
-    ['major_goals месяц 1', '33.00'], ['reserve месяц 1', '44.00']]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
-  accept(); expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('0.00'); expect(screen.getByLabelText('irregular месяц 1')).toHaveValue('77.00');
-  expect(screen.getByLabelText('major_goals месяц 1')).toHaveValue('33.00'); expect(screen.getByLabelText('reserve месяц 1')).toHaveValue('44.00');
+  for (const [label, value] of [['Повседневные расходы месяц 1', '1.00'], ['Повседневные расходы месяц 1', '0.00'], ['Нерегулярные расходы месяц 1', '77.00'],
+    ['Крупные цели месяц 1', '33.00'], ['Резерв месяц 1', '44.00']]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  accept(); expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('0.00'); expect(screen.getByLabelText('Нерегулярные расходы месяц 1')).toHaveValue('77.00');
+  expect(screen.getByLabelText('Крупные цели месяц 1')).toHaveValue('33.00'); expect(screen.getByLabelText('Резерв месяц 1')).toHaveValue('44.00');
 });
 it('retains edited draft through history refresh/period change and never reuses an old suggestion confirmation', async () => {
   const s = suggestion(), view = render(<BudgetPlanning realMode cohort={s.cohort} suggestion={s} />); open();
   await screen.findByTestId('recorded-actual-fixture');
-  fireEvent.change(screen.getByLabelText('everyday месяц 1'), { target: { value: '23.45' } });
+  fireEvent.change(screen.getByLabelText('Повседневные расходы месяц 1'), { target: { value: '23.45' } });
   fireEvent.click(screen.getByLabelText('Я проверил(а) рекомендации и ограничения; ручные слои и резерв сохранить'));
-  view.rerender(<BudgetPlanning realMode />); expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('23.45');
+  view.rerender(<BudgetPlanning realMode />); expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('23.45');
   expect(screen.getByRole('button', { name: 'Применить рекомендации к не изменённым вручную слоям' })).toBeDisabled();
   const next = suggestion(); view.rerender(<BudgetPlanning realMode cohort={next.cohort} suggestion={next} />);
   expect(screen.getByRole('button', { name: 'Применить рекомендации к не изменённым вручную слоям' })).toBeDisabled();
   fireEvent.change(screen.getByLabelText('Начало исторической базы'), { target: { value: '2024-01-01' } });
-  expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('23.45');
+  expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('23.45');
 });
 it('preserves explicit import/export and failure recovery without browser persistence or network writes', async () => {
   const s = suggestion(), storage = jest.spyOn(Storage.prototype, 'setItem'), network = jest.spyOn(globalThis, 'fetch');
@@ -53,7 +53,7 @@ it('preserves explicit import/export and failure recovery without browser persis
   fireEvent.click(screen.getByRole('button', { name: 'Экспортировать JSON по запросу' }));
   const json = (screen.getByLabelText('Экспорт JSON — скопируйте явно') as HTMLTextAreaElement).value;
   fireEvent.change(screen.getByLabelText('JSON для импорта'), { target: { value: '{invalid' } }); fireEvent.click(screen.getByRole('button', { name: 'Импортировать JSON — заменить черновик' }));
-  expect(screen.getByText(/Импорт отклонён/)).toBeInTheDocument(); expect(screen.getByLabelText('everyday месяц 1')).toHaveValue('12.34');
+  expect(screen.getByText(/Импорт отклонён/)).toBeInTheDocument(); expect(screen.getByLabelText('Повседневные расходы месяц 1')).toHaveValue('12.34');
   fireEvent.change(screen.getByLabelText('JSON для импорта'), { target: { value: json } }); fireEvent.click(screen.getByRole('button', { name: 'Импортировать JSON — заменить черновик' }));
-  expect(screen.getByText(/Защищённые ручные слои:/)).toHaveTextContent('everyday'); expect(storage).not.toHaveBeenCalled(); expect(network).not.toHaveBeenCalled();
+  expect(screen.getByText(/Защищённые ручные слои:/)).toHaveTextContent('Повседневные расходы'); expect(storage).not.toHaveBeenCalled(); expect(network).not.toHaveBeenCalled();
 });

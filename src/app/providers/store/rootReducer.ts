@@ -10,7 +10,10 @@ import { addExpenseModalReducer } from 'widgets/Modals/AddExpenseModal';
 import { editIncomeModalReducer } from 'widgets/Modals/EditIncomeModal';
 import { editExpenseModalReducer } from 'widgets/Modals/EditExpenseModal';
 
+import { analyticsUIReducer } from 'features/AnalyticsState/model/slice';
+
 const appReducer = combineReducers({
+  analyticsUI: analyticsUIReducer,
   authorization: authorizationReducer,
   user: userReducer,
   income: incomeReducer,

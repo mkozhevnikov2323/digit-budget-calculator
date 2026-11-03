@@ -1,3 +1,5 @@
+import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
+import { monthLabel } from 'shared/lib/analytics/presentation';
 import { useEffect, useId, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useRecurrenceAnalytics } from '../model/useRecurrenceAnalytics';
@@ -5,11 +7,11 @@ import { previousCompletedMonths, type RecurrenceLookback } from '../model/windo
 import { groupKey } from '../model/validation';
 import type { RecurrenceObservation } from '../model/types';
 
-const ObservationGroup = ({ title, explanation, observations }: {
+export const ObservationGroup = ({ title, explanation, observations }: {
   title: string; explanation: string; observations: readonly RecurrenceObservation[];
 }) => {
   const id = useId();
-  const [visible, setVisible] = useState(20);
+  const [visible, setVisible] = useAnalyticsState('visible',20);
   return <Box component="section" aria-labelledby={id} sx={{ minWidth: 0 }}>
     <Typography id={id} component="h3" variant="h6">{title}</Typography>
     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{explanation}</Typography>
@@ -29,7 +31,7 @@ const ObservationGroup = ({ title, explanation, observations }: {
               <dt>Самая длинная серия, мес.</dt><dd>{observation.longestConsecutiveMonths}</dd>
             </Box>
             <details><summary tabIndex={0}>Месяцы и интервалы</summary>
-              <Typography variant="body2">Активные месяцы (UTC): {observation.activeMonths.join(', ')}</Typography>
+              <Typography variant="body2">Активные месяцы (UTC): {observation.activeMonths.map(monthLabel).join(', ')}</Typography>
               {observation.intervalsInMonths.length > 0 && <Typography variant="body2">
                 Между активными месяцами: {observation.intervalsInMonths.join(', ')} мес.
               </Typography>}
@@ -44,9 +46,9 @@ const ObservationGroup = ({ title, explanation, observations }: {
   </Box>;
 };
 
-export const RecurrenceSection = () => {
+export const RecurrenceSection = ({ view = 'all' }: {view?:'all'|'recurrence'|'similar'|'income-sources'}) => {
   const id = useId();
-  const [months, setMonths] = useState<RecurrenceLookback>(3);
+  const [months, setMonths] = useAnalyticsState<RecurrenceLookback>('months',3);
   const [now, setNow] = useState(() => new Date());
   // Advance at the UTC month boundary even on a long-lived open page. Cap the
   // timer to one day (browsers cannot represent arbitrary month-long delays).
@@ -68,7 +70,7 @@ export const RecurrenceSection = () => {
   };
   return <Paper component="section" aria-labelledby={id} variant="outlined" sx={{ p: { xs: 2, sm: 3 }, minWidth: 0 }}>
     <Stack spacing={2} sx={{ minWidth: 0 }}>
-      <Typography id={id} component="h2" variant="h5">Повторяемость операций</Typography>
+      <Typography id={id} component={view === 'all' ? 'h2' : 'h1'} variant="h5">{view === 'similar' ? 'Похожие операции' : view === 'income-sources' ? 'Источники поступлений' : 'Повторяемость операций'}</Typography>
       <Typography variant="body2" color="text.secondary">
         Это исторические наблюдения по записанным операциям, а не подтверждение регулярных платежей или финансовая классификация.
         Результат не доказывает непрерывность ведения учёта. Расходы и поступления могли быть прочитаны в разное время.
@@ -97,12 +99,12 @@ export const RecurrenceSection = () => {
               {state.data.observations.length === 0 && <Typography>
                 За выбранный период группы наблюдений не найдены. Это не доказывает отсутствие операций или перерыв в учёте.
               </Typography>}
-              <ObservationGroup title="Категории расходов" explanation="Категория объединяет разные операции. Её активность не означает повторение одного платежа."
-                observations={state.data.observations.filter(x => x.group.dataset === 'expenses' && x.group.level === 'category_or_source')} />
-              <ObservationGroup title="Похожие расходные операции" explanation="Совпадают тексты категории, названия и получателя. Суммы и назначение платежей здесь не сравниваются."
-                observations={state.data.observations.filter(x => x.group.level === 'similar_expense')} />
-              <ObservationGroup title="Источники поступлений" explanation="Группы по точному названию источника. Эти записи не гарантируют будущих поступлений."
-                observations={state.data.observations.filter(x => x.group.dataset === 'incomes')} />
+              {(view === 'all' || view === 'recurrence') && <ObservationGroup title="Категории расходов" explanation="Категория объединяет разные операции. Её активность не означает повторение одного платежа."
+                observations={state.data.observations.filter(x => x.group.dataset === 'expenses' && x.group.level === 'category_or_source')} />}
+              {(view === 'all' || view === 'similar') && <ObservationGroup title="Похожие расходные операции" explanation="Совпадают тексты категории, названия и получателя. Суммы и назначение платежей здесь не сравниваются."
+                observations={state.data.observations.filter(x => x.group.level === 'similar_expense')} />}
+              {(view === 'all' || view === 'income-sources') && <ObservationGroup title="Источники поступлений" explanation="Группы по точному названию источника. Эти записи не гарантируют будущих поступлений."
+                observations={state.data.observations.filter(x => x.group.dataset === 'incomes')} />}
             </>}
     </Stack>
   </Paper>;

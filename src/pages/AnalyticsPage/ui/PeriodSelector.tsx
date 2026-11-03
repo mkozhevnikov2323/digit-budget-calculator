@@ -1,3 +1,4 @@
+import { dateLabel } from 'shared/lib/analytics/presentation';
 import { Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import type { CalendarPeriod } from 'features/FinancialAnalytics/model/period';
 import { currentSelection, previousSelection, shiftSelection, type PeriodSelection } from './selection';
@@ -48,7 +49,7 @@ export const PeriodSelector = ({ value, onChange, period }: Props) => {
         </>}
       </Stack>
       <Typography variant="body2" sx={{ mt: 1 }} aria-live="polite">
-        {period ? `${period.firstDate} — ${period.lastDate} (включительно, UTC)` : 'Период не выбран: исправьте даты.'}
+        {period ? `${dateLabel(period.firstDate)} — ${dateLabel(period.lastDate)} (включительно, UTC)` : 'Период не выбран: исправьте даты.'}
       </Typography>
     </Paper>
   );

@@ -98,12 +98,12 @@ describe('recurrence UI with real RTK/session boundary and synthetic transport',
       }
     } finally { jest.restoreAllMocks(); jest.useRealTimers(); }
   });
-  const setup = (token: string | null = tokenA, page = false) => {
+  const setup = (token: string | null = tokenA, page = false, view: 'all'|'recurrence'|'similar'|'income-sources' = 'all') => {
     if (token) nativeSet.call(localStorage, 'token', token);
     const store = makeStore(); stores.push(store); const frames: string[] = [];
     render(<Provider store={store}><ThemeProvider theme={theme}><MemoryRouter><UserProvider>
       <Profiler id="recurrence" onRender={() => frames.push(document.body.textContent ?? '')}>
-        {page ? <AnalyticsPage /> : <RecurrenceSection />}
+        {page ? <><AnalyticsPage /><RecurrenceSection view={view} /></> : <RecurrenceSection view={view} />}
       </Profiler>
     </UserProvider></MemoryRouter></ThemeProvider></Provider>);
     return { store, frames };
@@ -152,7 +152,7 @@ describe('recurrence UI with real RTK/session boundary and synthetic transport',
     // JSDOM does not implement summary's native Enter default action. Check
     // its tab stop/click here; Chromium acceptance also exercises Enter.
     await user.click(document.activeElement!);
-    expect(category.getByText(/Активные месяцы \(UTC\): 2025-01, 2025-02, 2025-03/)).toBeInTheDocument();
+    expect(category.getByText(/Активные месяцы \(UTC\): январь 2025 г., февраль 2025 г., март 2025 г./)).toBeInTheDocument();
     expect(category.getByText(/Активные месяцы \(UTC\):/).closest('details')).toHaveAttribute('open');
   });
   it.each(['6', '12'])('selects %s completed months without changing the financial selector', async months => {
@@ -307,4 +307,10 @@ describe('recurrence UI with real RTK/session boundary and synthetic transport',
     await waitFor(() => expect(calls()).toHaveLength(2));
     expect(Object.fromEntries(urlOf(...calls()[1]).searchParams)).toEqual({ startMonth: '2024-11', endMonthExclusive: '2025-02' });
   });
+  it.each([['recurrence','Категории расходов'],['similar','Похожие расходные операции'],['income-sources','Источники поступлений']] as const)('renders only the existing %s observation partition on its destination',async(view,title)=>{
+    setup(tokenA,false,view);await screen.findByRole('heading',{name:title,level:3});
+    for(const other of ['Категории расходов','Похожие расходные операции','Источники поступлений'].filter(x=>x!==title))expect(screen.queryByRole('heading',{name:other,level:3})).not.toBeInTheDocument();
+    expect(calls()).toHaveLength(1);expect(Object.fromEntries(urlOf(...calls()[0]).searchParams)).toEqual({startMonth:'2025-01',endMonthExclusive:'2025-04'});
+  });
+
 });

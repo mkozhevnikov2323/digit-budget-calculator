@@ -1,9 +1,10 @@
+import { Suspense } from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, useRoutes } from 'react-router';
 import { AppRoutes, routeConfig } from 'app/providers/router/routeConfig';
 import { navItems } from 'widgets/MobileMenu/model/navItems';
 
-jest.mock('pages/AnalyticsPage', () => ({ AnalyticsPage: () => <div>Protected analytics content</div> }), { virtual: true });
+jest.mock('pages/AnalyticsPage/ui/AnalyticsDestination', () => ({ AnalyticsDestination: () => <div>Protected analytics content</div> }));
 jest.mock('pages/MainPage', () => ({ MainPage: () => null }), { virtual: true });
 jest.mock('pages/IncomePage', () => ({ IncomePage: () => null }), { virtual: true });
 jest.mock('pages/ExpensesPage', () => ({ ExpensesPage: () => null }), { virtual: true });
@@ -17,15 +18,15 @@ const Routes = () => useRoutes([routeConfig[AppRoutes.ANALYTICS], { path: '/', e
 describe('analytics route and shared navigation', () => {
   afterEach(() => localStorage.clear());
 
-  it('exposes /analytics to authenticated users', () => {
+  it('exposes /analytics to authenticated users', async () => {
     localStorage.setItem('token', 'test-token');
-    render(<MemoryRouter initialEntries={['/analytics']}><Routes /></MemoryRouter>);
-    expect(screen.getByText('Protected analytics content')).toBeInTheDocument();
+    render(<MemoryRouter initialEntries={['/analytics']}><Suspense fallback={null}><Routes /></Suspense></MemoryRouter>);
+    expect(await screen.findByText('Protected analytics content')).toBeInTheDocument();
     expect(navItems).toContainEqual({ label: 'Аналитика', path: '/analytics' });
   });
 
   it('keeps analytics behind the existing Protected wrapper', () => {
-    render(<MemoryRouter initialEntries={['/analytics']}><Routes /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/analytics']}><Suspense fallback={null}><Routes /></Suspense></MemoryRouter>);
     expect(screen.getByText('Public entry')).toBeInTheDocument();
     expect(screen.queryByText('Protected analytics content')).not.toBeInTheDocument();
   });

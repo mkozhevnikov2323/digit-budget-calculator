@@ -1,3 +1,5 @@
+import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
+import { layerLabel, roleLabel, statusLabel, monthLabel } from 'shared/lib/analytics/presentation';
 import { useId, useMemo, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Alert, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
@@ -23,32 +25,32 @@ export const RecordedStatisticsReport = ({ cohort }: { cohort: CoherentHistory }
     <Alert severity="info" role="note">Полный ответ по записанным операциям проверен. Это неатомарные наблюдения, не снимок БД. Полнота классификации и полнота записи реальных расходов — отдельные свойства. Категория не назначает слой.</Alert>
     {(['expenses', 'incomes'] as const).map(dataset => {
       const d = stats[dataset];
-      return <Stack key={dataset} spacing={1} component="section" aria-label={`Классификация ${dataset}`}>
+      return <Stack key={dataset} spacing={1} component="section" aria-label={`Классификация ${dataset === 'expenses' ? 'расходов' : 'поступлений'}`}>
         <Typography component="h4">{dataset === 'expenses' ? 'Записанные расходы' : 'Записанные поступления'}: {money(d.recorded.kopecks)} · {d.recorded.count} операций.</Typography>
         <Typography>Покрытие классификации по количеству: {percent(d.coverage.byCount)}; по сумме: {percent(d.coverage.byAmount)}.</Typography>
-        <Table size="small" aria-label={`Статусы и роли ${dataset}`}><TableHead><TableRow><TableCell>Группа</TableCell><TableCell>Сумма</TableCell><TableCell>Операций</TableCell></TableRow></TableHead>
-          <TableBody>{STATUSES.map(status => <TableRow key={status}><TableCell>{status}</TableCell><TableCell>{money(d.statuses[status].kopecks)}</TableCell><TableCell>{d.statuses[status].count}</TableCell></TableRow>)}
-            {Object.entries(d.roles).map(([role, bucket]) => <TableRow key={role}><TableCell>Роль: {role}</TableCell><TableCell>{money(bucket.kopecks)}</TableCell><TableCell>{bucket.count}</TableCell></TableRow>)}</TableBody>
+        <Table size="small" aria-label={`Статусы и роли ${dataset === 'expenses' ? 'расходов' : 'поступлений'}`}><TableHead><TableRow><TableCell>Группа</TableCell><TableCell>Сумма</TableCell><TableCell>Операций</TableCell></TableRow></TableHead>
+          <TableBody>{STATUSES.map(status => <TableRow key={status}><TableCell>{statusLabel(status)}</TableCell><TableCell>{money(d.statuses[status].kopecks)}</TableCell><TableCell>{d.statuses[status].count}</TableCell></TableRow>)}
+            {Object.entries(d.roles).map(([role, bucket]) => <TableRow key={role}><TableCell>Роль: {roleLabel(role)}</TableCell><TableCell>{money(bucket.kopecks)}</TableCell><TableCell>{bucket.count}</TableCell></TableRow>)}</TableBody>
         </Table>
       </Stack>;
     })}
-    <Typography>Слои включают только подтверждённые ordinary_expense. Займы, переводы, возвраты и капитал остаются в своих ролях. Статусы и роли — разные представления одних сумм, они не складываются.</Typography>
+    <Typography>Слои включают только подтверждённые обычные расходы. Займы, переводы, возвраты и капитал остаются в своих ролях. Статусы и роли — разные представления одних сумм, они не складываются.</Typography>
     <Table size="small" aria-label="Реальные финансовые слои"><TableHead><TableRow><TableCell>Слой</TableCell><TableCell>Сумма</TableCell><TableCell>Операций</TableCell></TableRow></TableHead>
-      <TableBody>{FINANCIAL_LAYERS.map(layer => <TableRow key={layer}><TableCell>{layer}</TableCell><TableCell>{money(stats.expenses.layers[layer].kopecks)}</TableCell><TableCell>{stats.expenses.layers[layer].count}</TableCell></TableRow>)}</TableBody>
+      <TableBody>{FINANCIAL_LAYERS.map(layer => <TableRow key={layer}><TableCell>{layerLabel(layer)}</TableCell><TableCell>{money(stats.expenses.layers[layer].kopecks)}</TableCell><TableCell>{stats.expenses.layers[layer].count}</TableCell></TableRow>)}</TableBody>
     </Table>
     <Table size="small" aria-label="Реальные категории независимо от слоёв"><TableHead><TableRow><TableCell>Категория (точная строка)</TableCell><TableCell>Сумма</TableCell><TableCell>Операций</TableCell></TableRow></TableHead>
       <TableBody>{categories.map(c => <TableRow key={c.category}><TableCell sx={{ whiteSpace: 'pre-wrap' }}>{c.category || '(пустая строка)'}</TableCell><TableCell>{money(c.kopecks)}</TableCell><TableCell>{c.count}</TableCell></TableRow>)}</TableBody>
     </Table>
-    <Table size="small" aria-label="Реальная месячная классификация"><TableHead><TableRow>{['Месяц UTC', 'Расходы', 'Поступления', 'Классифицированные расходы', ...FINANCIAL_LAYERS].map(x => <TableCell key={x}>{x}</TableCell>)}</TableRow></TableHead>
-      <TableBody>{stats.months.map(m => <TableRow key={m.key}><TableCell>{m.key} · {m.calendar}</TableCell><TableCell>{money(m.expenses.recorded.kopecks)}</TableCell><TableCell>{money(m.incomes.recorded.kopecks)}</TableCell><TableCell>{money(m.expenses.statuses.approved.kopecks)}</TableCell>
+    <Table size="small" aria-label="Реальная месячная классификация"><TableHead><TableRow>{['Месяц UTC', 'Расходы', 'Поступления', 'Классифицированные расходы', ...FINANCIAL_LAYERS.map(layerLabel)].map(x => <TableCell key={x}>{x}</TableCell>)}</TableRow></TableHead>
+      <TableBody>{stats.months.map(m => <TableRow key={m.key}><TableCell>{monthLabel(m.key)} · {statusLabel(m.calendar)}</TableCell><TableCell>{money(m.expenses.recorded.kopecks)}</TableCell><TableCell>{money(m.incomes.recorded.kopecks)}</TableCell><TableCell>{money(m.expenses.statuses.approved.kopecks)}</TableCell>
         {FINANCIAL_LAYERS.map(layer => <TableCell key={layer}>{money(m.expenses.layers[layer].kopecks)}</TableCell>)}</TableRow>)}</TableBody>
     </Table>
     {!stats.expenses.recorded.count && !stats.incomes.recorded.count && <Typography>Записанных операций нет. Это не подтверждение нулевых реальных расходов.</Typography>}
   </Stack>;
 };
 
-export const RealClassificationStatistics = ({ period }: { period: CalendarPeriod | null }) => {
-  const owner = useVerifiedOwner(), instance = useId(), [open, setOpen] = useState(false);
+export const RealClassificationStatistics = ({ period, mode = 'statistics' }: { period: CalendarPeriod | null; mode?:'statistics'|'planning' }) => {
+  const owner = useVerifiedOwner(), instance = useId(), [open, setOpen] = useAnalyticsState('historyOpen',false);
   const [suggestion, setSuggestion] = useState<RecordedForecastSuggestion | null>(null);
   const userId = owner.status === 'verified' ? owner.owner.userId : undefined;
   const generation = owner.status === 'verified' ? owner.owner.sessionGeneration : undefined;
@@ -60,14 +62,14 @@ export const RealClassificationStatistics = ({ period }: { period: CalendarPerio
     && period && candidate && candidate.history.owner === userId && candidate.history.period.startInclusive === period.startInclusive
     && candidate.history.period.endExclusive === period.endExclusive ? candidate : undefined;
   return <Stack spacing={1} component="section" aria-label="Анализ реальной классифицированной истории">
-    <Typography component="h2" variant="h6">Историческая статистика по классификации</Typography>
+    <Typography component="h2" variant="h6">{mode === 'planning' ? 'Историческая база для прогнозирования' : 'Историческая статистика по классификации'}</Typography>
     <Button disabled={!period} onClick={() => setOpen(v => !v)}>{open ? 'Закрыть реальную статистику' : 'Загрузить реальную статистику классификации'}</Button>
     {open && (!period ? <Alert severity="info" role="note">Укажите корректный период. Черновик плана сохранён.</Alert>
       : owner.status !== 'verified' ? <Alert severity="info" role="note">Нужна текущая проверка владельца.</Alert>
-      : query.isError ? <Alert severity="warning" role="note">Полный когерентный источник недоступен или изменился. Проверьте доступность нового backend read gate; частичные итоги не показаны.</Alert>
+      : query.isError ? <Alert severity="warning" role="note">Полный когерентный источник недоступен или изменился. Проверьте доступность нового серверного чтения; частичные итоги не показаны.</Alert>
         : !cohort ? <Typography role="status">Проверка всей записанной истории и состава периода…</Typography>
-          : <Stack key={query.requestId}><RecordedStatisticsReport cohort={cohort} /><RealExpenseForecast cohort={cohort} onCalculated={setSuggestion} /></Stack>)}
+          : <Stack key={query.requestId}>{mode === 'statistics' ? <RecordedStatisticsReport cohort={cohort} /> : <RealExpenseForecast cohort={cohort} onCalculated={setSuggestion} />}</Stack>)}
     {open && period && owner.status === 'verified' && <Button onClick={() => void query.refetch()}>Заново проверить состав и факты периода</Button>}
-    <BudgetPlanning realMode cohort={cohort} suggestion={suggestion?.cohort === cohort ? suggestion ?? undefined : undefined} />
+    {mode === 'planning' && <BudgetPlanning realMode cohort={cohort} suggestion={suggestion?.cohort === cohort ? suggestion ?? undefined : undefined} />}
   </Stack>;
 };
