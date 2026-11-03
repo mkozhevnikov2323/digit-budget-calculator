@@ -1,8 +1,7 @@
 import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
 import { useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
 import { Alert, Button, Divider, Stack, Typography } from '@mui/material';
-import { baseApi, apiBaseUrl } from 'shared/api/baseApi';
+import { apiBaseUrl } from 'shared/api/baseApi';
 import { createManualClient, type PreparedReview, type ReviewRequest } from '../api/manualClient';
 import type { DecisionQuery } from '../api/historyApi';
 import type { ClassificationRead, DecisionState, StableAssignment } from '../model/contract';
@@ -14,7 +13,6 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
   operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; decision: ClassificationRead;
   state: DecisionState; assignment?: StableAssignment; onSaved: () => void; onRefresh?: () => void; dirty?: boolean; valid?: boolean; onCancel?: () => void; onBusy?: (busy: boolean) => void;
 }) => {
-  const dispatch = useDispatch();
   // A risk flag may survive tab navigation, but the preparation ID never does.
   const [unresolved,setUnresolved]=useAnalyticsState(`unresolved/${operation.dataset}/${operation.operationId}`,false);
   const [prepared, setPrepared] = useState<PreparedReview | null>(null);
@@ -45,7 +43,7 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
   const success = () => {
     setUnresolved(false); setPrepared(null);  setUncertain(false);
     setMessage('Классификация сохранена.');
-    dispatch(baseApi.util.invalidateTags(['Classification'])); onSaved();
+    onSaved();
   };
   const matches = (target: PreparedReview) => {
   const facts = parseSourceFacts(target.facts, operation.dataset);

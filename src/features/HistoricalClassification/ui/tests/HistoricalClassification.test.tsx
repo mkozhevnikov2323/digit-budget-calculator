@@ -7,6 +7,7 @@ import { useGetOwnedHistoryQuery, useReadOperationClassificationQuery } from '..
 jest.mock('entities/User/model/useVerifiedOwner');
 jest.mock('shared/api/baseApi', () => ({ baseApi: {}, apiBaseUrl: 'https://fictional.invalid' }));
 jest.mock('../../api/historyApi', () => ({ useGetOwnedHistoryQuery: jest.fn(), useReadOperationClassificationQuery: jest.fn() }));
+jest.mock('../OperationEditor',()=>({OperationEditor:({onSaved}:{onSaved:()=>void})=><><button onClick={onSaved}>Успех apply</button><button>Ошибка apply</button></>}));
 const history = jest.mocked(useGetOwnedHistoryQuery), decision = jest.mocked(useReadOperationClassificationQuery), owner = jest.mocked(useVerifiedOwner);
 const expense = { dataset: 'expenses', operationId: '1'.repeat(24), kopecks: 100, timestamp: Date.parse('2024-02-10T23:59:59Z'), facts: { amount: 1, date: '2024-02-10T23:59:59Z', title: 'Топливо', category: 'Транспорт', recipient: 'Станция' } };
 const income = { dataset: 'incomes', operationId: '2'.repeat(24), kopecks: 200, timestamp: Date.parse('2024-02-11T00:00:00Z'), facts: { amount: 2, date: '2024-02-11T00:00:00Z', source: 'Зарплата' } };
@@ -44,4 +45,14 @@ it('limits subscriptions to a page and paginates each dataset independently',()=
  history.mockReturnValue({currentData:{operations:Array.from({length:30},(_,i)=>({...income,operationId:i.toString(16).padStart(24,'0'),facts:{...income.facts,source:`Доход ${i}`}})).concat([expense] as unknown as typeof income[])},requestId:'one',refetch:jest.fn()} as ReturnType<typeof useGetOwnedHistoryQuery>);
  render(<HistoricalClassification period={selectedPeriod()}/>);expect(screen.getAllByText(/Не удалось загрузить классификацию/)).toHaveLength(25);fireEvent.click(screen.getByRole('button',{name:'Следующие операции'}));expect(screen.getAllByText(/Не удалось загрузить классификацию/)).toHaveLength(5);
  fireEvent.click(screen.getByRole('tab',{name:'Расходы'}));expect(screen.getByRole('button',{name:'Предыдущие операции'})).toBeDisabled();fireEvent.click(screen.getByRole('tab',{name:'Доходы'}));expect(screen.getAllByText(/Не удалось загрузить классификацию/)).toHaveLength(5);
+});
+
+it('closes only after success and updates only the saved row without a read or loading other rows',()=>{
+ const refetch=jest.fn();decision.mockReturnValue({currentData:{status:'approved',confirmed:{economicRole:'ordinary_income',layer:null}},refetch} as ReturnType<typeof useReadOperationClassificationQuery>);
+ history.mockReturnValue({currentData:{operations:[income,{...income,operationId:'3'.repeat(24),facts:{...income.facts,source:'Премия'}}]},refetch:jest.fn(),requestId:'one'} as ReturnType<typeof useGetOwnedHistoryQuery>);
+ render(<HistoricalClassification period={selectedPeriod()}/>);fireEvent.click(screen.getByRole('button',{name:'Зарплата'}));
+ fireEvent.click(screen.getByRole('button',{name:'Ошибка apply'}));expect(screen.getByRole('button',{name:'Зарплата'})).toHaveAttribute('aria-expanded','true');
+ fireEvent.click(screen.getByRole('button',{name:'Успех apply'}));expect(screen.getByRole('button',{name:'Зарплата'})).toHaveAttribute('aria-expanded','false');
+ expect(screen.getAllByText('Классифицировано')).toHaveLength(1);expect(screen.getByText('Сохранено. Актуальность требует проверки')).toBeVisible();expect(screen.queryByText('Загрузка классификации…')).not.toBeInTheDocument();expect(refetch).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Зарплата'}));expect(refetch).toHaveBeenCalledTimes(1);
 });

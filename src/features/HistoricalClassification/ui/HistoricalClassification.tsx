@@ -13,22 +13,22 @@ import { OperationEditor } from './OperationEditor';
 import type { ClassificationStatus } from '../model/contract';
 
 const classificationLabel = (status: ClassificationStatus) => ({ approved: 'Классифицировано', unreviewed: 'Не классифицировано', explicit_unclassified: 'Без классификации', cleared: 'Решение сброшено', stale: 'Требует обновления', blocked: 'Недоступно' })[status];
-const OperationRow = ({ operation, scope, readOnly, expanded, onToggle }: {
-  operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; readOnly: boolean; expanded: boolean; onToggle: () => void;
+const OperationRow = ({ operation, scope, readOnly, expanded, onToggle, onClose }: {
+  operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; readOnly: boolean; expanded: boolean; onToggle: () => void; onClose: () => void;
 }) => {
   // At most the 25 visible operations are subscribed. Read-only history does not query decisions.
   const query = useReadOperationClassificationQuery(readOnly ? skipToken : { ...scope, dataset: operation.dataset, operationId: operation.operationId }, { refetchOnMountOrArgChange: true });
   const [saved, setSaved] = useState(false);
-  const decision = !query.isError && !query.isFetching ? query.currentData : undefined;
+  const decision = !query.isError && !query.isFetching ? saved ? undefined : query.currentData : undefined;
   const amount = formatKopecks(operation.kopecks);
   const title = operation.dataset === 'incomes' ? operation.facts.source : operation.facts.title;
-  return <Accordion expanded={expanded} onChange={onToggle} disableGutters>
+  return <Accordion expanded={expanded} onChange={() => { if (!expanded && saved) {setSaved(false);void query.refetch();}onToggle(); }} disableGutters>
     <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-label={title || (operation.dataset === 'incomes' ? 'Поступление без названия' : 'Расход без названия')}>
       <Stack sx={{ width: '100%', minWidth: 0, overflowWrap: 'anywhere' }} spacing={0.5}>
         <Stack direction="row" justifyContent="space-between" gap={1}><Typography>{title || 'Операция без названия'}</Typography><Typography sx={{ whiteSpace: 'nowrap' }}>{operation.dataset === 'expenses' ? '−' : '+'}{amount.ok ? amount.value : 'Сумма недоступна'}</Typography></Stack>
         {operation.dataset === 'expenses' && <Typography variant="body2">{operation.facts.category}</Typography>}
         {!readOnly && <Stack direction="row" gap={0.5} flexWrap="wrap">
-          <Chip size="small" color={query.isError || decision?.status === 'stale' || decision?.status === 'blocked' ? 'warning' : decision?.status === 'approved' ? 'success' : 'default'} variant={decision?.status === 'explicit_unclassified' ? 'outlined' : 'filled'} label={query.isError ? 'Не удалось загрузить классификацию' : !decision ? 'Загрузка классификации…' : classificationLabel(decision.status)} />
+          <Chip size="small" color={query.isError || decision?.status === 'stale' || decision?.status === 'blocked' ? 'warning' : decision?.status === 'approved' ? 'success' : 'default'} variant={decision?.status === 'explicit_unclassified' ? 'outlined' : 'filled'} label={saved ? 'Сохранено. Актуальность требует проверки' : query.isError ? 'Не удалось загрузить классификацию' : !decision ? 'Загрузка классификации…' : classificationLabel(decision.status)} />
           {decision?.confirmed && <><Chip size="small" variant="outlined" label={roleLabel(decision.confirmed.economicRole)} />{decision.confirmed.layer && <Chip size="small" variant="outlined" label={layerLabel(decision.confirmed.layer)} />}</>}
         </Stack>}
       </Stack>
@@ -38,7 +38,7 @@ const OperationRow = ({ operation, scope, readOnly, expanded, onToggle }: {
       {expanded && <Stack spacing={1} component="section" aria-label="Проверка операции">
         <Stack aria-label="Факты выбранной операции">{Object.entries(operation.facts).map(([key,value]) => <Typography key={key} sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{factLabel(key)}: {key === 'date' && typeof value === 'string' ? dateLabel(value) : String(value ?? 'не задано')}</Typography>)}</Stack>
         {!readOnly && (query.isError ? <Alert severity="warning">Не удалось загрузить классификацию. <Button onClick={() => void query.refetch()}>Повторить чтение</Button></Alert> : decision && <>
-          {decision.status === 'blocked' ? <Alert severity="warning">Редактирование недоступно</Alert> : <OperationEditor key={query.requestId} operation={operation} scope={scope} decision={decision} onSaved={() => {setSaved(true);void query.refetch();}} onRefresh={() => void query.refetch()} />}
+          {decision.status === 'blocked' ? <Alert severity="warning">Редактирование недоступно</Alert> : <OperationEditor key={query.requestId} operation={operation} scope={scope} decision={decision} onSaved={() => {setSaved(true);onClose();}} onRefresh={() => void query.refetch()} />}
         </>)}
       </Stack>}
     </AccordionDetails>
@@ -78,7 +78,7 @@ const HistorySelection = ({ operations, scope, readOnly, onRefresh }: { onRefres
     <Button onClick={onRefresh}>Обновить историю</Button>
     <Typography>Операций: {filtered.length}.</Typography>
     {!filtered.length && <Typography>В записанной истории операций нет.</Typography>}
-    {[...groups].map(([day, rows]) => <Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op => <OperationRow key={op.operationId} operation={op} scope={scope} readOnly={readOnly} expanded={selected === op.operationId} onToggle={() => setSelected(selected === op.operationId ? null : op.operationId)} />)}</Stack>)}
+    {[...groups].map(([day, rows]) => <Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op => <OperationRow key={op.operationId} operation={op} scope={scope} readOnly={readOnly} expanded={selected === op.operationId} onClose={() => setSelected(null)} onToggle={() => setSelected(selected === op.operationId ? null : op.operationId)} />)}</Stack>)}
     <Stack direction="row"><Button disabled={!page} onClick={() => { setSelected(null); setPage(p => p - 1); }}>Предыдущие операции</Button><Button disabled={(page + 1) * 25 >= filtered.length} onClick={() => { setSelected(null); setPage(p => p + 1); }}>Следующие операции</Button></Stack>
   </Stack>;
 };

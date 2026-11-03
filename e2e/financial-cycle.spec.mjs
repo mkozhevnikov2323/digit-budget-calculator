@@ -86,7 +86,12 @@ test('E2E-03 Explicit server review persists a manual decision without source mu
     expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await prepare(page, review); expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeEnabled();
-    await save(page, review);
+    let reads=0;const observe=r=>{if(r.method()==='GET'||/history\/read$/.test(r.url()))reads++;};page.on('request',observe);
+    const apply=page.waitForResponse(r=>/\/c-v1\/apply$/.test(r.url()));
+    await review.getByRole('button',{name:'Классифицировать',exact:true}).click();expect((await apply).status()).toBe(201);
+    await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
+    await expect(page.getByText('Сохранено. Актуальность требует проверки',{exact:true})).toBeVisible();
+    expect(reads).toBe(0);page.off('request',observe);
     const state = await assertSources(stack); expect(state.primaryRevision).toBe(1); expect(state.primaryLayer).toBe('everyday');
   });
 });
@@ -105,12 +110,13 @@ test('E2E-04 Reload reads the persisted decision and continuous revision from Mo
     await page.getByLabel('Экономическая роль',{exact:true}).selectOption('refund');await prepare(page,review);
     const applied=page.waitForResponse(r=>/\/c-v1\/apply$/.test(r.url())&&r.request().method()==='POST');
     await review.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true}).click();expect((await applied).status()).toBe(200);
+    await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
     await page.reload();await analytics(page);await selectPrimary(page,stack);
     await selectOperation(page,salary);
     await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();await assertSources(stack);
     const explicit=page.waitForResponse(r=>/\/c-v1\/apply$/.test(r.url())&&r.request().method()==='POST');
     await page.getByRole('button',{name:'Оставить без классификации',exact:true}).click();expect((await explicit).status()).toBe(200);
-    await expect(page.getByRole('button',{name:'Оставить без классификации',exact:true})).toBeDisabled();
+    await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
     await page.reload();await analytics(page,'classification');await selectOperation(page,salary);
     await expect(page.getByRole('button',{name:'Оставить без классификации',exact:true})).toBeDisabled();await assertSources(stack);
   });

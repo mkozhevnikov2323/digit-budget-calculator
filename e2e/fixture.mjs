@@ -133,7 +133,9 @@ export async function prepare(page, review) {
   await expect(review.getByRole('checkbox')).toHaveCount(0);
 }
 export async function reopenAfterSave(page, operationId) {
-  await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
+  await expect(page.getByText('Сохранено. Актуальность требует проверки',{exact:true})).toBeVisible();
+  await selectOperation(page, operationId);
   await expect(page.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true})).toBeDisabled();
 }
 export async function save(page, review) {
