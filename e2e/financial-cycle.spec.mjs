@@ -81,8 +81,8 @@ test('E2E-03 Explicit server review persists a manual decision without source mu
   await start(page);
   await test.step('server facts and separate manual confirmation before real commit', async () => {
     const review = await selectPrimary(page, stack);
-    await page.getByLabel('Экономическая роль', { exact: true }).selectOption('ordinary_expense');
-    await page.getByLabel('Финансовый слой', { exact: true }).selectOption('everyday');
+    await page.getByLabel('Тип операции', { exact: true }).selectOption('ordinary_expense');
+    await page.getByLabel('Группа расходов', { exact: true }).selectOption('everyday');
     expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await chooseClassification(page, review); expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeEnabled();
@@ -101,20 +101,20 @@ test('E2E-04 Reload reads the persisted decision and continuous revision from Mo
   await start(page); await classify(page, stack);
   await test.step('new browser document observes stored decision', async () => {
     await page.reload(); await analytics(page); await selectPrimary(page, stack);
-    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
+    await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();
     expect((await assertSources(stack)).primaryRevision).toBe(1);
   });
   await test.step('income C approval survives reload without changing financial sources', async()=>{
     const salary='0000000000000000000000c8';
     await selectOperation(page,salary);
     const review=page.getByRole('region',{name:'Сохранение ручной классификации'});
-    await page.getByLabel('Экономическая роль',{exact:true}).selectOption('refund');await chooseClassification(page,review);
+    await page.getByLabel('Тип операции',{exact:true}).selectOption('refund');await chooseClassification(page,review);
     const applied=page.waitForResponse(r=>/\/decision$/.test(r.url())&&r.request().method()==='PUT');
     await review.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true}).click();expect((await applied).status()).toBe(200);
     await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
     await page.reload();await analytics(page);await selectPrimary(page,stack);
     await selectOperation(page,salary);
-    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();await assertSources(stack);
+    await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();await assertSources(stack);
     const explicit=page.waitForResponse(r=>/\/decision$/.test(r.url())&&r.request().method()==='PUT');
     await page.getByRole('button',{name:'Оставить без классификации',exact:true}).click();expect((await explicit).status()).toBe(200);
     await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
@@ -265,7 +265,7 @@ test('E2E-10 Cross-owner HTTP access and account switching isolate decisions dra
     await page.getByRole('tab',{name:'Расходы',exact:true}).click();
     await expect(page.getByRole('button', { name: 'Fictional fuel', exact:true })).toHaveCount(0);
     await selectOperation(page,stack.foreign);
-    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
+    await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();
     expect((await assertSources(stack)).primaryRevision).toBe(1);
   });
 });
@@ -307,7 +307,7 @@ test('E2E-12 Single PUT concurrent CAS duplicate click unknown outcome and respo
     await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeDisabled();
     const before = await stack.rpc('inspect');
     await review.getByRole('button', { name: 'Обновить состояние без повторной записи', exact: true }).click();
-    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
+    await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();
     await expect(page.getByRole('button',{name:'Сохранить изменения',exact:true})).toBeDisabled();
     expect(writes).toBe(1); expect((await stack.rpc('inspect')).classifications).toBe(before.classifications);
   });
