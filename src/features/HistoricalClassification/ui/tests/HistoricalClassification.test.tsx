@@ -7,7 +7,7 @@ import { useGetOwnedHistoryQuery, useReadOperationClassificationQuery } from '..
 jest.mock('entities/User/model/useVerifiedOwner');
 jest.mock('shared/api/baseApi', () => ({ baseApi: {}, apiBaseUrl: 'https://fictional.invalid' }));
 jest.mock('../../api/historyApi', () => ({ useGetOwnedHistoryQuery: jest.fn(), useReadOperationClassificationQuery: jest.fn() }));
-jest.mock('../OperationEditor',()=>({OperationEditor:({onSaved}:{onSaved:()=>void})=><><button onClick={onSaved}>Успех apply</button><button>Ошибка apply</button></>}));
+jest.mock('../OperationEditor',()=>({OperationEditor:({onSaved}:{onSaved:(value:unknown)=>void})=><><button onClick={()=>onSaved({version:'classification-read-v1',dataset:'incomes',operationId:'2'.repeat(24),status:'explicit_unclassified',storedState:'explicit_unclassified',decisionRevision:2,confirmed:null,consistency:'observed_only_non_atomic'})}>Успех apply</button><button>Ошибка apply</button></>}));
 const history = jest.mocked(useGetOwnedHistoryQuery), decision = jest.mocked(useReadOperationClassificationQuery), owner = jest.mocked(useVerifiedOwner);
 const expense = { dataset: 'expenses', operationId: '1'.repeat(24), kopecks: 100, timestamp: Date.parse('2024-02-10T23:59:59Z'), facts: { amount: 1, date: '2024-02-10T23:59:59Z', title: 'Топливо', category: 'Транспорт', recipient: 'Станция' } };
 const income = { dataset: 'incomes', operationId: '2'.repeat(24), kopecks: 200, timestamp: Date.parse('2024-02-11T00:00:00Z'), facts: { amount: 2, date: '2024-02-11T00:00:00Z', source: 'Зарплата' } };
@@ -53,6 +53,6 @@ it('closes only after success and updates only the saved row without a read or l
  render(<HistoricalClassification period={selectedPeriod()}/>);fireEvent.click(screen.getByRole('button',{name:'Зарплата'}));
  fireEvent.click(screen.getByRole('button',{name:'Ошибка apply'}));expect(screen.getByRole('button',{name:'Зарплата'})).toHaveAttribute('aria-expanded','true');
  fireEvent.click(screen.getByRole('button',{name:'Успех apply'}));expect(screen.getByRole('button',{name:'Зарплата'})).toHaveAttribute('aria-expanded','false');
- expect(screen.getAllByText('Классифицировано')).toHaveLength(1);expect(screen.getByText('Сохранено. Актуальность требует проверки')).toBeVisible();expect(screen.queryByText('Загрузка классификации…')).not.toBeInTheDocument();expect(refetch).not.toHaveBeenCalled();
- fireEvent.click(screen.getByRole('button',{name:'Зарплата'}));expect(refetch).toHaveBeenCalledTimes(1);
+ expect(screen.getAllByText('Классифицировано')).toHaveLength(1);expect(screen.getByText('Без классификации')).toBeVisible();expect(screen.queryByText('Загрузка классификации…')).not.toBeInTheDocument();expect(refetch).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Зарплата'}));expect(refetch).not.toHaveBeenCalled();
 });

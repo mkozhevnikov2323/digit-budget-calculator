@@ -10,7 +10,7 @@ import { PersistentReview } from './PersistentReview';
 type Choice = { state: DecisionState | ''; role: StableRole | ''; layer: FinancialLayer | '' };
 export const OperationEditor = ({ operation, decision, scope, onSaved, onRefresh }: {
   operation: HistoryOperation; decision: ClassificationRead;
-  scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; onSaved: () => void; onRefresh?: () => void;
+  scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; onSaved: (decision: ClassificationRead) => void; onRefresh?: () => void;
 }) => {
   const initial: Choice = { state: decision.status === 'approved' ? 'approved' : '', role: decision.confirmed?.economicRole ?? '', layer: decision.confirmed?.layer ?? '' };
   const [choice, setChoice] = useState(initial), [busy, setBusy] = useState(false);

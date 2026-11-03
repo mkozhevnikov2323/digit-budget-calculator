@@ -89,7 +89,7 @@ export async function login(page, user = 'a') {
   await page.getByRole('textbox', { name: 'Электронная почта' }).fill(`browser-${user}@example.com`);
   await page.getByLabel(/^Пароль/).fill('Fictional-browser-account-42!');
   expect(await page.getByLabel(/^Пароль/).inputValue() === 'Fictional-browser-account-42!').toBe(true);
-  const loginResponse = page.waitForResponse(r => r.url().endsWith('/signin') && r.request().method() === 'POST');
+  const loginResponse = page.waitForResponse(r => r.url().endsWith('/signin') && r.request().method() === 'PUT');
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   expect((await loginResponse).status()).toBe(200);
   await expect(page).toHaveURL(/\/expenses$/);
@@ -120,7 +120,7 @@ export async function selectPrimary(page, stack) {
   await analytics(page,'classification'); await selectOperation(page,stack.primary);
   return page.getByRole('region',{name:'Сохранение ручной классификации'});
 }
-export async function prepare(page, review) {
+export async function chooseClassification(page, review) {
   const role=page.getByLabel('Экономическая роль',{exact:true});
   const current=await role.inputValue();
   if(!current)await role.selectOption('ordinary_expense');
@@ -134,16 +134,17 @@ export async function prepare(page, review) {
 }
 export async function reopenAfterSave(page, operationId) {
   await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
-  await expect(page.getByText('Сохранено. Актуальность требует проверки',{exact:true})).toBeVisible();
+  let reads=0;const observe=r=>{if(r.method()==='GET')reads++;};page.on('request',observe);
   await selectOperation(page, operationId);
+  expect(reads).toBe(0);page.off('request',observe);
   await expect(page.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true})).toBeDisabled();
 }
 export async function save(page, review) {
-  const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
+  const response = page.waitForResponse(r => /\/decision$/.test(r.url()) && r.request().method() === 'PUT');
   await review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true }).click();
   const acknowledgement = await response;
   expect(acknowledgement.status()).toBe(201);
-  await reopenAfterSave(page, acknowledgement.url().split('/').at(-3));
+  await reopenAfterSave(page, acknowledgement.url().split('/').at(-2));
 }
 export async function statistics(page, mode='statistics') {
   await analytics(page,mode==='planning'?'planning':'classification-stats');
