@@ -12,6 +12,7 @@ export const baseApi = createApi({
   endpoints: () => ({}),
   tagTypes: [
     'Income',
+    'Classification',
     'User',
     'Source',
     'Expense',

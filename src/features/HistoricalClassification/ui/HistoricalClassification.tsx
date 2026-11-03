@@ -1,59 +1,48 @@
 import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
-import { roleLabel, layerLabel, statusLabel, dateLabel, timeLabel, factLabel } from 'shared/lib/analytics/presentation';
+import { roleLabel, layerLabel, dateLabel, factLabel, timeLabel } from 'shared/lib/analytics/presentation';
 import { useId, useMemo, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
-import { Alert, Button, Checkbox, FormControlLabel, Stack, TextField, Typography } from '@mui/material';
+import { Accordion, AccordionSummary, AccordionDetails, Alert, Button, Stack, Tabs, Tab, Typography } from '@mui/material';
 import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
 import type { CalendarPeriod } from 'features/FinancialAnalytics/model/period';
 import { formatKopecks } from 'features/FinancialAnalytics/model/money';
-import { FINANCIAL_LAYERS, type FinancialLayer } from 'features/FinancialClassification/model/types';
-import { ROLE_DATASETS, type StableRole, type DecisionState } from '../model/contract';
 import type { HistoryOperation } from '../model/history';
 import { useGetOwnedHistoryQuery, useReadOperationClassificationQuery, type DecisionQuery } from '../api/historyApi';
-import { PersistentReview } from './PersistentReview';
+import { OperationEditor } from './OperationEditor';
+import type { ClassificationStatus } from '../model/contract';
 
-const labels = { unreviewed: 'Не рассмотрена', approved: 'Есть подтверждённое решение', explicit_unclassified: 'Явно без классификации',
-  cleared: 'Решение сброшено', stale: 'Решение устарело', blocked: 'Решение заблокировано' };
-const OperationReview = ({ operation, scope, onReviewed }: { onReviewed?:()=>void; operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'> }) => {
-  const instance = useId();
-  const query = useReadOperationClassificationQuery({ ...scope, requestScope: `${scope.requestScope}/${instance}`,
-    dataset: operation.dataset, operationId: operation.operationId }, { refetchOnMountOrArgChange: true });
-  const [role, setRole] = useAnalyticsState<StableRole>(`role/${operation.dataset}/${operation.operationId}`, operation.dataset === 'expenses' ? 'ordinary_expense' : 'ordinary_income');
-  const [layer, setLayer] = useAnalyticsState<FinancialLayer>(`layer/${operation.dataset}/${operation.operationId}`, 'everyday');
-  const [state, setState] = useAnalyticsState<DecisionState>(`state/${operation.dataset}/${operation.operationId}`, 'approved');
-  const [checked, setChecked] = useState(false), [confirmed, setConfirmed] = useState(false);
-  const reset = () => { setChecked(false); setConfirmed(false); };
-  const money = formatKopecks(operation.kopecks);
-  return <Stack spacing={1} component="section" aria-label="Проверка операции">
-    <Typography component="h3" variant="h6">Факты операции: {money.ok ? money.value : 'Недоступно'}</Typography>
-    <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{Object.entries(operation.facts).map(([key, value]) => `${factLabel(key)}: ${value === null ? 'не задано' : value === '' ? '(пустая строка)' : key === 'date' && typeof value === 'string' ? timeLabel(Date.parse(value)) : String(value)}`).join('\n')}
-      {!Object.prototype.hasOwnProperty.call(operation.facts, 'comment') ? '\nКомментарий: отсутствует' : ''}</Typography>
-    {query.isFetching || !query.currentData && !query.isError ? <Typography role="status">Загрузка состояния классификации…</Typography>
-      : query.isError ? <Alert severity="warning">Состояние классификации недоступно. Это не означает «не рассмотрена».</Alert>
-        : query.currentData && <Alert severity="info">{labels[query.currentData.status]}. Ревизия: {query.currentData.decisionRevision ?? 'нет'}. Это отдельное наблюдение сервера, не доказательство соответствия показанным фактам.</Alert>}
-    <TextField select label="Решение" value={state} slotProps={{ select: { native: true } }} onChange={e => { reset(); setState(e.target.value as DecisionState); }}>
-      <option value="approved">Классифицировать</option><option value="explicit_unclassified">Явно без классификации</option><option value="cleared">Сбросить решение</option>
-    </TextField>
-    {state === 'approved' && <>
-      <TextField select label="Экономическая роль" value={role} slotProps={{ select: { native: true } }} onChange={e => { reset(); setRole(e.target.value as StableRole); }}>
-        {(Object.keys(ROLE_DATASETS) as StableRole[]).filter(r => (ROLE_DATASETS[r] as readonly string[]).includes(operation.dataset)).map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
-      </TextField>
-      {role === 'ordinary_expense' && <TextField select label="Финансовый слой" value={layer} slotProps={{ select: { native: true } }} onChange={e => { reset(); setLayer(e.target.value as FinancialLayer); }}>
-        {FINANCIAL_LAYERS.map(l => <option key={l} value={l}>{layerLabel(l)}</option>)}
-      </TextField>}
-    </>}
-    <FormControlLabel control={<Checkbox checked={checked} onChange={e => { setChecked(e.target.checked); setConfirmed(false); }} />} label="Я проверил(а) факты и временный выбор" />
-    <Button disabled={!checked} onClick={() => setConfirmed(true)}>Подтвердить временный выбор</Button>
-    {confirmed && <Alert severity="info">Временный выбор: {statusLabel(state)}{state === 'approved' ? ` / ${roleLabel(role)} / ${role === 'ordinary_expense' ? layerLabel(layer) : 'без слоя'}` : ''}. Только в памяти, на сервер не отправлен.</Alert>}
-    {query.currentData && !query.isFetching && !query.isError
-      ? <PersistentReview key={JSON.stringify([state, role, layer, query.requestId])} operation={operation} scope={scope} decision={query.currentData}
-        state={state} assignment={state === 'approved' ? { economicRole: role, layer: role === 'ordinary_expense' ? layer : null } : undefined}
-        onSaved={() => { void query.refetch(); onReviewed?.(); }} />
-      : <Button disabled>Сохранить на сервере — состояние недоступно</Button>}
-  </Stack>;
+const classificationLabel = (status: ClassificationStatus) => ({ approved: 'Классифицировано', unreviewed: 'Не классифицировано', explicit_unclassified: 'Без классификации', cleared: 'Решение сброшено', stale: 'Требует обновления', blocked: 'Недоступно' })[status];
+const OperationRow = ({ operation, scope, readOnly, expanded, onToggle }: {
+  operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; readOnly: boolean; expanded: boolean; onToggle: () => void;
+}) => {
+  // At most the 25 visible operations are subscribed. Read-only history does not query decisions.
+  const query = useReadOperationClassificationQuery(readOnly ? skipToken : { ...scope, dataset: operation.dataset, operationId: operation.operationId }, { refetchOnMountOrArgChange: true });
+  const [saved, setSaved] = useState(false);
+  const decision = !query.isError && !query.isFetching ? query.currentData : undefined;
+  const amount = formatKopecks(operation.kopecks);
+  const title = operation.dataset === 'incomes' ? operation.facts.source : operation.facts.title;
+  return <Accordion expanded={expanded} onChange={onToggle} disableGutters>
+    <AccordionSummary aria-label={title || (operation.dataset === 'incomes' ? 'Поступление без названия' : 'Расход без названия')}>
+      <Stack sx={{ width: '100%', minWidth: 0, overflowWrap: 'anywhere' }} spacing={0.5}>
+        <Stack direction="row" justifyContent="space-between" gap={1}><Typography>{title || 'Операция без названия'}</Typography><Typography sx={{ whiteSpace: 'nowrap' }}>{operation.dataset === 'expenses' ? '−' : '+'}{amount.ok ? amount.value : 'Сумма недоступна'}</Typography></Stack>
+        {operation.dataset === 'expenses' && <Typography variant="body2">{operation.facts.category}</Typography>}
+        {!readOnly && <Typography variant="body2">{query.isError ? 'Не удалось загрузить классификацию' : !decision ? 'Загрузка классификации…' : classificationLabel(decision.status)}{decision?.confirmed ? ` · ${roleLabel(decision.confirmed.economicRole)}${decision.confirmed.layer ? ` · ${layerLabel(decision.confirmed.layer)}` : ''}` : ''}</Typography>}
+      </Stack>
+    </AccordionSummary>
+    <AccordionDetails>
+      {saved && <Alert severity="success">Классификация сохранена</Alert>}
+      {expanded && <Stack spacing={1} component="section" aria-label="Проверка операции">
+        <Stack aria-label="Факты выбранной операции">{Object.entries(operation.facts).map(([key,value]) => <Typography key={key} sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{factLabel(key)}: {key === 'date' && typeof value === 'string' ? timeLabel(Date.parse(value)) : String(value ?? 'не задано')}</Typography>)}</Stack>
+        {!readOnly && (query.isError ? <Alert severity="warning">Не удалось загрузить классификацию. <Button onClick={() => void query.refetch()}>Повторить чтение</Button></Alert> : decision && <>
+          <Typography>Ревизия: {decision.decisionRevision ?? 'нет'}</Typography>
+          {decision.status === 'blocked' ? <Alert severity="warning">Редактирование недоступно</Alert> : <OperationEditor key={query.requestId} operation={operation} scope={scope} decision={decision} onSaved={() => {setSaved(true);void query.refetch();}} onRefresh={() => void query.refetch()} />}
+        </>)}
+      </Stack>}
+    </AccordionDetails>
+  </Accordion>;
 };
 
-export const HistoricalClassification = ({ period, readOnly = false }: { period: CalendarPeriod; readOnly?:boolean }) => {
+export const HistoricalClassification = ({ period, readOnly = false }: { period: CalendarPeriod; readOnly?: boolean }) => {
   const owner = useVerifiedOwner(), instance = useId();
   const userId = owner.status === 'verified' ? owner.owner.userId : undefined;
   const generation = owner.status === 'verified' ? owner.owner.sessionGeneration : undefined;
@@ -61,33 +50,30 @@ export const HistoricalClassification = ({ period, readOnly = false }: { period:
   const [entry, setEntry] = useState({ key, sequence: 0 });
   if (entry.key !== key) setEntry({ key, sequence: entry.sequence + 1 });
   const scope = `${instance}/${entry.sequence}`;
-  const args = useMemo(() => userId && generation ? { userId, sessionGeneration: generation, requestScope: scope, period } : skipToken,
-    [userId, generation, scope, period]);
+  const args = useMemo(() => userId && generation ? { userId, sessionGeneration: generation, requestScope: scope, period } : skipToken, [userId, generation, scope, period]);
   const query = useGetOwnedHistoryQuery(args, { refetchOnMountOrArgChange: true });
   if (owner.status !== 'verified') return <Alert severity="info">Для просмотра нужна текущая проверка владельца.</Alert>;
   if (query.isError) return <Stack><Alert severity="error">Полная история недоступна. Итоги классификации не рассчитаны.</Alert><Button onClick={() => void query.refetch()}>Повторить загрузку истории</Button></Stack>;
   if (entry.key !== key || query.isFetching || !query.currentData || args === skipToken) return <Typography role="status">Загрузка полной истории…</Typography>;
-  return <HistorySelection readOnly={readOnly} key={`${scope}/${query.requestId}`} operations={query.currentData.operations}
+  return <HistorySelection readOnly={readOnly} onRefresh={() => void query.refetch()} key={`${scope}/${query.requestId}`} operations={query.currentData.operations}
     scope={{ userId: owner.owner.userId, sessionGeneration: owner.owner.sessionGeneration, requestScope: `${scope}/${query.requestId}` }} />;
 };
-
-const HistorySelection = ({ operations, scope, readOnly }: { readOnly:boolean; operations: readonly HistoryOperation[]; scope: Omit<DecisionQuery, 'dataset' | 'operationId'> }) => {
-  const [savedPage, setPage] = useAnalyticsState('page',0), [selectionId,setSelectionId]=useAnalyticsState<string|null>('selectedOperation',null);
-  const page=Math.min(savedPage,Math.max(0,Math.ceil(operations.length/25)-1));
-  const selection=operations.find(op=>`${op.dataset}/${op.operationId}`===selectionId)??null;
+const HistorySelection = ({ operations, scope, readOnly, onRefresh }: { onRefresh: () => void; readOnly: boolean; operations: readonly HistoryOperation[]; scope: Omit<DecisionQuery, 'dataset' | 'operationId'> }) => {
+  const [dataset, setDataset] = useAnalyticsState<'incomes' | 'expenses'>('dataset', 'incomes');
+  const [incomePage, setIncomePage] = useAnalyticsState('incomePage', 0), [expensePage, setExpensePage] = useAnalyticsState('expensePage', 0);
+  const [selected, setSelected] = useState<string | null>(null);
+  const filtered = operations.filter(op => op.dataset === dataset).sort((a,b) => b.timestamp - a.timestamp || a.operationId.localeCompare(b.operationId));
+  const savedPage = dataset === 'incomes' ? incomePage : expensePage, setPage = dataset === 'incomes' ? setIncomePage : setExpensePage;
+  const page = Math.min(savedPage, Math.max(0, Math.ceil(filtered.length / 25) - 1));
+  const visible = filtered.slice(page * 25, page * 25 + 25);
+  const groups = new Map<string, HistoryOperation[]>();
+  visible.forEach(op => { const day = dateLabel(op.timestamp); groups.set(day, [...(groups.get(day) ?? []), op]); });
   return <Stack spacing={1}>
-    <Alert severity="info">Ручная классификация по действующей схеме. Серверное сохранение требует отдельной подготовки и проверки фактов. Смена периода, обновление истории, сессии или уход удаляют подтверждения и контекст подготовки. Неподтверждённый выбор хранится только в памяти текущей сессии. Категория не определяет роль.</Alert>
-    <Typography>Операций: {operations.length}. Состояние запрашивается только для выбранной операции.</Typography>
-    {!operations.length && <Typography>В записанной истории операций нет.</Typography>}
-    {operations.slice(page * 25, page * 25 + 25).map(op => {
-      const label = formatKopecks(op.kopecks);
-      return <Button key={`${op.dataset}/${op.operationId}`} onClick={() => setSelectionId(`${op.dataset}/${op.operationId}`)}>
-        {op.dataset === 'expenses' ? 'Расходы' : 'Поступления'} · {dateLabel(op.timestamp)} · {label.ok ? label.value : 'Недоступно'} · {op.operationId}
-      </Button>;
-    })}
-    <Stack direction="row"><Button disabled={!page} onClick={() => setPage(p => p - 1)}>Предыдущие операции</Button>
-      <Button disabled={(page + 1) * 25 >= operations.length} onClick={() => setPage(p => p + 1)}>Следующие операции</Button></Stack>
-    {selection && readOnly && <Stack aria-label="Факты выбранной операции">{Object.entries(selection.facts).map(([key,value])=><Typography key={key}>{factLabel(key)}: {key === 'date' && typeof value === 'string' ? timeLabel(Date.parse(value)) : String(value ?? 'не задано')}</Typography>)}</Stack>}
-    {selection && !readOnly && <OperationReview onReviewed={() => setSelectionId(null)} key={`${selection.dataset}/${selection.operationId}`} operation={selection} scope={scope} />}
+    <Tabs value={dataset} onChange={(_e, value) => { setSelected(null); setDataset(value); }} aria-label="Тип операций"><Tab value="incomes" label="Доходы" /><Tab value="expenses" label="Расходы" /></Tabs>
+    <Button onClick={onRefresh}>Обновить историю</Button>
+    <Typography>Операций: {filtered.length}. Показаны операции выбранного периода; даты приведены по UTC.</Typography>
+    {!filtered.length && <Typography>В записанной истории операций нет.</Typography>}
+    {[...groups].map(([day, rows]) => <Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op => <OperationRow key={op.operationId} operation={op} scope={scope} readOnly={readOnly} expanded={selected === op.operationId} onToggle={() => setSelected(selected === op.operationId ? null : op.operationId)} />)}</Stack>)}
+    <Stack direction="row"><Button disabled={!page} onClick={() => { setSelected(null); setPage(p => p - 1); }}>Предыдущие операции</Button><Button disabled={(page + 1) * 25 >= filtered.length} onClick={() => { setSelected(null); setPage(p => p + 1); }}>Следующие операции</Button></Stack>
   </Stack>;
 };
