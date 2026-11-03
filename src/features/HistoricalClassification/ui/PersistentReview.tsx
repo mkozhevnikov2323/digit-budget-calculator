@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Stack, Typography } from '@mui/material';
+import { Alert, Button, Stack, Typography } from '@mui/material';
 import { apiBaseUrl } from 'shared/api/baseApi';
 import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
 import { putDecision } from '../api/decisionClient';
@@ -31,9 +31,11 @@ export const PersistentReview = ({operation,scope,decision,state,assignment,onSa
   active.current=false;setBusy(false);onBusy?.(false);
  };
  return <Stack spacing={1} component="section" aria-label="Сохранение ручной классификации">
-  <Stack direction="row" spacing={1}><Button disabled={!dirty||busy||risk||blocked} onClick={onCancel}>Отмена</Button>
+  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
+  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}><Button disabled={!dirty||busy||risk||blocked} onClick={onCancel}>Отмена</Button>
   <Button disabled={!dirty||!valid||busy||risk||blocked||!live.current} onClick={()=>void run()}>{decision.status==='approved'?'Сохранить изменения':'Классифицировать'}</Button></Stack>
-  <Divider/><Button variant="outlined" color="inherit" disabled={busy||risk||blocked||!live.current||decision.status==='explicit_unclassified'||decision.status==='blocked'} onClick={()=>void run(true)}>Оставить без классификации</Button>
+  <Button variant="outlined" color="inherit" sx={{ ml: 'auto', maxWidth: '100%' }} disabled={busy||risk||blocked||!live.current||decision.status==='explicit_unclassified'||decision.status==='blocked'} onClick={()=>void run(true)}>Оставить без классификации</Button>
+  </Stack>
   {busy&&<Typography role="status">Сохранение…</Typography>}
   {(risk&&!busy||blocked)&&<Button onClick={()=>{setRisk(false);onRefresh?.();}}>Обновить состояние без повторной записи</Button>}
   {message&&<Alert severity="warning">{message}</Alert>}
