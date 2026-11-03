@@ -10,7 +10,10 @@ routes now mount real functionality, one page at a time:
 - `/analytics/income-sources`: existing source activity, not income forecasting.
 - `/analytics/history`: owned history, pagination, selection and fact inspection;
   no decision reads or mutations are initiated by selecting a history row.
-- `/analytics/classification`: manual C flow with separate server-fact confirmation.
+- `/analytics/classification`: income-first tabs, UTC-date groups and inline operation
+  editors. Only the 25 visible rows read decisions. Changed selections automatically
+  prepare server facts; one explicit Save confirms that prepared intent. Cancellation,
+  conflicts and unknown outcomes never apply automatically.
 - `/analytics/classification-stats`: coherent history, status/role/layer/category
   partitions, monthly statistics and classification coverage.
 - `/analytics/planning`: coherent historical basis, explicit recording attestations,
@@ -50,7 +53,8 @@ Restart/reload is still not evidence that an old write did not commit.
 
 Server data stays in existing RTK Query endpoints, not the UI slice. Overview and
 category pages share fulfilled raw-history cache entries for identical arguments;
-Expense/Income tags retain existing invalidation and the session boundary clears
+Expense/Income tags retain existing invalidation; Classification invalidation refreshes
+current decisions and coherent statistics without replacing the owned operation list and the session boundary clears
 old credentials' cache. Coherent history and classification decisions deliberately
 retain fresh request scopes/rechecks on re-entry; cached totals never replace the
 existing before/batch/after consistency checks. These reads are not atomic snapshots.
