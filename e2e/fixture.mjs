@@ -114,18 +114,18 @@ export async function selectOperation(page, id) {
   const title=income?'Fictional salary':id==='2'.repeat(24)?'Fictional unreviewed':id==='b1'.padStart(24,'0')?'User B private fixture':'Fictional fuel';
   const group=page.getByRole('heading',{name:'15.01.2025',exact:true,level:2}).locator('..');
   await group.getByRole('button',{name:title,exact:true}).click();
-  await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();
 }
 export async function selectPrimary(page, stack) {
   await analytics(page,'classification'); await selectOperation(page,stack.primary);
   return page.getByRole('region',{name:'Сохранение ручной классификации'});
 }
 export async function chooseClassification(page, review) {
-  const role=page.getByLabel('Экономическая роль',{exact:true});
+  const role=page.getByLabel('Тип операции',{exact:true});
   const current=await role.inputValue();
   if(!current)await role.selectOption('ordinary_expense');
   if(await role.inputValue()==='ordinary_expense') {
-    const layer=page.getByLabel('Финансовый слой',{exact:true});
+    const layer=page.getByLabel('Группа расходов',{exact:true});
     if(await review.getByRole('button',{name:'Отмена',exact:true}).isDisabled())await layer.selectOption(await layer.inputValue()==='everyday'?'irregular':'everyday');
     else if(!await layer.inputValue())await layer.selectOption('everyday');
   } else if(await review.getByRole('button',{name:'Отмена',exact:true}).isDisabled())await role.selectOption(current==='refund'?'ordinary_income':'refund');
