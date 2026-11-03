@@ -61,7 +61,7 @@ it('keeps unknown writes blocked and reconciles explicitly without a new apply',
 it('preserves the chosen context after a conflict without claiming success', async () => {
   mockApply.mockResolvedValue({ ok: false, code: 'conflict' }); show(); await prepare();
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить' })); await screen.findByText(/выбор сохранён/);
-  expect(screen.getByText(/Новое решение: Подтверждено/)).toBeInTheDocument(); expect(onSaved).not.toHaveBeenCalled();
+  expect(screen.getByText(/Новое решение: Классифицировать/)).toBeInTheDocument(); expect(onSaved).not.toHaveBeenCalled();
 });
 it('discards proof on page restoration and never resumes an apply automatically', async () => {
   show(); await prepare(); fireEvent(window, new PageTransitionEvent('pageshow', { persisted: true }));

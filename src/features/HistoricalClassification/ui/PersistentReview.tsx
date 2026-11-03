@@ -1,6 +1,6 @@
 import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
 import { SourceFactsView } from './SourceFactsView';
-import { roleLabel, layerLabel, statusLabel, timeLabel } from 'shared/lib/analytics/presentation';
+import { roleLabel, layerLabel, timeLabel } from 'shared/lib/analytics/presentation';
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { Alert, Button, Stack, Typography } from '@mui/material';
@@ -94,7 +94,7 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
     && ['category', 'title', 'recipient', 'source', 'comment'].every(k => Object.prototype.hasOwnProperty.call(facts,k) === Object.prototype.hasOwnProperty.call(operation.facts,k)
       && facts[k as keyof typeof facts] === operation.facts[k as keyof typeof operation.facts]);
   return <Stack spacing={1} component="section" aria-label="Сохранение ручной классификации">
-    <Typography>Новое решение: {statusLabel(state)} / {assignment ? roleLabel(assignment.economicRole) : 'без роли'} / {assignment?.layer ? layerLabel(assignment.layer) : 'без слоя'}.</Typography>
+    {dirty && valid && <Typography>Новое решение: {state === 'approved' ? 'Классифицировать' : state === 'cleared' ? 'Сбросить решение' : 'Без классификации'} / {assignment ? roleLabel(assignment.economicRole) : 'без роли'} / {assignment?.layer ? layerLabel(assignment.layer) : 'без слоя'}.</Typography>}
     {prepared && <>
       <Typography component="h4">Факты, проверенные сервером для этого решения</Typography>
       <SourceFactsView facts={prepared.facts}/>
