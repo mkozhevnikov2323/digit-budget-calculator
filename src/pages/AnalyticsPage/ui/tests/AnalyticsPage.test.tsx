@@ -90,7 +90,7 @@ describe('read-only AnalyticsPage with mocked RTK Query transport', () => {
     for (const label of ['Записанные поступления', 'Записанные расходы', 'Разность поступлений и расходов']) {
       expect(summary(label).getByText('0,00 ₽')).toBeInTheDocument();
     }
-    expect(screen.getByText(/01.02.2024 — 29.02.2024/)).toHaveTextContent('UTC');
+    expect(screen.getByText(/01.02.2024 — 29.02.2024/)).toHaveTextContent('Выбран период: 01.02.2024 — 29.02.2024');
     expect(screen.getByText(/постоянный часовой пояс/)).toHaveTextContent('ещё не утверждён');
     expect(mockFetch).toHaveBeenCalledTimes(2);
     for (const [input, init] of mockFetch.mock.calls) {

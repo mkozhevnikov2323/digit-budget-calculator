@@ -1,4 +1,4 @@
-import { test, expect, login, analytics, selectPrimary, prepare, save, statistics,
+import { test, expect, login, analytics, selectPrimary, selectOperation, chooseClassification, save, statistics,
   confirmMonths, plan, distribute, exportPlan, sum, reopenAfterSave } from './fixture.mjs';
 
 // Fixed independent integer-kopeck expectations; no application calculators imported.
@@ -10,7 +10,7 @@ const money = text => {
 const rowMoney = async (table, name, column = 1) => money(await table.getByRole('row').filter({ has: table.page().getByRole('cell', { name, exact: true }) }).getByRole('cell').nth(column).innerText());
 const start = async page => { await login(page); await analytics(page); };
 const classify = async (page, stack) => {
-  const review = await selectPrimary(page, stack); await prepare(page, review); await save(page, review);
+  const review = await selectPrimary(page, stack); await chooseClassification(page, review); await save(page, review);
 };
 const assertSources = async stack => {
   const state = await stack.rpc('inspect'); expect(state.sourcesUnchanged).toBe(true);
@@ -84,9 +84,15 @@ test('E2E-03 Explicit server review persists a manual decision without source mu
     await page.getByLabel('Экономическая роль', { exact: true }).selectOption('ordinary_expense');
     await page.getByLabel('Финансовый слой', { exact: true }).selectOption('everyday');
     expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
-    await prepare(page, review); expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
-    await expect(review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true })).toBeEnabled();
-    await save(page, review);
+    await chooseClassification(page, review); expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
+    await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeEnabled();
+    let reads=0,puts=0,legacy=0;const observe=r=>{if(r.method()==='GET'||/history\/read$/.test(r.url()))reads++;if(r.method()==='PUT'&&/\/decision$/.test(r.url()))puts++;if(/\/c-v1\//.test(r.url()))legacy++;};page.on('request',observe);
+    const apply=page.waitForResponse(r=>/\/decision$/.test(r.url()));
+    await review.getByRole('button',{name:'Классифицировать',exact:true}).click();expect((await apply).status()).toBe(201);
+    await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
+    const row=page.getByRole('heading',{name:'15.01.2025',level:2}).locator('..').getByRole('button',{name:'Fictional fuel',exact:true});
+    await expect(row.getByText('Классифицировано',{exact:true})).toBeVisible();await expect(row.getByText('Обычный расход',{exact:true})).toBeVisible();await expect(row.getByText('Повседневные расходы',{exact:true})).toBeVisible();
+    expect(reads).toBe(0);expect(puts).toBe(1);expect(legacy).toBe(0);page.off('request',observe);
     const state = await assertSources(stack); expect(state.primaryRevision).toBe(1); expect(state.primaryLayer).toBe('everyday');
   });
 });
@@ -95,19 +101,25 @@ test('E2E-04 Reload reads the persisted decision and continuous revision from Mo
   await start(page); await classify(page, stack);
   await test.step('new browser document observes stored decision', async () => {
     await page.reload(); await analytics(page); await selectPrimary(page, stack);
-    await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Есть подтверждённое решение\. Ревизия: 1/)).toBeVisible();
+    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
     expect((await assertSources(stack)).primaryRevision).toBe(1);
   });
   await test.step('income C approval survives reload without changing financial sources', async()=>{
     const salary='0000000000000000000000c8';
-    await page.getByRole('button',{name:new RegExp('Поступления.*'+salary)}).click();
+    await selectOperation(page,salary);
     const review=page.getByRole('region',{name:'Сохранение ручной классификации'});
-    await prepare(page,review);
-    const applied=page.waitForResponse(r=>/\/c-v1\/apply$/.test(r.url())&&r.request().method()==='POST');
-    await review.getByRole('button',{name:'Сохранить классификацию на сервере',exact:true}).click();expect((await applied).status()).toBe(200);
+    await page.getByLabel('Экономическая роль',{exact:true}).selectOption('refund');await chooseClassification(page,review);
+    const applied=page.waitForResponse(r=>/\/decision$/.test(r.url())&&r.request().method()==='PUT');
+    await review.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true}).click();expect((await applied).status()).toBe(200);
+    await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
     await page.reload();await analytics(page);await selectPrimary(page,stack);
-    await page.getByRole('button',{name:new RegExp('Поступления.*'+salary)}).click();
-    await expect(page.getByRole('region',{name:'Проверка операции'}).getByText(/Есть подтверждённое решение\. Ревизия: 2/)).toBeVisible();await assertSources(stack);
+    await selectOperation(page,salary);
+    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();await assertSources(stack);
+    const explicit=page.waitForResponse(r=>/\/decision$/.test(r.url())&&r.request().method()==='PUT');
+    await page.getByRole('button',{name:'Оставить без классификации',exact:true}).click();expect((await explicit).status()).toBe(200);
+    await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
+    await page.reload();await analytics(page,'classification');await selectOperation(page,salary);
+    await expect(page.getByRole('button',{name:'Оставить без классификации',exact:true})).toBeDisabled();await assertSources(stack);
   });
 
 });
@@ -250,61 +262,62 @@ test('E2E-10 Cross-owner HTTP access and account switching isolate decisions dra
     const bPlan = await plan(page); expect(sum((await exportPlan(bPlan)).layers.everyday)).toBe(0);
     const bForecast = await statistics(page,'planning'); await expect(bForecast.getByRole('checkbox', { checked: true })).toHaveCount(0);
     await analytics(page,'classification');
-    await expect(page.getByRole('button', { name: new RegExp(stack.primary) })).toHaveCount(0);
-    await page.getByRole('button', { name: new RegExp(stack.foreign) }).click();
-    await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Не рассмотрена\. Ревизия: нет/)).toBeVisible();
+    await page.getByRole('tab',{name:'Расходы',exact:true}).click();
+    await expect(page.getByRole('button', { name: 'Fictional fuel', exact:true })).toHaveCount(0);
+    await selectOperation(page,stack.foreign);
+    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
     expect((await assertSources(stack)).primaryRevision).toBe(1);
   });
 });
 
 test('E2E-11 Financial edit rejects stale review without overwriting source facts', async ({ page, stack }) => {
-  await start(page); const review = await selectPrimary(page, stack); await prepare(page, review);
-  await test.step('source changed after preparation cannot silently inherit approval', async () => {
+  await start(page); const review = await selectPrimary(page, stack); await chooseClassification(page, review);
+  await test.step('source changed after display cannot silently inherit approval', async () => {
     await stack.rpc('changeSource');
-    const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
-    await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
+    const response = page.waitForResponse(r => /\/decision$/.test(r.url()) && r.request().method() === 'PUT');
+    await review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true }).click();
     expect((await response).status()).toBe(409);
     await expect(review.getByText('Конфликт решения или изменённые факты. Обновите историю; выбор сохранён.', { exact: true })).toBeVisible();
     const state = await assertSources(stack); expect(state.primaryRevision).toBeNull();
   });
 });
 
-test('E2E-12 Concurrent CAS duplicate click unknown commit reconciliation and expired proof', async ({ page, context, stack }) => {
-  await start(page); let review = await selectPrimary(page, stack); await prepare(page, review);
-  const second = await context.newPage(); await analytics(second); const other = await selectPrimary(second, stack); await prepare(second, other);
-  await test.step('independent prepared intents conflict and synchronous double click sends once', async () => {
-    let commands = 0; page.on('request', r => { if (/\/c-v1\/apply$/.test(r.url()) && r.method() === 'POST') commands++; });
-    const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
-    await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).evaluate(button => { button.click(); button.click(); });
+test('E2E-12 Single PUT concurrent CAS duplicate click unknown outcome and response revision', async ({ page, context, stack }) => {
+  await start(page); let review = await selectPrimary(page, stack); await chooseClassification(page, review);
+  const second = await context.newPage(); await analytics(second); const other = await selectPrimary(second, stack); await chooseClassification(second, other);
+  await test.step('independent displayed revisions conflict and synchronous double click sends once', async () => {
+    let commands = 0; page.on('request', r => { if (/\/decision$/.test(r.url()) && r.method() === 'PUT') commands++; });
+    const response = page.waitForResponse(r => /\/decision$/.test(r.url()) && r.request().method() === 'PUT');
+    await review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true }).evaluate(button => { button.click(); button.click(); });
     expect((await response).status()).toBe(201);
     await reopenAfterSave(page, stack.primary); expect(commands).toBe(1);
-    const conflict = second.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
-    await other.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click(); expect((await conflict).status()).toBe(409);
+    const conflict = second.waitForResponse(r => /\/decision$/.test(r.url()) && r.request().method() === 'PUT');
+    await other.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true }).click(); expect((await conflict).status()).toBe(409);
     await expect(other.getByText(/Конфликт решения или изменённые факты/)).toBeVisible();
   });
   await second.close();
   await test.step('real commit with lost acknowledgement only permits read-only reconciliation', async () => {
-    await page.getByRole('button', { name: new RegExp(stack.misc) }).click();
-    review = page.getByRole('region', { name: 'Сохранение ручной классификации' }); await prepare(page, review);
+    await selectOperation(page,stack.misc);
+    review = page.getByRole('region', { name: 'Сохранение ручной классификации' }); await chooseClassification(page, review);
     await stack.rpc('loseAcknowledgement'); let writes = 0;
-    page.on('request', r => { if (/\/c-v1\/apply$/.test(r.url()) && r.method() === 'POST') writes++; });
-    await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
+    page.on('request', r => { if (/\/decision$/.test(r.url()) && r.method() === 'PUT') writes++; });
+    await review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true }).click();
     await expect(review.getByText(/Запись могла сохраниться/)).toBeVisible();
-    await expect(review.getByRole('button', { name: 'Подготовить серверную проверку', exact: true })).toBeDisabled();
-    await expect(review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true })).toBeDisabled();
+    await expect(review.getByRole('button', { name: 'Повторить подготовку', exact: true })).toHaveCount(0);
+    await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeDisabled();
     const before = await stack.rpc('inspect');
-    await review.getByRole('button', { name: 'Проверить результат без записи', exact: true }).click();
-    await reopenAfterSave(page, stack.misc);
+    await review.getByRole('button', { name: 'Обновить состояние без повторной записи', exact: true }).click();
+    await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Сохранить изменения',exact:true})).toBeDisabled();
     expect(writes).toBe(1); expect((await stack.rpc('inspect')).classifications).toBe(before.classifications);
   });
-  await test.step('expired server proof is rejected without a new mutation', async () => {
-    await page.getByRole('button', { name: new RegExp(stack.primary) }).click();
-    review = page.getByRole('region', { name: 'Сохранение ручной классификации' }); await prepare(page, review);
-    const before = await stack.rpc('inspect'); await stack.rpc('expireProof');
-    const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
-    await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
-    expect((await response).status()).toBe(410); await expect(review.getByText(/Срок проверки истёк/)).toBeVisible();
-    expect((await assertSources(stack)).classifications).toBe(before.classifications);
+  await test.step('repeat editing uses the response revision without a GET or preparation', async () => {
+    await selectOperation(page,stack.primary);
+    review = page.getByRole('region',{name:'Сохранение ручной классификации'});await chooseClassification(page,review);
+    const response=page.waitForResponse(r=>/\/decision$/.test(r.url())&&r.request().method()==='PUT');
+    await review.getByRole('button',{name:'Сохранить изменения',exact:true}).click();
+    const result=await response;expect(result.status()).toBe(200);expect((await result.json()).decision.decisionRevision).toBe(2);
+    await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);expect((await assertSources(stack)).primaryRevision).toBe(2);
   });
 });
 
@@ -339,11 +352,11 @@ test('E2E-14 Feature flags alone cannot activate writes without protocol install
     }, {baseUrl:stack.baseUrl,operationId:stack.primary});
     expect(legacyStatus).toBe(503);
 
-    const response = page.waitForResponse(r => /\/c-v1\/prepare$/.test(r.url()) && r.request().method() === 'POST');
-    await review.getByRole('button', { name: 'Подготовить серверную проверку', exact: true }).click();
+    const response = page.waitForResponse(r => /\/decision$/.test(r.url()) && r.request().method() === 'PUT');
+    await review.getByRole('button',{name:'Оставить без классификации',exact:true}).click();
     expect((await response).status()).toBe(503);
-    await expect(review.getByText(/Подготовка проверки недоступна/)).toBeVisible();
-    await expect(review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true })).toHaveCount(0);
+    await expect(review.getByText(/Сохранение недоступно/)).toBeVisible();
+    await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeDisabled();
     const after = await assertSources(stack); expect(after.classifications).toBe(before.classifications); expect(after.primaryRevision).toBeNull();
   });
 });

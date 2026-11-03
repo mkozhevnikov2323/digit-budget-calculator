@@ -108,29 +108,43 @@ export async function analytics(page, section='overview') {
   await page.getByLabel('Год',{exact:true}).fill('2025');
   if(section==='overview')await expect(page.getByRole('table',{name:'Помесячный денежный поток'})).toBeVisible();
 }
-export async function selectPrimary(page, stack) {
-  await analytics(page,'classification');
-  await page.getByRole('button', { name: new RegExp(stack.primary) }).click();
-  await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Ревизия:/)).toBeVisible();
-  return page.getByRole('region', { name: 'Сохранение ручной классификации' });
+export async function selectOperation(page, id) {
+  const income=id==='0000000000000000000000c8';
+  await page.getByRole('tab',{name:income?'Доходы':'Расходы',exact:true}).click();
+  const title=income?'Fictional salary':id==='2'.repeat(24)?'Fictional unreviewed':id==='b1'.padStart(24,'0')?'User B private fixture':'Fictional fuel';
+  const group=page.getByRole('heading',{name:'15.01.2025',exact:true,level:2}).locator('..');
+  await group.getByRole('button',{name:title,exact:true}).click();
+  await expect(page.getByLabel('Экономическая роль',{exact:true})).toBeVisible();
 }
-export async function prepare(page, review) {
-  await review.getByRole('button', { name: 'Подготовить серверную проверку', exact: true }).click();
-  await expect(review.getByRole('heading', { name: 'Факты, проверенные сервером для этого решения' })).toBeVisible();
-  await expect(review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true })).toBeDisabled();
-  await review.getByRole('checkbox', { name: 'Я проверил(а) именно серверные факты и явно подтверждаю новое решение', exact: true }).check();
+export async function selectPrimary(page, stack) {
+  await analytics(page,'classification'); await selectOperation(page,stack.primary);
+  return page.getByRole('region',{name:'Сохранение ручной классификации'});
+}
+export async function chooseClassification(page, review) {
+  const role=page.getByLabel('Экономическая роль',{exact:true});
+  const current=await role.inputValue();
+  if(!current)await role.selectOption('ordinary_expense');
+  if(await role.inputValue()==='ordinary_expense') {
+    const layer=page.getByLabel('Финансовый слой',{exact:true});
+    if(await review.getByRole('button',{name:'Отмена',exact:true}).isDisabled())await layer.selectOption(await layer.inputValue()==='everyday'?'irregular':'everyday');
+    else if(!await layer.inputValue())await layer.selectOption('everyday');
+  } else if(await review.getByRole('button',{name:'Отмена',exact:true}).isDisabled())await role.selectOption(current==='refund'?'ordinary_income':'refund');
+  await expect(review.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true})).toBeEnabled();
+  await expect(review.getByRole('checkbox')).toHaveCount(0);
 }
 export async function reopenAfterSave(page, operationId) {
-  await expect(page.getByRole('region', { name: 'Проверка операции' })).toHaveCount(0);
-  await page.getByRole('button', { name: new RegExp(operationId) }).click();
-  await expect(page.getByRole('region', { name: 'Проверка операции' }).getByText(/Ревизия: 1/)).toBeVisible();
+  await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
+  let reads=0;const observe=r=>{if(r.method()==='GET')reads++;};page.on('request',observe);
+  await selectOperation(page, operationId);
+  expect(reads).toBe(0);page.off('request',observe);
+  await expect(page.getByRole('button',{name:/^(Классифицировать|Сохранить изменения)$/,exact:true})).toBeDisabled();
 }
 export async function save(page, review) {
-  const response = page.waitForResponse(r => /\/c-v1\/apply$/.test(r.url()) && r.request().method() === 'POST');
-  await review.getByRole('button', { name: 'Сохранить классификацию на сервере', exact: true }).click();
+  const response = page.waitForResponse(r => /\/decision$/.test(r.url()) && r.request().method() === 'PUT');
+  await review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true }).click();
   const acknowledgement = await response;
   expect(acknowledgement.status()).toBe(201);
-  await reopenAfterSave(page, acknowledgement.url().split('/').at(-3));
+  await reopenAfterSave(page, acknowledgement.url().split('/').at(-2));
 }
 export async function statistics(page, mode='statistics') {
   await analytics(page,mode==='planning'?'planning':'classification-stats');

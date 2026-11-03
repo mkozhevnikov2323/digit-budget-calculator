@@ -21,7 +21,7 @@ export const historyApi = baseApi.injectEndpoints({ endpoints: builder => ({
         }, args.userId, args.period, () => !api.signal.aborted && isCurrentSession(args.sessionGeneration), args.requestScope);
         return { data };
       } catch { return error('COHERENT_HISTORY_UNAVAILABLE'); }
-    }, providesTags: ['Expense', 'Income'], keepUnusedDataFor: 0,
+    }, providesTags: ['Expense', 'Income', 'Classification'], keepUnusedDataFor: 0,
   }),
   getOwnedHistory: builder.query<OwnedHistory, HistoryQuery>({
     async queryFn(args, api, _options, query) {
@@ -42,7 +42,7 @@ export const historyApi = baseApi.injectEndpoints({ endpoints: builder => ({
       if (result.error) return error('CLASSIFICATION_UNAVAILABLE');
       const checked = validateClassificationRead(result.data, args.dataset, args.operationId);
       return checked ? { data: checked } : error('INVALID_CLASSIFICATION_RESPONSE');
-    }, providesTags: ['Expense', 'Income'], keepUnusedDataFor: 0,
+    }, providesTags: ['Expense', 'Income', 'Classification'], keepUnusedDataFor: 0,
   }),
 }) });
 export const { useGetOwnedHistoryQuery, useReadOperationClassificationQuery, useGetCoherentHistoryQuery } = historyApi;

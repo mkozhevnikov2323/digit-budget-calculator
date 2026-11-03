@@ -10,7 +10,10 @@ routes now mount real functionality, one page at a time:
 - `/analytics/income-sources`: existing source activity, not income forecasting.
 - `/analytics/history`: owned history, pagination, selection and fact inspection;
   no decision reads or mutations are initiated by selecting a history row.
-- `/analytics/classification`: manual C flow with separate server-fact confirmation.
+- `/analytics/classification`: income-first tabs, UTC-date groups and inline operation
+  editors. Only the 25 visible rows read decisions. Changed selections automatically
+  prepare server facts; one explicit Save confirms that prepared intent. Cancellation,
+  conflicts and unknown outcomes never apply automatically.
 - `/analytics/classification-stats`: coherent history, status/role/layer/category
   partitions, monthly statistics and classification coverage.
 - `/analytics/planning`: coherent historical basis, explicit recording attestations,
@@ -40,17 +43,21 @@ Explicit close/new-plan/import retain their existing meanings. Reload/session lo
 clears private input; a visible warning and explicit JSON export remain available.
 No recording attestations, forecast acceptance or prepared mutation are restored.
 
-Classification preparation IDs and server facts stay inside the current form.
-On navigation its AbortController is retired. An unresolved-risk boolean may
-survive in Redux; it contains no preparation or proof and prevents silently
-starting a fresh apply after returning. Explicit read-state refresh is available.
-Restart/reload is still not evidence that an old write did not commit.
+Classification uses one explicit PUT decision command, with exact SourceFacts built
+from the already validated displayed operation. There is no preparation ID, expiry,
+automatic prepare, mutation retry or preparation-based reconcile in this UI.
+Validated classification-read-v1 responses update only the affected row, including
+its revision. Reopening uses that response without another GET. Approved and
+explicit-unclassified results close the editor; stale results remain visible with
+a refresh warning. Unknown outcomes keep a session-memory risk flag and allow
+only explicit read-state refresh. Full reload uses ordinary authenticated reads.
 
 ## Queries and calculations
 
 Server data stays in existing RTK Query endpoints, not the UI slice. Overview and
 category pages share fulfilled raw-history cache entries for identical arguments;
-Expense/Income tags retain existing invalidation and the session boundary clears
+Expense/Income tags retain existing invalidation; decision PUTs do not invalidate
+visible rows or reload history. Statistics re-entry obtains fresh coherent history and the session boundary clears
 old credentials' cache. Coherent history and classification decisions deliberately
 retain fresh request scopes/rechecks on re-entry; cached totals never replace the
 existing before/batch/after consistency checks. These reads are not atomic snapshots.
