@@ -61,7 +61,7 @@ export const PersistentReview = ({ operation, scope, decision, state, assignment
       let target = prepared;
       if (action === 'unclassified') {
         if (uncertain || blocked || decision.status === 'blocked' || decision.status === 'explicit_unclassified') return;
-        onBusy?.(true);++preparationEpoch.current;setPrepared(null);
+        onBusy?.(true);++preparationEpoch.current;setPreparing(false);setPrepared(null);
         const result = await client().prepare(operation.dataset, operation.operationId, {version:'classification-c-v1',requestId:crypto.randomUUID(),expectedRevision:decision.decisionRevision,state:'explicit_unclassified'});
         if (!live.current) return;
         if (!result.ok) { setBlocked(true);setMessage('Не удалось подготовить действие. Обновите состояние перед новой попыткой.');return; }
