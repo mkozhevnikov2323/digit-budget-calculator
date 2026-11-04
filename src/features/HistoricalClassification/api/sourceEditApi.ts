@@ -12,8 +12,8 @@ export const sourceEditApi=baseApi.injectEndpoints({endpoints:builder=>({
     const data=validateSourceEditRead(r.data,target);return data?{data}:failure();
    }catch{return failure();}
   },keepUnusedDataFor:0,
-  // No mutation invalidation while a form owns a draft. Return remounts Analytics,
-  // whose existing coherent query explicitly rereads source and classification.
+  // Keep the loaded draft stable. Existing PATCH Expense/Income invalidation
+  // refreshes the coherent period query, not this single-record form query.
  })
 })});
 export const {useReadSourceForEditQuery}=sourceEditApi;

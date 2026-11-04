@@ -117,31 +117,33 @@ batch until their state is checked through the existing manual recovery flow.
 The summary distinguishes confirmed successes, failures, unknown outcomes and
 unsent operations. This is not an atomic multi-operation transaction.
 
-### Editing a source operation from classification
+### Editing a source operation over classification
 
-Expanded classification rows link to the existing expense/income edit modals on
-`/expenses` or `/income`. React Router state carries only the identity, current
-owner/session generation, calendar bounds and allowlisted classification
-navigation metadata; it never carries an editable copy of financial facts or a
-credential. The destination validates this state against the verified session.
+Expanded classification rows open the existing EditExpenseModal/EditIncomeModal
+and forms directly over `/analytics/classification`. No navigation, router state
+or return destination is involved. ClassificationWorkspace owns the small
+in-memory selection, bound to verified owner, session and calendar period.
 
-The existing `POST /classifications/history/read` is called with exactly one
-identity. It is a read-only, owner-scoped API; no new backend endpoint or full
-history search is needed. Response identity, window, exact source facts and
-classification envelope must validate before the existing form mounts. This
-works independently of table filters/pages and Redux list membership. Errors,
-missing sources and sources concurrently moved outside the selected period show
-an error with a return action, never an empty form or a fallback Redux record.
-The same history-read availability/readiness required by the classification page
-is required here; no feature flag is activated.
+The existing sourceEditApi calls read-only POST /classifications/history/read
+with exactly one identity. Response identity, window, exact source facts and
+classification must validate before mounting the form. The current Redux table
+list, month and page are not used as a fallback. Missing, foreign, unavailable or
+concurrently moved-out-of-period records show an error instead of an empty form.
+The same existing history-read availability/readiness is required; no flags are
+activated. Each new opening rereads current facts.
 
-The existing forms accept an optional validated initial record; ordinary table
-editing still uses its Redux selector. Table lists and filters are untouched.
-Saving and deletion retain their existing handlers and API contracts. Only an
-explicit save edits source facts, and editing never submits classification PUT.
-Closing the modal (including after acknowledged save) returns to the fixed
-classification route with validated tab/filter/page metadata. The calendar stays
-in the existing Analytics state. Analytics remounts its existing coherent query,
-rereading source facts and classification; changed approved facts can become
-`stale`, and pagination clamps normally when the result set shrinks. Session
-changes invalidate the navigation context; a copied state is not authorization.
+Closing/cancelling changes only the local selection: no PATCH, navigation or
+coherent-history refresh. Existing calendar, tab, filter, page, expanded card and
+scroll remain in place. Captured scroll is restored after closing if needed,
+waiting for any coherent refresh to finish. A shrinking result set retains the
+existing page-clamping behavior and browser scroll limits.
+
+Existing forms and their PATCH/delete/validation handlers are unchanged. Their
+existing Expense/Income tag invalidation refreshes coherent period membership,
+facts and classification after mutation; no second manual refresh is scheduled.
+Changed facts can become stale; operations moved out of the period disappear.
+No classification PUT is submitted by source editing. The modal lives outside
+the coherent loading/error branch, so invalidation cannot discard a financial
+draft or close it after failed PATCH. Owner/session/period changes retire the
+selection; stale read responses cannot open it again. Ordinary table editing and
+batch classification are unchanged.

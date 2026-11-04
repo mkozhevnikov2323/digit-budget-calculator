@@ -1,7 +1,6 @@
-import {useLocation,useNavigate} from 'react-router';
 import {isCurrentSession} from 'shared/api/sessionBoundary';
-import {classificationReturnSearch} from '../model/sourceEdit';
-import { useEffect, useId, useMemo, useState } from 'react';
+import type {SourceEditTarget} from '../model/sourceEdit';
+import { lazy, Suspense, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Alert, Button, Pagination, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
@@ -15,22 +14,43 @@ import { OperationRow } from './OperationRow';
 import { CategoryBatchDialog } from './CategoryBatchDialog';
 import { useClassificationNavigation, type Filter } from './classificationNavigation';
 
+const ClassificationSourceEdit=lazy(()=>import('widgets/ClassificationSourceEdit/ui/ClassificationSourceEdit').then(m=>({default:m.ClassificationSourceEdit})));
+
 export const ClassificationWorkspace=({period}:{period:CalendarPeriod})=>{
  const owner=useVerifiedOwner(),id=useId();
  const userId=owner.status==='verified'?owner.owner.userId:undefined,generation=owner.status==='verified'?owner.owner.sessionGeneration:undefined;
  const key=JSON.stringify([userId,generation,period.startInclusive,period.endExclusive]);
  const [entry,setEntry]=useState({key,sequence:0});if(entry.key!==key)setEntry({key,sequence:entry.sequence+1});
  const scope=`${id}/${entry.sequence}`;
+ const [editing,setEditing]=useState<{context:string;sequence:number;target:SourceEditTarget}|null>(null);
+ const sequence=useRef(0),scroll=useRef<{context:string;x:number;y:number}|null>(null);
+ if(editing&&editing.context!==key)setEditing(null);
+ const edit=(op:HistoryOperation)=>{
+  if(owner.status!=='verified'||!isCurrentSession(owner.owner.sessionGeneration))return;
+  scroll.current={context:key,x:window.scrollX,y:window.scrollY};
+  setEditing({context:key,sequence:++sequence.current,target:{dataset:op.dataset,operationId:op.operationId,ownerId:owner.owner.userId,sessionGeneration:owner.owner.sessionGeneration,firstDate:period.firstDate,lastDate:period.lastDate}});
+ };
  const args=useMemo(()=>userId&&generation?{userId,sessionGeneration:generation,requestScope:scope,period}:skipToken,[userId,generation,scope,period]);
  const query=useGetCoherentHistoryQuery(args,{refetchOnMountOrArgChange:true});
+ useLayoutEffect(()=>{
+  const saved=scroll.current;
+  if(saved&&saved.context!==key){scroll.current=null;return;}
+  if(saved&&!editing&&!query.isFetching){
+   if(window.scrollX!==saved.x||window.scrollY!==saved.y)window.scrollTo(saved.x,saved.y);
+   scroll.current=null;
+  }
+ },[key,editing,query.isFetching]);
  if(owner.status!=='verified')return <Alert severity="info">Для просмотра нужна текущая проверка владельца.</Alert>;
- if(query.isError)return <Stack><Alert severity="error">Полная классификация периода недоступна. Счётчики не рассчитаны.</Alert><Button onClick={()=>void query.refetch()}>Повторить загрузку</Button></Stack>;
- if(entry.key!==key||query.isFetching||!query.currentData)return <Typography role="status">Проверка операций и классификаций периода…</Typography>;
- return <WorkspaceResults key={`${scope}/${query.requestId}`} cohort={query.currentData} scope={{userId:owner.owner.userId,sessionGeneration:owner.owner.sessionGeneration,requestScope:scope}} onRefresh={()=>void query.refetch()}/>;
+ // Keep the editor mounted independently of coherent-query loading/error states.
+ // Existing PATCH invalidates Expense/Income and refreshes this query once.
+ return <>
+  {query.isError?<Stack><Alert severity="error">Полная классификация периода недоступна. Счётчики не рассчитаны.</Alert><Button onClick={()=>void query.refetch()}>Повторить загрузку</Button></Stack>
+   :entry.key!==key||query.isFetching||!query.currentData?<Typography role="status">Проверка операций и классификаций периода…</Typography>
+   :<WorkspaceResults key={`${scope}/${query.requestId}`} cohort={query.currentData} scope={{userId:owner.owner.userId,sessionGeneration:owner.owner.sessionGeneration,requestScope:scope}} onEdit={edit} onRefresh={()=>void query.refetch()}/>}
+  {editing&&editing.context===key&&<Suspense fallback={<Typography role="status">Загрузка редактора…</Typography>}><ClassificationSourceEdit key={editing.sequence} target={editing.target} onClose={()=>setEditing(current=>current?.sequence===editing.sequence?null:current)}/></Suspense>}
+ </>;
 };
-const WorkspaceResults=({cohort,scope,onRefresh}:{cohort:CoherentHistory;scope:Omit<DecisionQuery,'dataset'|'operationId'>;onRefresh:()=>void})=>{
- const navigate=useNavigate(),location=useLocation();
- const edit=(op:HistoryOperation)=>{if(!isCurrentSession(scope.sessionGeneration))return;navigate(op.dataset==='expenses'?'/expenses':'/income',{state:{kind:'classification-source-edit-v1',dataset:op.dataset,operationId:op.operationId,ownerId:scope.userId,sessionGeneration:scope.sessionGeneration,firstDate:cohort.history.period.firstDate,lastDate:cohort.history.period.lastDate,returnSearch:classificationReturnSearch(location.search)}});};
+const WorkspaceResults=({cohort,scope,onRefresh,onEdit}:{onEdit:(op:HistoryOperation)=>void;cohort:CoherentHistory;scope:Omit<DecisionQuery,'dataset'|'operationId'>;onRefresh:()=>void})=>{
  const periodKey=`${cohort.history.period.startInclusive}/${cohort.history.period.endExclusive}`;
  const nav=useClassificationNavigation(periodKey);
  const [selected,setSelected]=useState<string|null>(null);
@@ -55,7 +75,7 @@ const WorkspaceResults=({cohort,scope,onRefresh}:{cohort:CoherentHistory;scope:O
   {nav.dataset==='expenses'&&<CategoryBatchDialog operations={cohort.history.operations} decision={decision} period={cohort.history.period} scope={scope} onDecision={next=>setUpdates(old=>({...old,[`${next.dataset}/${next.operationId}`]:next}))} onRefresh={onRefresh}/>}
   <Typography variant="body2">Операций: {filtered.length}. Страница {page} из {pages}.</Typography>
   {!filtered.length&&<Typography>{nav.filter==='pending'?`Неклассифицированных ${nav.dataset==='expenses'?'расходов':'доходов'} за выбранный период нет`:nav.filter==='approved'?'Классифицированных операций за выбранный период нет':'За выбранный период операций нет'}</Typography>}
-  {[...groups].map(([day,rows])=><Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op=><OperationRow key={op.operationId} operation={op} scope={scope} readOnly={false} onEdit={()=>edit(op)} decision={decision(op)} expanded={selected===op.operationId} onToggle={()=>setSelected(selected===op.operationId?null:op.operationId)} onClose={()=>setSelected(null)} onRefresh={onRefresh} onDecision={next=>setUpdates(old=>({...old,[`${op.dataset}/${op.operationId}`]:next}))}/>)}</Stack>)}
+  {[...groups].map(([day,rows])=><Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op=><OperationRow key={op.operationId} operation={op} scope={scope} readOnly={false} onEdit={()=>onEdit(op)} decision={decision(op)} expanded={selected===op.operationId} onToggle={()=>setSelected(selected===op.operationId?null:op.operationId)} onClose={()=>setSelected(null)} onRefresh={onRefresh} onDecision={next=>setUpdates(old=>({...old,[`${op.dataset}/${op.operationId}`]:next}))}/>)}</Stack>)}
   <Pagination getItemAriaLabel={(type,number,current)=>type==='page'?(current?`Страница ${number}`:`Перейти на страницу ${number}`):type==='first'?'Первая страница':type==='last'?'Последняя страница':type==='next'?'Следующая страница':type==='previous'?'Предыдущая страница':'Другие страницы'} count={pages} page={page} onChange={(_e,value)=>{setSelected(null);nav.update(nav.dataset,nav.filter,value);}} aria-label="Страницы операций" size="small" sx={{'& ul':{flexWrap:'wrap'}}}/>
  </Stack>;
 };
