@@ -8,8 +8,8 @@ import type { ClassificationStatus, ClassificationRead } from '../model/contract
 import { OperationEditor } from './OperationEditor';
 import { roleChip, layerChip } from './chipColors';
 const classificationLabel = (status: ClassificationStatus) => ({ approved: 'Классифицировано', unreviewed: 'Не классифицировано', explicit_unclassified: 'Без классификации', cleared: 'Решение сброшено', stale: 'Требует обновления', blocked: 'Недоступно' })[status];
-export const OperationRow = ({ operation, scope, readOnly, expanded, onToggle, onClose, decision, onDecision, onRefresh }: {
-  operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; readOnly: boolean; expanded: boolean; onToggle: () => void; onClose: () => void; decision?: ClassificationRead; onDecision?: (next: ClassificationRead) => void; onRefresh?: () => void;
+export const OperationRow = ({ operation, scope, readOnly, expanded, onToggle, onClose, decision, onDecision, onRefresh, onEdit }: {
+  onEdit?: () => void; operation: HistoryOperation; scope: Omit<DecisionQuery, 'dataset' | 'operationId'>; readOnly: boolean; expanded: boolean; onToggle: () => void; onClose: () => void; decision?: ClassificationRead; onDecision?: (next: ClassificationRead) => void; onRefresh?: () => void;
 }) => {
   const amount = formatKopecks(operation.kopecks);
   const title = operation.dataset === 'incomes' ? operation.facts.source : operation.facts.title;
@@ -26,6 +26,7 @@ export const OperationRow = ({ operation, scope, readOnly, expanded, onToggle, o
     <AccordionDetails>
       {expanded && <Stack spacing={1} component="section" aria-label="Проверка операции">
         <Stack aria-label="Факты выбранной операции">{Object.entries(operation.facts).map(([key,value]) => <Typography key={key} sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{factLabel(key)}: {key === 'date' && typeof value === 'string' ? dateLabel(value) : String(value ?? 'не задано')}</Typography>)}</Stack>
+        {!readOnly && onEdit && <Button sx={{alignSelf:"flex-start"}} onClick={onEdit}>Редактировать операцию</Button>}
         {!readOnly && (decision && <>
           {decision.status === 'stale' && <Alert severity="warning">Требует обновления. Обновите состояние перед новым решением. <Button onClick={onRefresh}>Обновить состояние</Button></Alert>}
           {decision.status === 'blocked' ? <Alert severity="warning">Редактирование недоступно</Alert> : <OperationEditor key={`${decision.decisionRevision}/${decision.status}`} operation={operation} scope={scope} decision={decision} onSaved={next => {onDecision?.(next);if(next.status!=='stale')onClose();}} onRefresh={onRefresh} />}

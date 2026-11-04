@@ -1,3 +1,6 @@
+import {useLocation,useNavigate} from 'react-router';
+import {isCurrentSession} from 'shared/api/sessionBoundary';
+import {classificationReturnSearch} from '../model/sourceEdit';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Alert, Button, Pagination, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
@@ -26,6 +29,8 @@ export const ClassificationWorkspace=({period}:{period:CalendarPeriod})=>{
  return <WorkspaceResults key={`${scope}/${query.requestId}`} cohort={query.currentData} scope={{userId:owner.owner.userId,sessionGeneration:owner.owner.sessionGeneration,requestScope:scope}} onRefresh={()=>void query.refetch()}/>;
 };
 const WorkspaceResults=({cohort,scope,onRefresh}:{cohort:CoherentHistory;scope:Omit<DecisionQuery,'dataset'|'operationId'>;onRefresh:()=>void})=>{
+ const navigate=useNavigate(),location=useLocation();
+ const edit=(op:HistoryOperation)=>{if(!isCurrentSession(scope.sessionGeneration))return;navigate(op.dataset==='expenses'?'/expenses':'/income',{state:{kind:'classification-source-edit-v1',dataset:op.dataset,operationId:op.operationId,ownerId:scope.userId,sessionGeneration:scope.sessionGeneration,firstDate:cohort.history.period.firstDate,lastDate:cohort.history.period.lastDate,returnSearch:classificationReturnSearch(location.search)}});};
  const periodKey=`${cohort.history.period.startInclusive}/${cohort.history.period.endExclusive}`;
  const nav=useClassificationNavigation(periodKey);
  const [selected,setSelected]=useState<string|null>(null);
@@ -50,7 +55,7 @@ const WorkspaceResults=({cohort,scope,onRefresh}:{cohort:CoherentHistory;scope:O
   {nav.dataset==='expenses'&&<CategoryBatchDialog operations={cohort.history.operations} decision={decision} period={cohort.history.period} scope={scope} onDecision={next=>setUpdates(old=>({...old,[`${next.dataset}/${next.operationId}`]:next}))} onRefresh={onRefresh}/>}
   <Typography variant="body2">Операций: {filtered.length}. Страница {page} из {pages}.</Typography>
   {!filtered.length&&<Typography>{nav.filter==='pending'?`Неклассифицированных ${nav.dataset==='expenses'?'расходов':'доходов'} за выбранный период нет`:nav.filter==='approved'?'Классифицированных операций за выбранный период нет':'За выбранный период операций нет'}</Typography>}
-  {[...groups].map(([day,rows])=><Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op=><OperationRow key={op.operationId} operation={op} scope={scope} readOnly={false} decision={decision(op)} expanded={selected===op.operationId} onToggle={()=>setSelected(selected===op.operationId?null:op.operationId)} onClose={()=>setSelected(null)} onRefresh={onRefresh} onDecision={next=>setUpdates(old=>({...old,[`${op.dataset}/${op.operationId}`]:next}))}/>)}</Stack>)}
+  {[...groups].map(([day,rows])=><Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op=><OperationRow key={op.operationId} operation={op} scope={scope} readOnly={false} onEdit={()=>edit(op)} decision={decision(op)} expanded={selected===op.operationId} onToggle={()=>setSelected(selected===op.operationId?null:op.operationId)} onClose={()=>setSelected(null)} onRefresh={onRefresh} onDecision={next=>setUpdates(old=>({...old,[`${op.dataset}/${op.operationId}`]:next}))}/>)}</Stack>)}
   <Pagination getItemAriaLabel={(type,number,current)=>type==='page'?(current?`Страница ${number}`:`Перейти на страницу ${number}`):type==='first'?'Первая страница':type==='last'?'Последняя страница':type==='next'?'Следующая страница':type==='previous'?'Предыдущая страница':'Другие страницы'} count={pages} page={page} onChange={(_e,value)=>{setSelected(null);nav.update(nav.dataset,nav.filter,value);}} aria-label="Страницы операций" size="small" sx={{'& ul':{flexWrap:'wrap'}}}/>
  </Stack>;
 };

@@ -116,3 +116,32 @@ lost. Read-only recovery is explicit. Unknown items remain excluded from another
 batch until their state is checked through the existing manual recovery flow.
 The summary distinguishes confirmed successes, failures, unknown outcomes and
 unsent operations. This is not an atomic multi-operation transaction.
+
+### Editing a source operation from classification
+
+Expanded classification rows link to the existing expense/income edit modals on
+`/expenses` or `/income`. React Router state carries only the identity, current
+owner/session generation, calendar bounds and allowlisted classification
+navigation metadata; it never carries an editable copy of financial facts or a
+credential. The destination validates this state against the verified session.
+
+The existing `POST /classifications/history/read` is called with exactly one
+identity. It is a read-only, owner-scoped API; no new backend endpoint or full
+history search is needed. Response identity, window, exact source facts and
+classification envelope must validate before the existing form mounts. This
+works independently of table filters/pages and Redux list membership. Errors,
+missing sources and sources concurrently moved outside the selected period show
+an error with a return action, never an empty form or a fallback Redux record.
+The same history-read availability/readiness required by the classification page
+is required here; no feature flag is activated.
+
+The existing forms accept an optional validated initial record; ordinary table
+editing still uses its Redux selector. Table lists and filters are untouched.
+Saving and deletion retain their existing handlers and API contracts. Only an
+explicit save edits source facts, and editing never submits classification PUT.
+Closing the modal (including after acknowledged save) returns to the fixed
+classification route with validated tab/filter/page metadata. The calendar stays
+in the existing Analytics state. Analytics remounts its existing coherent query,
+rereading source facts and classification; changed approved facts can become
+`stale`, and pagination clamps normally when the result set shrinks. Session
+changes invalidate the navigation context; a copied state is not authorization.

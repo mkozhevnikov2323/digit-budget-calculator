@@ -10,6 +10,7 @@ import { ProfilePage } from 'pages/ProfilePage';
 import { NotFoundPage } from 'pages/NotFoundPage';
 import { Protected } from './ProtectedRoute';
 import { LoansPage } from 'pages/LoansPage';
+import { SourceEditDestination } from './SourceEditDestination';
 const AnalyticsDestination = lazy(() => import('pages/AnalyticsPage/ui/AnalyticsDestination').then(m => ({default:m.AnalyticsDestination})));
 import { analyticsPages } from 'features/AnalyticsState/model/slice';
 import { AnalyticsLayout } from 'pages/AnalyticsPage/ui/AnalyticsLayout';
@@ -65,6 +66,7 @@ export const routeConfig: Record<AppRoutes, RouteObject> = {
     element: (
       <Protected>
         <IncomePage />
+        <SourceEditDestination dataset="incomes" />
       </Protected>
     ),
   },
@@ -73,6 +75,7 @@ export const routeConfig: Record<AppRoutes, RouteObject> = {
     element: (
       <Protected>
         <ExpensesPage />
+        <SourceEditDestination dataset="expenses" />
       </Protected>
     ),
   },
