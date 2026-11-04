@@ -88,7 +88,8 @@ test('E2E-03 Explicit server review persists a manual decision without source mu
     expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await chooseClassification(page, review); expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeEnabled();
-    let reads=0,puts=0,legacy=0;const observe=r=>{if(r.method()==='GET'||/history\/read$/.test(r.url()))reads++;if(r.method()==='PUT'&&/\/decision$/.test(r.url()))puts++;if(/\/c-v1\//.test(r.url()))legacy++;};page.on('request',observe);
+    // Financial API reads only: frontend font/chunk requests are not data reloads.
+    let reads=0,puts=0,legacy=0;const observe=r=>{if(new URL(r.url()).origin===stack.baseUrl&&(r.method()==='GET'||/history\/read$/.test(r.url())))reads++;if(r.method()==='PUT'&&/\/decision$/.test(r.url()))puts++;if(/\/c-v1\//.test(r.url()))legacy++;};page.on('request',observe);
     const apply=page.waitForResponse(r=>/\/decision$/.test(r.url()));
     await review.getByRole('button',{name:'Классифицировать',exact:true}).click();expect((await apply).status()).toBe(201);
     await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
