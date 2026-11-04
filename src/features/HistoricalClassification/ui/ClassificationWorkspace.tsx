@@ -9,6 +9,7 @@ import type { CoherentHistory } from '../model/coherentHistory';
 import type { ClassificationRead } from '../model/contract';
 import type { HistoryOperation } from '../model/history';
 import { OperationRow } from './OperationRow';
+import { CategoryBatchDialog } from './CategoryBatchDialog';
 import { useClassificationNavigation, type Filter } from './classificationNavigation';
 
 export const ClassificationWorkspace=({period}:{period:CalendarPeriod})=>{
@@ -46,6 +47,7 @@ const WorkspaceResults=({cohort,scope,onRefresh}:{cohort:CoherentHistory;scope:O
   <ToggleButtonGroup exclusive size="small" value={nav.filter} aria-label="Статус классификации" onChange={(_e,value)=>{if(value)changeFilter(value);}} sx={{flexWrap:'wrap'}}>
    <ToggleButton value="all">Все ({counts.all})</ToggleButton><ToggleButton value="pending">Не классифицировано ({counts.pending})</ToggleButton><ToggleButton value="approved">Классифицировано ({counts.approved})</ToggleButton>
   </ToggleButtonGroup>
+  {nav.dataset==='expenses'&&<CategoryBatchDialog operations={cohort.history.operations} decision={decision} period={cohort.history.period} scope={scope} onDecision={next=>setUpdates(old=>({...old,[`${next.dataset}/${next.operationId}`]:next}))} onRefresh={onRefresh}/>}
   <Typography variant="body2">Операций: {filtered.length}. Страница {page} из {pages}.</Typography>
   {!filtered.length&&<Typography>{nav.filter==='pending'?`Неклассифицированных ${nav.dataset==='expenses'?'расходов':'доходов'} за выбранный период нет`:nav.filter==='approved'?'Классифицированных операций за выбранный период нет':'За выбранный период операций нет'}</Typography>}
   {[...groups].map(([day,rows])=><Stack key={day} spacing={0.5}><Typography component="h2" variant="h6">{day}</Typography>{rows.map(op=><OperationRow key={op.operationId} operation={op} scope={scope} readOnly={false} decision={decision(op)} expanded={selected===op.operationId} onToggle={()=>setSelected(selected===op.operationId?null:op.operationId)} onClose={()=>setSelected(null)} onRefresh={onRefresh} onDecision={next=>setUpdates(old=>({...old,[`${op.dataset}/${op.operationId}`]:next}))}/>)}</Stack>)}
