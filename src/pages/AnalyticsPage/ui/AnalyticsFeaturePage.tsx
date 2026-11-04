@@ -39,7 +39,7 @@ export const AnalyticsFeaturePage = ({
           onChange={setSelection}
           period={period.ok ? period.value : null}
         />
-        {mode !== 'classification' && <Typography>
+        {mode !== 'classification' && mode !== 'classification-stats' && <Typography>
           Учитываются записанные расходы и поступления выбранного периода.
           Полнота записи и полнота классификации проверяются отдельно. Границы
           периода — UTC.

@@ -149,10 +149,10 @@ export async function save(page, review) {
 export async function statistics(page, mode='statistics') {
   await analytics(page,mode==='planning'?'planning':'classification-stats');
   const load=page.getByRole('button',{name:'Загрузить реальную статистику классификации',exact:true});
-  if(await load.count())await load.click();
+  if(mode==='planning'&&await load.count())await load.click();
   if(mode==='planning') {await expect(page.getByRole('region',{name:'Прогноз по записанной истории'})).toBeVisible();return page.getByRole('region',{name:'Прогноз по записанной истории'});}
-  await expect(page.getByRole('table',{name:'Статусы и роли расходов'})).toBeVisible();
-  return page.getByRole('region',{name:'Классификация расходов',exact:true});
+  await expect(page.getByRole('table',{name:'Группы расходов'})).toBeVisible();
+  return page.getByRole('region',{name:'Расходы',exact:true});
 }
 export async function confirmMonths(region, count = 12) {
   for(let i=1;i<=count;i++){

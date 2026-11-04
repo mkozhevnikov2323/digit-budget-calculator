@@ -54,3 +54,7 @@ it('categories preserve exact string identity and recording evidence is never in
     ? { ...op, facts: { ...op.facts, category: ' Транспорт ' } } : op) };
   expect(recordedCategories(c)).toHaveLength(2); expect(recordedHistoryInput(c).monthEvidence.every(x => x.recording === 'unverified')).toBe(true);
 });
+it('sorts categories by descending amount then name without changing source facts, totals or counts',()=>{
+ const c=recordedCohort();c.history={...c.history,operations:c.history.operations.map((op,i)=>op.dataset==='expenses'?{...op,facts:{...op.facts,category:i<4?'Яблоки':i<8?'Аптеки':'Транспорт'}}:op)};const before=JSON.stringify(c);
+ expect(recordedCategories(c)).toEqual([{category:'Транспорт',kopecks:9872,count:8},{category:'Аптеки',kopecks:2468,count:2},{category:'Яблоки',kopecks:2468,count:2}]);expect(JSON.stringify(c)).toBe(before);const r=recordedStatistics(c);expect(r.ok).toBe(true);if(r.ok)expect(r.value.expenses.recorded).toEqual({kopecks:14808,count:12});
+});
