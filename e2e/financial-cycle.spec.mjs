@@ -1,5 +1,5 @@
 import { test, expect, login, analytics, selectPrimary, selectOperation, chooseClassification, save, statistics,
-  confirmMonths, plan, distribute, exportPlan, sum, reopenAfterSave } from './fixture.mjs';
+  confirmMonths, plan, distribute, exportPlan, sum, reopenAfterSave, checkClassificationNavigation } from './fixture.mjs';
 
 // Fixed independent integer-kopeck expectations; no application calculators imported.
 const money = text => {
@@ -80,16 +80,22 @@ test('E2E-02 Exact annual monthly category loan and UTC-boundary reconciliation'
 test('E2E-03 Explicit server review persists a manual decision without source mutation', async ({ page, stack }) => {
   await start(page);
   await test.step('server facts and separate manual confirmation before real commit', async () => {
+    await analytics(page,'classification');await page.getByRole('tab',{name:'Расходы',exact:true}).click();
+    await page.getByRole('button',{name:'Не классифицировано (2)',exact:true}).click();
     const review = await selectPrimary(page, stack);
     await page.getByLabel('Тип операции', { exact: true }).selectOption('ordinary_expense');
     await page.getByLabel('Группа расходов', { exact: true }).selectOption('everyday');
     expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await chooseClassification(page, review); expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeEnabled();
-    let reads=0,puts=0,legacy=0;const observe=r=>{if(r.method()==='GET'||/history\/read$/.test(r.url()))reads++;if(r.method()==='PUT'&&/\/decision$/.test(r.url()))puts++;if(/\/c-v1\//.test(r.url()))legacy++;};page.on('request',observe);
+    // Financial API reads only: frontend font/chunk requests are not data reloads.
+    let reads=0,puts=0,legacy=0;const observe=r=>{if(new URL(r.url()).origin===stack.baseUrl&&(r.method()==='GET'||/history\/read$/.test(r.url())))reads++;if(r.method()==='PUT'&&/\/decision$/.test(r.url()))puts++;if(/\/c-v1\//.test(r.url()))legacy++;};page.on('request',observe);
     const apply=page.waitForResponse(r=>/\/decision$/.test(r.url()));
     await review.getByRole('button',{name:'Классифицировать',exact:true}).click();expect((await apply).status()).toBe(201);
     await expect(page.getByRole('region',{name:'Проверка операции'})).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Не классифицировано (1)',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Классифицировано (14)',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Fictional fuel',exact:true})).toHaveCount(0);
+    await page.getByRole('button',{name:'Все (15)',exact:true}).click();
     const row=page.getByRole('heading',{name:'15.01.2025',level:2}).locator('..').getByRole('button',{name:'Fictional fuel',exact:true});
     await expect(row.getByText('Классифицировано',{exact:true})).toBeVisible();await expect(row.getByText('Обычный расход',{exact:true})).toBeVisible();await expect(row.getByText('Повседневные расходы',{exact:true})).toBeVisible();
     expect(reads).toBe(0);expect(puts).toBe(1);expect(legacy).toBe(0);page.off('request',observe);
@@ -239,6 +245,8 @@ test('E2E-09 Explicit budget-plan-v1 export import rejects malformed and unsuppo
     await assertSources(stack);
   });
 
+  await test.step('classification page four survives reload, navigation is local and compact mobile layout fits',async()=>{await checkClassificationNavigation(page,stack);await assertSources(stack);});
+
 });
 
 test('E2E-10 Cross-owner HTTP access and account switching isolate decisions drafts and evidence', async ({ page, stack }) => {
@@ -307,7 +315,7 @@ test('E2E-12 Single PUT concurrent CAS duplicate click unknown outcome and respo
     await expect(review.getByRole('button', { name: /^(Классифицировать|Сохранить изменения)$/, exact: true })).toBeDisabled();
     const before = await stack.rpc('inspect');
     await review.getByRole('button', { name: 'Обновить состояние без повторной записи', exact: true }).click();
-    await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();
+    await selectOperation(page,stack.misc);
     await expect(page.getByRole('button',{name:'Сохранить изменения',exact:true})).toBeDisabled();
     expect(writes).toBe(1); expect((await stack.rpc('inspect')).classifications).toBe(before.classifications);
   });

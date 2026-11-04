@@ -182,3 +182,41 @@ test.afterEach(async ({ page }, testInfo) => {
       mask: [page.locator('input, textarea')], fullPage: false });
   }
 });
+
+// Browser-only synthetic pagination fixture. No records are written to MongoDB;
+// responses cross the same production membership/batch validators as real reads.
+export async function checkClassificationNavigation(page, stack) {
+  const rows=Array.from({length:105},(_,i)=>({_id:(10000+i).toString(16).padStart(24,'0'),owner:stack.owners.a,amount:1,date:new Date(Date.UTC(2025,0,15,12,0,0,i)).toISOString(),category:'Synthetic category',title:`Synthetic expense ${i}`,recipient:'Synthetic'}));
+  const byId=new Map(rows.map(r=>[r._id,r]));let reads=0,individual=0;
+  const route=async route=>{
+    const request=route.request(),url=new URL(request.url());
+    if(request.method()==='GET'&&['/expenses','/incomes'].includes(url.pathname)){
+      reads++;const data=url.pathname==='/expenses'?rows:[],dataset=url.pathname.slice(1),number=Number(url.searchParams.get('page')),limit=Number(url.searchParams.get('limit'));
+      await route.fulfill({headers:{'Access-Control-Allow-Origin':'http://localhost:5173'},json:{[dataset]:data.slice((number-1)*limit,number*limit),total:data.length,page:number,limit}});return;
+    }
+    if(request.method()==='POST'&&url.pathname==='/classifications/history/read'){
+      reads++;const body=request.postDataJSON();const operations=body.operations.map(identity=>{const row=byId.get(identity.operationId);return {...identity,facts:{amount:{format:'binary64-roundtrip-decimal',value:'1'},dateEpochMs:Date.parse(row.date),date:row.date,category:row.category,title:row.title,recipient:row.recipient,comment:{kind:'missing'}},classification:{version:'classification-read-v1',...identity,status:'unreviewed',storedState:null,decisionRevision:null,confirmed:null,consistency:'observed_only_non_atomic'}};});
+      await route.fulfill({headers:{'Access-Control-Allow-Origin':'http://localhost:5173'},json:{version:'classification-history-read-v1',window:{startInclusive:body.startInclusive,endExclusive:body.endExclusive},coverage:'requested_identities_only',consistency:'observed_only_non_atomic',returnedCount:operations.length,operations}});return;
+    }
+    if(request.method()==='GET'&&/^\/classifications\//.test(url.pathname))individual++;
+    await route.fallback();
+  };
+  await page.route(`${stack.baseUrl}/**`,route);
+  try {
+    await analytics(page,'classification');await page.getByRole('tab',{name:'Расходы',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Все (105)',exact:true})).toBeVisible();
+    const initial=reads;await page.getByRole('button',{name:'Перейти на страницу 4',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Synthetic expense 75',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Перейти на страницу 5',exact:true}).click();await expect(page.getByRole('button',{name:'Synthetic expense 100',exact:true})).toBeVisible();
+    await page.goBack();await expect(page.getByRole('button',{name:'Synthetic expense 75',exact:true})).toBeVisible();
+    expect(reads).toBe(initial);expect(individual).toBe(0);
+    await page.reload();await expect(page.getByRole('button',{name:'Synthetic expense 75',exact:true})).toBeVisible();expect(new URL(page.url()).searchParams.get('page')).toBe('4');
+    const afterReload=reads;await page.getByRole('button',{name:'Не классифицировано (105)',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Synthetic expense 0',exact:true})).toBeVisible();expect(new URL(page.url()).searchParams.get('page')).toBe('1');
+    for(const width of [1440,390,320]){
+      await page.setViewportSize({width,height:1000});
+      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);expect(overflow).toBe(false);
+    }
+    expect(reads).toBe(afterReload);expect(individual).toBe(0);
+  }finally{await page.unroute(`${stack.baseUrl}/**`,route);await page.setViewportSize({width:1440,height:1000});}
+}
