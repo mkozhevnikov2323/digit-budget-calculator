@@ -134,8 +134,10 @@ test('E2E-05 Classification buckets roles layers and coverage reconcile exactly'
   await start(page); await classify(page, stack);
   // Removed technical UI tables still have exact accounting assertions against
   // the actual validated batch responses used by the automatically loaded UI.
+  // Automatic loading may also observe the initial calendar before analytics()
+  // selects 2025. Do not mix observations from different report windows.
   const batches=[],observations=new Map();
-  const capture=response=>{if(response.url().endsWith('/classifications/history/read')&&response.request().method()==='POST'&&response.ok())batches.push(response.json().then(body=>{for(const op of body.operations)observations.set(`${op.dataset}/${op.operationId}`,op);}));};
+  const capture=response=>{if(response.url().endsWith('/classifications/history/read')&&response.request().method()==='POST'&&response.ok())batches.push(response.json().then(body=>{if(body.window.startInclusive!==Date.UTC(2025,0,1)||body.window.endExclusive!==Date.UTC(2026,0,1))return;for(const op of body.operations)observations.set(`${op.dataset}/${op.operationId}`,op);}));};
   page.on('response',capture);await statistics(page);await Promise.all(batches);page.off('response',capture);
   await test.step('no duplicate accounting across status role and layer views', async () => {
     const recorded=[...observations.values()].filter(op=>op.dataset==='expenses');expect(recorded.length).toBe(15);
