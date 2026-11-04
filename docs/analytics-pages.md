@@ -95,3 +95,24 @@ URL; Back/Forward restores it. Dataset pages are independent. Filter changes res
 both pages; calendar changes reset them using the existing session-memory Redux
 period marker, not a new URL calendar mechanism. No identities, amounts, facts,
 credentials or confirmations are serialized in these query parameters.
+
+### Temporary category batch classification
+
+The classification expenses tab can preview the complete already verified period
+(not only the current page) using `temporaryCategoryRules.ts`. These eight exact
+category mappings are temporary personal rules of the project owner, not a
+universal policy. They never run on login or expense creation. Only `unreviewed`
+expenses without unresolved write risk qualify; incomes and reviewed decisions
+are excluded. Preview and cancellation before confirmation perform no writes.
+
+Explicit confirmation uses the existing validated `putDecision` once per item,
+with its observed revision/facts and a distinct requestId. Three workers bound
+concurrency; there are no automatic retries. Confirmed responses update only the
+local operation overlay and counters, with no automatic history refresh. Manual
+and batch admission share the existing owner/session-scoped unresolved-write
+flags. Cancellation, period change, session change and unmount stop new work;
+in-flight requests may have persisted and retain risk when acknowledgement is
+lost. Read-only recovery is explicit. Unknown items remain excluded from another
+batch until their state is checked through the existing manual recovery flow.
+The summary distinguishes confirmed successes, failures, unknown outcomes and
+unsent operations. This is not an atomic multi-operation transaction.
