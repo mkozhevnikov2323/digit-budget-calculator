@@ -32,3 +32,18 @@ transaction, source mutation, persistent attestation or plan collection is added
 Backend P5 must be reviewed/available with its default-off history read gate.
 Backend P6 writes additionally require approved real operational key/fleet/readiness
 wiring; the frontend cannot enable these production capabilities.
+
+The classification-statistics page automatically subscribes to coherent history
+for the verified owner and selected calendar period. Its compact expense/income
+cards display the existing recorded and approved coverage aggregates; a missing
+denominator is shown as a dash. Status/role partitions and all reconciliation
+checks remain internal. Expense groups retain the existing ordinary-expense-only
+layer semantics; categories remain an independent exact-string partition, sorted
+by descending amount and then Russian name. The monthly table is unchanged.
+Technical explanation text is omitted from the statistics UI, not from validation.
+
+Planning retains its existing explicit history load/close/recheck controls,
+forecast evidence and local plan lifecycle. Automatic statistics subscription
+never sets the planning historyOpen state. Loading, failed reads, mismatched
+owner/period and lost owner verification suppress cached statistics completely;
+failed report reconciliation also suppresses all totals and exposes a retry.

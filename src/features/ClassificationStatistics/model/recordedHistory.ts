@@ -32,7 +32,7 @@ const categoriesFor = (cohort: CoherentHistory, stats: ReturnType<typeof recorde
     const amount = sumKopecks([group.kopecks, op.kopecks]); if (!amount.ok) return null;
     group.kopecks = amount.value; group.count++; groups.set(category, group);
   }
-  const result = [...groups.values()].sort((a, b) => a.category.localeCompare(b.category));
+  const result = [...groups.values()].sort((a, b) => b.kopecks - a.kopecks || a.category.localeCompare(b.category, 'ru'));
   const total = sumKopecks(result.map(x => x.kopecks));
   return total.ok && total.value === stats.value.expenses.recorded.kopecks
     && result.reduce((n, x) => n + x.count, 0) === stats.value.expenses.recorded.count ? result : null;
