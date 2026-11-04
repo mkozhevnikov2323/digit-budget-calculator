@@ -137,8 +137,9 @@ test('E2E-05 Classification buckets roles layers and coverage reconcile exactly'
   // Automatic loading may also observe the initial calendar before analytics()
   // selects 2025. Do not mix observations from different report windows.
   const batches=[],observations=new Map();
+  const selectedBatch=page.waitForResponse(response=>response.url().endsWith('/classifications/history/read')&&response.request().method()==='POST'&&response.ok()&&response.request().postDataJSON().startInclusive===Date.UTC(2025,0,1)&&response.request().postDataJSON().endExclusive===Date.UTC(2026,0,1));
   const capture=response=>{if(response.url().endsWith('/classifications/history/read')&&response.request().method()==='POST'&&response.ok())batches.push(response.json().then(body=>{if(body.window.startInclusive!==Date.UTC(2025,0,1)||body.window.endExclusive!==Date.UTC(2026,0,1))return;for(const op of body.operations)observations.set(`${op.dataset}/${op.operationId}`,op);}));};
-  page.on('response',capture);await statistics(page);await Promise.all(batches);page.off('response',capture);
+  page.on('response',capture);await statistics(page);await selectedBatch;await Promise.all(batches);page.off('response',capture);
   await test.step('no duplicate accounting across status role and layer views', async () => {
     const recorded=[...observations.values()].filter(op=>op.dataset==='expenses');expect(recorded.length).toBe(15);
     const total=predicate=>sum(recorded.filter(predicate).map(op=>{const value=Number(op.facts.amount.value)*100;expect(Number.isSafeInteger(value)).toBe(true);return value;}));
@@ -148,7 +149,7 @@ test('E2E-05 Classification buckets roles layers and coverage reconcile exactly'
     expect(total(op=>op.classification.status==='approved'&&op.classification.confirmed?.economicRole==='loan_issuance')).toBe(30000);
     expect(total(op=>op.classification.status==='approved'&&op.classification.confirmed?.economicRole==='ordinary_expense')).toBe(144000);
     const expenses = page.getByRole('region', { name: 'Расходы', exact: true });
-    expect(money(await expenses.getByText(/^Общая сумма расходов:/).innerText())).toBe(179000);
+    await expect.poll(async()=>money(await expenses.getByText(/^Общая сумма расходов:/).innerText())).toBe(179000);
     await expect(expenses.getByText('Количество операций: 15',{exact:true})).toBeVisible();
     await expect(expenses.getByText('Классифицировано по количеству: 93,3%',{exact:true})).toBeVisible();
     await expect(expenses.getByText('Классифицировано по сумме: 97,2%',{exact:true})).toBeVisible();
