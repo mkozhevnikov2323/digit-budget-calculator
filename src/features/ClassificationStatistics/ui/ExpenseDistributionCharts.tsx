@@ -16,7 +16,7 @@ export const ExpenseDistributionCharts=({title,rows,count}:{title:string;rows:re
    </Box>
    <Box sx={{flex:1,minWidth:0}}><Typography component="h3" variant="subtitle1">Суммы расходов</Typography>
     {positive?<BarChart height={300} hideLegend skipAnimation aria-label={`Столбчатая диаграмма: ${title}`}
-     xAxis={[{scaleType:'band',data:rows.map((_r,index)=>index),colorMap:{type:'ordinal',colors},valueFormatter:(value,context)=>{const label=rows[value]?.label??'';return context.location==='tick'&&label.length>16?label.slice(0,15)+'…':label;},tickLabelStyle:{angle:-30,fontSize:10}}]}
+     xAxis={[{scaleType:'band',data:rows.map((_r,index)=>index),colorMap:{type:'ordinal',values:rows.map((_r,index)=>index),colors:rows.map((_r,index)=>colors[index%colors.length])},valueFormatter:(value,context)=>{const label=rows[value]?.label??'';return context.location==='tick'&&label.length>16?label.slice(0,15)+'…':label;},tickLabelStyle:{angle:-30,fontSize:10}}]}
      yAxis={[{valueFormatter:(value:number)=>Number.isSafeInteger(value)?money(value):''}]}
      series={[{data:rows.map(r=>r.kopecks),valueFormatter:(_value,context)=>rows[context.dataIndex]?description(rows[context.dataIndex]):'—'}]}
      margin={{bottom:75,left:70,right:10,top:10}}/>:<Typography>{empty}</Typography>}
