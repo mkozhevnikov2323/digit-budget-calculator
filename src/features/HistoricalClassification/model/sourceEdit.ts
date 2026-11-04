@@ -1,20 +1,15 @@
 import {customPeriod} from 'features/FinancialAnalytics/model/period';
 import {canonicalId,closedData,validateClassificationRead} from './contract';
 import {parseSourceFacts} from './coherentHistory';
-import {parseNavigation} from '../ui/classificationNavigation';
 
-export type SourceEditTarget={kind:'classification-source-edit-v1';dataset:'expenses'|'incomes';operationId:string;ownerId:string;sessionGeneration:number;firstDate:string;lastDate:string;returnSearch:string};
-/** Router state contains identity/navigation only, never an editable financial snapshot. */
+export type SourceEditTarget={dataset:'expenses'|'incomes';operationId:string;ownerId:string;sessionGeneration:number;firstDate:string;lastDate:string};
+/** In-memory selection only; editable facts always come from the owner-scoped API. */
 export const readSourceEditTarget=(input:unknown):SourceEditTarget|null=>{
- const r=closedData(input,['kind','dataset','operationId','ownerId','sessionGeneration','firstDate','lastDate','returnSearch']);
- if(!r||Object.keys(r).length!==8||r.kind!=='classification-source-edit-v1'||(r.dataset!=='expenses'&&r.dataset!=='incomes')||!canonicalId(r.operationId)||!canonicalId(r.ownerId)
+ const r=closedData(input,['dataset','operationId','ownerId','sessionGeneration','firstDate','lastDate']);
+ if(!r||Object.keys(r).length!==6||(r.dataset!=='expenses'&&r.dataset!=='incomes')||!canonicalId(r.operationId)||!canonicalId(r.ownerId)
   ||typeof r.sessionGeneration!=='number'||!Number.isSafeInteger(r.sessionGeneration)||r.sessionGeneration<1||typeof r.firstDate!=='string'||typeof r.lastDate!=='string'
-  ||!customPeriod(r.firstDate,r.lastDate).ok||typeof r.returnSearch!=='string'||r.returnSearch.length>512)return null;
- return {kind:r.kind,dataset:r.dataset,operationId:r.operationId,ownerId:r.ownerId,sessionGeneration:r.sessionGeneration,firstDate:r.firstDate,lastDate:r.lastDate,returnSearch:classificationReturnSearch(r.returnSearch)};
-};
-export const classificationReturnSearch=(search:string)=>{
- const n=parseNavigation(new URLSearchParams(search));
- return '?'+new URLSearchParams({dataset:n.dataset,filter:n.filter,page:String(n.page),incomesPage:String(n.incomePage),expensesPage:String(n.expensePage)});
+  ||!customPeriod(r.firstDate,r.lastDate).ok)return null;
+ return {dataset:r.dataset,operationId:r.operationId,ownerId:r.ownerId,sessionGeneration:r.sessionGeneration,firstDate:r.firstDate,lastDate:r.lastDate};
 };
 /** A one-identity request uses the existing bounded, owner-scoped history API. */
 export const sourceEditRequest=(target:SourceEditTarget)=>{
