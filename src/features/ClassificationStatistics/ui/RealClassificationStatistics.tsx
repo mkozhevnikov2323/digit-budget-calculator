@@ -1,23 +1,22 @@
 import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
-import { layerLabel, statusLabel, monthLabel } from 'shared/lib/analytics/presentation';
+import { layerLabel } from 'shared/lib/analytics/presentation';
 import { useId, useMemo, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
-import { Alert, Button, CircularProgress, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Alert, Button, CircularProgress, Paper, Stack, Table, TableContainer, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
 import type { CalendarPeriod } from 'features/FinancialAnalytics/model/period';
-import { formatKopecks } from 'features/FinancialAnalytics/model/money';
-import { FINANCIAL_LAYERS } from 'features/FinancialClassification/model/types';
 import { useGetCoherentHistoryQuery } from 'features/HistoricalClassification/api/historyApi';
 import type { CoherentHistory } from 'features/HistoricalClassification/model/coherentHistory';
 import { recordedReport } from '../model/recordedHistory';
 import { RealExpenseForecast, type RecordedForecastSuggestion } from 'features/ExpenseForecast/ui/RealExpenseForecast';
 import { BudgetPlanning } from 'features/BudgetPlanning/ui/BudgetPlanning';
-const money = (n: number) => { const f = formatKopecks(n); return f.ok ? f.value : 'Недоступно'; };
-const percent = (n: number | null) => n === null ? '—' : `${(n * 100).toFixed(1).replace('.', ',')}%`;
+import {money,percent} from './format';
+import {ExpenseDistributionCharts} from './ExpenseDistributionCharts';
+const groupLabel=(group:string)=>group==='other'?'Прочие расходы / без группы':group==='mixed'?'Смешанный тип расходов':layerLabel(group);
 
 export const RecordedStatisticsReport = ({ cohort, onRetry }: { cohort: CoherentHistory; onRetry?:()=>void }) => {
-  const { result, categories } = useMemo(() => recordedReport(cohort), [cohort]);
-  if (!result.ok || !categories) return <Stack><Alert severity="error">Не удалось загрузить статистику</Alert>{onRetry&&<Button onClick={onRetry}>Повторить</Button>}</Stack>;
+  const { result, distribution } = useMemo(() => recordedReport(cohort), [cohort]);
+  if (!result.ok || !distribution) return <Stack><Alert severity="error">Не удалось загрузить статистику</Alert>{onRetry&&<Button onClick={onRetry}>Повторить</Button>}</Stack>;
   const stats = result.value;
   return <Stack spacing={1} aria-label="Реальная статистика классификации">
     <Stack direction={{xs:'column',sm:'row'}} spacing={2}>
@@ -33,17 +32,15 @@ export const RecordedStatisticsReport = ({ cohort, onRetry }: { cohort: Coherent
     })}
     </Stack>
     <Typography component="h2" variant="h6">Группы расходов</Typography>
-    <Table size="small" aria-label="Группы расходов"><TableHead><TableRow><TableCell>Группа</TableCell><TableCell>Сумма</TableCell><TableCell>Операций</TableCell></TableRow></TableHead>
-      <TableBody>{FINANCIAL_LAYERS.map(layer => <TableRow key={layer}><TableCell>{layerLabel(layer)}</TableCell><TableCell>{money(stats.expenses.layers[layer].kopecks)}</TableCell><TableCell>{stats.expenses.layers[layer].count}</TableCell></TableRow>)}</TableBody>
-    </Table>
+    <ExpenseDistributionCharts title="Группы расходов" count={stats.expenses.recorded.count} rows={distribution.groups.map(g=>({...g,label:groupLabel(g.group)}))}/>
+    <TableContainer><Table size="small" aria-label="Группы расходов"><TableHead><TableRow>{['Группа','Сумма','Доля суммы, %','Операций','Доля операций, %'].map(label=><TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
+      <TableBody>{distribution.groups.map(g=><TableRow key={g.group}><TableCell>{groupLabel(g.group)}</TableCell><TableCell>{money(g.kopecks)}</TableCell><TableCell>{percent(g.amountShare)}</TableCell><TableCell>{g.count}</TableCell><TableCell>{percent(g.countShare)}</TableCell></TableRow>)}</TableBody>
+    </Table></TableContainer>
     <Typography component="h2" variant="h6">Расходы по категориям</Typography>
-    <Table size="small" aria-label="Расходы по категориям"><TableHead><TableRow><TableCell>Категория</TableCell><TableCell>Сумма</TableCell><TableCell>Операций</TableCell></TableRow></TableHead>
-      <TableBody>{categories.map(c => <TableRow key={c.category}><TableCell sx={{ whiteSpace: 'pre-wrap' }}>{c.category || '(пустая строка)'}</TableCell><TableCell>{money(c.kopecks)}</TableCell><TableCell>{c.count}</TableCell></TableRow>)}</TableBody>
-    </Table>
-    <Table size="small" aria-label="Реальная месячная классификация"><TableHead><TableRow>{['Месяц UTC', 'Расходы', 'Поступления', 'Классифицированные расходы', ...FINANCIAL_LAYERS.map(layerLabel)].map(x => <TableCell key={x}>{x}</TableCell>)}</TableRow></TableHead>
-      <TableBody>{stats.months.map(m => <TableRow key={m.key}><TableCell>{monthLabel(m.key)} · {statusLabel(m.calendar)}</TableCell><TableCell>{money(m.expenses.recorded.kopecks)}</TableCell><TableCell>{money(m.incomes.recorded.kopecks)}</TableCell><TableCell>{money(m.expenses.statuses.approved.kopecks)}</TableCell>
-        {FINANCIAL_LAYERS.map(layer => <TableCell key={layer}>{money(m.expenses.layers[layer].kopecks)}</TableCell>)}</TableRow>)}</TableBody>
-    </Table>
+    <ExpenseDistributionCharts title="Расходы по категориям" count={stats.expenses.recorded.count} rows={distribution.categories.map(c=>({...c,label:c.category||'Без названия категории'}))}/>
+    <TableContainer><Table size="small" aria-label="Расходы по категориям"><TableHead><TableRow>{['Категория','Тип расходов','Сумма','Доля суммы, %','Операций','Доля операций, %'].map(label=><TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
+      <TableBody>{distribution.categories.map(c=><TableRow key={c.category}><TableCell sx={{whiteSpace:'pre-wrap'}}>{c.category||'Без названия категории'}</TableCell><TableCell>{groupLabel(c.group)}</TableCell><TableCell>{money(c.kopecks)}</TableCell><TableCell>{percent(c.amountShare)}</TableCell><TableCell>{c.count}</TableCell><TableCell>{percent(c.countShare)}</TableCell></TableRow>)}</TableBody>
+    </Table></TableContainer>
     {!stats.expenses.recorded.count && !stats.incomes.recorded.count && <Typography>За выбранный период операций нет.</Typography>}
   </Stack>;
 };
