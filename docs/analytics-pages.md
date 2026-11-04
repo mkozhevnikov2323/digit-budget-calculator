@@ -10,10 +10,9 @@ routes now mount real functionality, one page at a time:
 - `/analytics/income-sources`: existing source activity, not income forecasting.
 - `/analytics/history`: owned history, pagination, selection and fact inspection;
   no decision reads or mutations are initiated by selecting a history row.
-- `/analytics/classification`: income-first tabs, UTC-date groups and inline operation
-  editors. Only the 25 visible rows read decisions. Changed selections automatically
-  prepare server facts; one explicit Save confirms that prepared intent. Cancellation,
-  conflicts and unknown outcomes never apply automatically.
+- `/analytics/classification`: compact income-first tabs, ascending UTC-date groups,
+  complete-period batch classifications, exact status filters and numbered 25-row
+  pages. One explicit PUT saves a decision; no per-row GETs or automatic retries.
 - `/analytics/classification-stats`: coherent history, status/role/layer/category
   partitions, monthly statistics and classification coverage.
 - `/analytics/planning`: coherent historical basis, explicit recording attestations,
@@ -72,3 +71,27 @@ Production C flags, backend APIs, MongoDB schemas/configuration and deployment a
 unchanged. Test-only C activation remains confined to the existing disposable
 browser fixture. Previous P10/P12 assertions are adapted to destinations/labels,
 with additional filter, reload, cache reuse, input-retention and privacy checks.
+
+## Classification navigation and period completeness
+
+Classification reuses getCoherentHistory unchanged: bounded membership reads before
+and after batches, at most 100 identities per batch/four workers and 50,000 total
+records, strict source/decision validation, current owner/session checks and no
+partial publication. History readOnly keeps the previous membership-only loader.
+Filters and page changes never enter the query arguments. Unknown/unavailable
+cohorts show errors rather than misleading counters or partial filtered results.
+
+Counters use all operations of the selected dataset: pending means exactly
+unreviewed, approved exactly approved; explicit_unclassified, cleared, stale and
+blocked remain in all only. A validated PUT updates one local decision and the
+counters. Unknown outcomes change neither and retain explicit read-only recovery.
+Recovery after a real error/conflict is an explicit coherent reread; there is no
+global refresh button, polling or automatic reload after success.
+
+Only navigation metadata enters the URL: dataset, filter, page, incomesPage and
+expensesPage. Positive page numbers are validated/bounded then clamped to available
+pages. Navigation pushes history; automatic clamping replaces it. Reload reads the
+URL; Back/Forward restores it. Dataset pages are independent. Filter changes reset
+both pages; calendar changes reset them using the existing session-memory Redux
+period marker, not a new URL calendar mechanism. No identities, amounts, facts,
+credentials or confirmations are serialized in these query parameters.

@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router';
 import {
   act,
   fireEvent,
@@ -85,12 +86,12 @@ const Tree = ({
         },
       }}
     >
-      <ThemeProvider theme={theme}>
+      <MemoryRouter><ThemeProvider theme={theme}>
         <AnalyticsDestination
           key={page}
           page={page}
         />
-      </ThemeProvider>
+      </ThemeProvider></MemoryRouter>
     </VerifiedOwnerContext.Provider>
   </Provider>
 );
