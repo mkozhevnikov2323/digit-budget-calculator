@@ -24,6 +24,7 @@ import { RecipientField } from 'features/AddRecipients';
 
 type EditExpenseFormProps = {
   expenseId: string | number;
+  initialExpense?: ExpenseSchema;
   onClose: () => void;
 };
 
@@ -34,9 +35,11 @@ type ExpenseFormData = Pick<
 
 export const EditExpenseForm: React.FC<EditExpenseFormProps> = ({
   expenseId,
+  initialExpense,
   onClose,
 }) => {
-  const expense = useSelector(selectExpenseById(String(expenseId)));
+  const storedExpense = useSelector(selectExpenseById(String(expenseId)));
+  const expense = initialExpense ? (initialExpense._id === String(expenseId) ? initialExpense : undefined) : storedExpense;
 
   const [updateExpense] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();

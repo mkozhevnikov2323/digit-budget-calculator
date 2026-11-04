@@ -22,6 +22,7 @@ import { selectIncomeById } from 'entities/Income';
 
 type EditIncomeFormProps = {
   incomeId: string | number;
+  initialIncome?: IncomeSchema;
   onClose: () => void;
 };
 
@@ -32,9 +33,11 @@ type IncomeFormData = Pick<
 
 export const EditIncomeForm: React.FC<EditIncomeFormProps> = ({
   incomeId,
+  initialIncome,
   onClose,
 }) => {
-  const income = useSelector(selectIncomeById(String(incomeId)));
+  const storedIncome = useSelector(selectIncomeById(String(incomeId)));
+  const income = initialIncome ? (initialIncome._id === String(incomeId) ? initialIncome : undefined) : storedIncome;
 
   const [updateIncome] = useUpdateIncomeMutation();
   const [deleteIncome] = useDeleteIncomeMutation();
