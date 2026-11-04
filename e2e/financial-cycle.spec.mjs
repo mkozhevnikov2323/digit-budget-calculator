@@ -157,7 +157,7 @@ test('E2E-05 Classification buckets roles layers and coverage reconcile exactly'
     const layers = page.getByRole('table', { name: 'Группы расходов', exact: true });
     expect(await rowMoney(layers, 'Повседневные расходы')).toBe(120000); expect(await rowMoney(layers, 'Нерегулярные расходы')).toBe(24000);
     const categories = page.getByRole('table', { name: 'Расходы по категориям', exact: true });
-    expect(await rowMoney(categories, 'Транспорт')).toBe(144000);
+    expect(await rowMoney(categories, 'Транспорт',2)).toBe(144000);
     await assertSources(stack);
   });
 });

@@ -39,7 +39,7 @@ cards display the existing recorded and approved coverage aggregates; a missing
 denominator is shown as a dash. Status/role partitions and all reconciliation
 checks remain internal. Expense groups retain the existing ordinary-expense-only
 layer semantics; categories remain an independent exact-string partition, sorted
-by descending amount and then Russian name. The monthly table is unchanged.
+by descending amount and then Russian name. Monthly calculations remain in the model; the redundant monthly UI table is removed.
 Technical explanation text is omitted from the statistics UI, not from validation.
 
 Planning retains its existing explicit history load/close/recheck controls,
@@ -47,3 +47,12 @@ forecast evidence and local plan lifecycle. Automatic statistics subscription
 never sets the planning historyOpen state. Loading, failed reads, mismatched
 owner/period and lost owner verification suppress cached statistics completely;
 failed report reconciliation also suppresses all totals and exposes a retry.
+
+Expense distribution is a display-only partition of all recorded outgoing
+operations: five confirmed ordinary-expense layers plus an independent `other`
+bucket for every remaining expense. It never changes taxonomy or a decision.
+Safe integer sums/counts must match the recorded totals; each ordinary group also
+matches its existing layer aggregate. Category shares use those same whole-period
+denominators and category types come from the set of actual display groups, not
+category names. Pie and bar plots share the complete group/category aggregates
+with their tables; zero denominators remain null and display a dash.

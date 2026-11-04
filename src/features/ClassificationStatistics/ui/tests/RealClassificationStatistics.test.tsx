@@ -5,6 +5,8 @@ import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
 import { useGetCoherentHistoryQuery } from 'features/HistoricalClassification/api/historyApi';
 import { recordedCohort } from '../../model/tests/recordedFixtures';
 import {STATUSES} from '../../model/statistics';
+jest.mock('@mui/x-charts/PieChart',()=>({PieChart:()=> <div data-testid="pie-chart"/>}));
+jest.mock('@mui/x-charts/BarChart',()=>({BarChart:()=> <div data-testid="bar-chart"/>}));
 jest.mock('entities/User/model/useVerifiedOwner');
 jest.mock('features/HistoricalClassification/api/historyApi', () => ({ useGetCoherentHistoryQuery: jest.fn() }));
 const owner = jest.mocked(useVerifiedOwner), query = jest.mocked(useGetCoherentHistoryQuery), cohort = recordedCohort();
@@ -17,17 +19,18 @@ it('automatically loads the selected period and shows compact summaries without 
  const expenses=within(screen.getByRole('region',{name:'Расходы'})),incomes=within(screen.getByRole('region',{name:'Доходы'}));
  expect(expenses.getByText(/Общая сумма расходов:/)).toHaveTextContent('148,08');expect(incomes.getByText(/Общая сумма доходов:/)).toHaveTextContent('681,36');
  for(const card of [expenses,incomes]){expect(card.getByText('Количество операций: 12')).toBeVisible();expect(card.getByText('Классифицировано по количеству: 100,0%')).toBeVisible();expect(card.getByText('Классифицировано по сумме: 100,0%')).toBeVisible();}
- expect(screen.getAllByRole('table')).toHaveLength(3);expect(screen.queryByRole('table',{name:/Статусы и роли/})).not.toBeInTheDocument();
+ expect(screen.getAllByRole('table')).toHaveLength(2);expect(screen.queryByRole('table',{name:/Статусы и роли/})).not.toBeInTheDocument();
  expect(screen.queryByText(/неатомарные|Категория не назначает|Статусы и роли|нет знаменателя|Классификация записанной|ДЕМО/)).not.toBeInTheDocument();
  for(const name of ['Загрузить реальную статистику классификации','Закрыть реальную статистику','Заново проверить состав и факты периода'])expect(screen.queryByRole('button',{name})).not.toBeInTheDocument();
- expect(screen.getByRole('table',{name:'Реальная месячная классификация'})).toHaveTextContent('Месяц UTC');
+ expect(screen.queryByRole('table',{name:'Реальная месячная классификация'})).not.toBeInTheDocument();expect(screen.getAllByTestId('pie-chart')).toHaveLength(2);expect(screen.getAllByTestId('bar-chart')).toHaveLength(2);
 });
-it('uses approved coverage only, retains all five ordinary expense layer aggregates and excludes other statuses',()=>{
+it('uses approved coverage, retains five ordinary expense groups and partitions remaining statuses into the sixth group',()=>{
  const c=recordedCohort();c.decisions=c.decisions.map((d,i)=>{const status=STATUSES[Math.floor(i/2)%6];return {...d,status,storedState:status==='unreviewed'||status==='blocked'?null:status==='stale'?'approved':status,decisionRevision:status==='unreviewed'||status==='blocked'?null:1,confirmed:status==='approved'?d.confirmed:null};});
  render(<RecordedStatisticsReport cohort={c}/>);
  for(const name of ['Расходы','Доходы']){const card=within(screen.getByRole('region',{name}));expect(card.getByText('Классифицировано по количеству: 16,7%')).toBeVisible();expect(card.getByText('Классифицировано по сумме: 16,7%')).toBeVisible();}
- const rows=within(screen.getByRole('table',{name:'Группы расходов'})).getAllByRole('row');expect(rows).toHaveLength(6);expect(rows[1]).toHaveTextContent('Повседневные расходы');expect(rows[1]).toHaveTextContent('24,68');expect(within(rows[1]).getAllByRole('cell')[2]).toHaveTextContent(/^2$/);
- for(const row of rows.slice(2)){expect(within(row).getAllByRole('cell')[1]).toHaveTextContent('0,00');expect(within(row).getAllByRole('cell')[2]).toHaveTextContent(/^0$/);}
+ const rows=within(screen.getByRole('table',{name:'Группы расходов'})).getAllByRole('row');expect(rows).toHaveLength(7);expect(rows[1]).toHaveTextContent('Повседневные расходы');expect(rows[1]).toHaveTextContent('24,68');expect(within(rows[1]).getAllByRole('cell')[3]).toHaveTextContent(/^2$/);
+ for(const row of rows.slice(2,6)){expect(within(row).getAllByRole('cell')[1]).toHaveTextContent('0,00');expect(within(row).getAllByRole('cell')[3]).toHaveTextContent(/^0$/);}
+ expect(rows[6]).toHaveTextContent('Прочие расходы / без группы');expect(rows[6]).toHaveTextContent('123,40');expect(within(rows[6]).getAllByRole('cell')[3]).toHaveTextContent(/^10$/);
  expect(rows.map(r=>r.textContent).join(' ')).toMatch(/Нерегулярные расходы.*Непредвиденные расходы.*Крупные цели.*Долгосрочный капитал/);
 });
 it('displays distinct count and amount coverage from existing aggregates without rounding financial amounts',()=>{
@@ -40,7 +43,7 @@ it('renders missing denominators as a dash and never invents complete coverage f
 });
 it('sorts categories by descending recorded amount then Russian name, independent of approved assignments',()=>{
  const c=recordedCohort();c.history={...c.history,operations:c.history.operations.map((op,i)=>op.dataset==='expenses'?{...op,facts:{...op.facts,category:i<4?'Яблоки':i<8?'Аптеки':'Транспорт'}}:op)};
- render(<RecordedStatisticsReport cohort={c}/>);const rows=within(screen.getByRole('table',{name:'Расходы по категориям'})).getAllByRole('row');expect(rows.slice(1).map(r=>within(r).getAllByRole('cell')[0].textContent)).toEqual(['Транспорт','Аптеки','Яблоки']);expect(rows[1]).toHaveTextContent('98,72');expect(within(rows[1]).getAllByRole('cell')[2]).toHaveTextContent(/^8$/);
+ render(<RecordedStatisticsReport cohort={c}/>);const rows=within(screen.getByRole('table',{name:'Расходы по категориям'})).getAllByRole('row');expect(rows.slice(1).map(r=>within(r).getAllByRole('cell')[0].textContent)).toEqual(['Транспорт','Аптеки','Яблоки']);expect(rows[1]).toHaveTextContent('98,72');expect(within(rows[1]).getAllByRole('cell')[4]).toHaveTextContent(/^8$/);
 });
 it('changes query period automatically and never displays old-period data while loading or failing',()=>{
  const view=render(<RealClassificationStatistics period={cohort.history.period}/>),next=recordedCohort(2024);

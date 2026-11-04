@@ -3,6 +3,7 @@ import { STABLE_TAXONOMY } from 'features/HistoricalClassification/model/contrac
 import { monthKeys } from 'features/FinancialAnalytics/model/period';
 import { sumKopecks } from 'features/FinancialAnalytics/model/money';
 import { buildClassificationStatistics } from './statistics';
+import {expenseDistribution} from './expenseDistribution';
 
 /** Only call with an accepted P5 adapter result. The local observation IDs join
  * this one returned cohort; they are not server revisions or cryptographic proof. */
@@ -42,6 +43,7 @@ const categoriesFor = (cohort: CoherentHistory, stats: ReturnType<typeof recorde
  * caller-supplied statistics authority; forecast/evidence revalidation stays. */
 export const recordedReport = (cohort: CoherentHistory) => {
   const result = recordedStatistics(cohort);
-  return { result, categories: categoriesFor(cohort, result) };
+  const categories=categoriesFor(cohort,result);
+  return {result,categories,distribution:result.ok&&categories?expenseDistribution(cohort,result.value.expenses,categories):null};
 };
 export const recordedCategories = (cohort: CoherentHistory) => recordedReport(cohort).categories;
