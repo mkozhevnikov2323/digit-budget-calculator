@@ -1,4 +1,4 @@
-import {categoryCandidates,runCategoryBatch,type CategoryCandidate} from '../categoryBatch';
+import {categoryCandidates,incomeCandidates,runCategoryBatch,type CategoryCandidate} from '../categoryBatch';
 import type {ClassificationRule} from 'features/ClassificationRules/model/contract';
 const rule=(extra:Partial<Extract<ClassificationRule,{dataset:'expenses'}>>={}):ClassificationRule=>({_id:'1'.repeat(24),owner:'a'.repeat(24),dataset:'expenses',enabled:true,category:'Продукты',economicRole:'ordinary_expense',layer:'everyday',createdAt:'2026-01-01',updatedAt:'2026-01-01',...extra});
 const rules=[rule()];
@@ -52,4 +52,28 @@ it('a session_changed response stops further admissions even before the session 
  const write=jest.fn().mockResolvedValue({ok:false,code:'session_changed'}),clear=jest.fn(),accepted=jest.fn();
  const result=await runCategoryBatch(candidates(12),{current:()=>true,acquire:()=>true,clear,accepted,write,progress:jest.fn()});
  expect(write).toHaveBeenCalledTimes(3);expect(result).toMatchObject({started:3,unknown:3});expect(clear).not.toHaveBeenCalled();expect(accepted).not.toHaveBeenCalled();
+});
+
+const incomeRule=(extra:Partial<Extract<ClassificationRule,{dataset:'incomes'}>>={}):ClassificationRule=>({_id:'2'.repeat(24),owner:'a'.repeat(24),dataset:'incomes',source:'Зарплата',enabled:true,economicRole:'ordinary_income',layer:null,createdAt:'2026-01-01',updatedAt:'2026-01-01',...extra});
+const incomeOp=(i:number,source='Зарплата'):HistoryOperation=>({...op(i),dataset:'incomes',facts:{amount:1,date:'2025-01-15T12:00:00Z',source}});
+it.each(['ordinary_income','loan_repayment','refund','internal_transfer','capital_movement'] as const)('matches a normalized source and preserves income role %s/null',economicRole=>{
+ const operations=[incomeOp(0,'  ЗАРПЛАТА  ')],before=JSON.stringify(operations);
+ const result=incomeCandidates(operations,decision,()=>false,[incomeRule({source:' зарплата ',economicRole})]);
+ expect(result).toHaveLength(1);expect(result[0].assignment).toEqual({economicRole,layer:null});expect(JSON.stringify(operations)).toBe(before);
+});
+it('income matching has no default and ignores disabled/expense rules, processed decisions, risk and duplicates',()=>{
+ expect(incomeCandidates([incomeOp(0)],decision,()=>false,[])).toEqual([]);
+ expect(incomeCandidates([incomeOp(0)],decision,()=>false,[incomeRule({enabled:false}),rule()])).toEqual([]);
+ expect(incomeCandidates([incomeOp(0,'Премия')],decision,()=>false,[incomeRule()])).toEqual([]);
+ for(const status of ['approved','explicit_unclassified','cleared','stale','blocked'] as const)expect(incomeCandidates([incomeOp(0)],o=>({...decision(o),status}),()=>false,[incomeRule()])).toEqual([]);
+ const selected=incomeCandidates([incomeOp(0),incomeOp(0),incomeOp(1),op(2)],decision,o=>o.operationId===incomeOp(1).operationId,[incomeRule()]);
+ expect(selected.map(item=>item.operation.operationId)).toEqual([incomeOp(0).operationId]);
+});
+it('income candidates use the same three workers, cancellation and unknown risk without retries',async()=>{
+ const items=incomeCandidates(Array.from({length:10},(_,i)=>incomeOp(i)),decision,()=>false,[incomeRule()]);
+ let current=true;const resolve:Array<(value:DecisionResult)=>void>=[],clear=jest.fn(),accepted=jest.fn();
+ const write=jest.fn(()=>new Promise<DecisionResult>(done=>resolve.push(done)));
+ const pending=runCategoryBatch(items,{current:()=>current,acquire:()=>true,clear,accepted,write,progress:jest.fn()});
+ expect(write).toHaveBeenCalledTimes(3);current=false;resolve.forEach(done=>done({ok:false,code:'unknown'}));
+ expect(await pending).toMatchObject({started:3,unknown:3,total:10});expect(write).toHaveBeenCalledTimes(3);expect(clear).not.toHaveBeenCalled();expect(accepted).not.toHaveBeenCalled();
 });
