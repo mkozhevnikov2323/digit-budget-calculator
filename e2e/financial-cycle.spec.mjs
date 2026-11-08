@@ -83,7 +83,6 @@ test('E2E-03 Explicit server review persists a manual decision without source mu
     await analytics(page,'classification');await page.getByRole('tab',{name:'Расходы',exact:true}).click();
     await page.getByRole('button',{name:'Не классифицировано (2)',exact:true}).click();
     const review = await selectPrimary(page, stack);
-    await page.getByLabel('Тип операции', { exact: true }).selectOption('ordinary_expense');
     await page.getByLabel('Группа расходов', { exact: true }).selectOption('everyday');
     expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
     await chooseClassification(page, review); expect((await stack.rpc('inspect')).primaryRevision).toBeNull();
@@ -107,7 +106,7 @@ test('E2E-04 Reload reads the persisted decision and continuous revision from Mo
   await start(page); await classify(page, stack);
   await test.step('new browser document observes stored decision', async () => {
     await page.reload(); await analytics(page); await selectPrimary(page, stack);
-    await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();
+    await expect(page.getByLabel('Группа расходов',{exact:true})).toBeVisible();
     expect((await assertSources(stack)).primaryRevision).toBe(1);
   });
   await test.step('income C approval survives reload without changing financial sources', async()=>{
@@ -286,7 +285,7 @@ test('E2E-10 Cross-owner HTTP access and account switching isolate decisions dra
     await page.getByRole('tab',{name:'Расходы',exact:true}).click();
     await expect(page.getByRole('button', { name: 'Fictional fuel', exact:true })).toHaveCount(0);
     await selectOperation(page,stack.foreign);
-    await expect(page.getByLabel('Тип операции',{exact:true})).toBeVisible();
+    await expect(page.getByLabel('Группа расходов',{exact:true})).toBeVisible();
     expect((await assertSources(stack)).primaryRevision).toBe(1);
   });
 });
