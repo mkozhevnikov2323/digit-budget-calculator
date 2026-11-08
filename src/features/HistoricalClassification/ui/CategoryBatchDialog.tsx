@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {Alert,Button,Dialog,DialogActions,DialogContent,DialogTitle,Stack,Table,TableBody,TableCell,TableHead,TableRow,Typography} from '@mui/material';
+import {useGetClassificationRulesQuery} from 'features/ClassificationRules/api/rulesApi';
 import {apiBaseUrl} from 'shared/api/baseApi';
 import {isCurrentSession} from 'shared/api/sessionBoundary';
 import {dateLabel,layerLabel} from 'shared/lib/analytics/presentation';
@@ -13,6 +14,14 @@ import {useClassificationWriteRisk} from '../model/useClassificationWriteRisk';
 
 export const CategoryBatchDialog=({operations,decision,period,scope,onDecision,onRefresh}:{operations:readonly HistoryOperation[];decision:(op:HistoryOperation)=>ClassificationRead;period:CalendarPeriod;scope:Omit<DecisionQuery,'dataset'|'operationId'>;onDecision:(d:ClassificationRead)=>void;onRefresh:()=>void})=>{
  const risk=useClassificationWriteRisk();
+ const rules=useGetClassificationRulesQuery({userId:scope.userId,sessionGeneration:scope.sessionGeneration},{refetchOnMountOrArgChange:true});
+ const rulesReady=rules.isSuccess&&!rules.isFetching&&!rules.isError&&!!rules.currentData&&typeof rules.requestId==='string';
+ const snapshot=JSON.stringify([rules.requestId,rules.currentData]);
+ const [planSnapshot,setPlanSnapshot]=useState<string|null>(null);
+ // A refreshed request retires the old preview, even when its values happen to match.
+ const latestRules=useRef({ready:false,snapshot:''});
+ latestRules.current={ready:rulesReady,snapshot};
+ const planCurrent=rulesReady&&planSnapshot===snapshot;
  const [plan,setPlan]=useState<readonly CategoryCandidate[]|null>(null),[progress,setProgress]=useState<BatchProgress|null>(null),[running,setRunning]=useState(false),[cancelled,setCancelled]=useState(false);
  const life=useRef(true),used=useRef(false),active=useRef<{cancelled:boolean;finished:boolean;controller:AbortController}|null>(null);
  useEffect(()=>{life.current=true;const stop=()=>{if(active.current){active.current.cancelled=true;active.current.controller.abort();}};
@@ -20,40 +29,47 @@ export const CategoryBatchDialog=({operations,decision,period,scope,onDecision,o
   window.addEventListener('pagehide',retire);window.addEventListener('pageshow',retire);
   return()=>{life.current=false;stop();window.removeEventListener('pagehide',retire);window.removeEventListener('pageshow',retire);};
  },[]);
+ useEffect(()=>{if(!planCurrent&&active.current&&!active.current.finished){active.current.cancelled=true;active.current.controller.abort();setCancelled(true);}},[planCurrent]);
  const stop=()=>{if(active.current){active.current.cancelled=true;active.current.controller.abort();setCancelled(true);}};
  const close=()=>{if(active.current&&!active.current.finished)stop();else setPlan(null);};
- const open=()=>{if(running||active.current&&!active.current.finished||!life.current)return;used.current=false;active.current=null;setProgress(null);setCancelled(false);setPlan(categoryCandidates(operations,decision,risk.has));};
+ const open=()=>{if(running||active.current&&!active.current.finished||!life.current||!rulesReady||!isCurrentSession(scope.sessionGeneration))return;used.current=false;active.current=null;setProgress(null);setCancelled(false);setPlanSnapshot(snapshot);setPlan(categoryCandidates(operations,decision,risk.has,rules.currentData!));};
  const start=async()=>{
-  if(!plan?.length||used.current||running||!life.current)return;used.current=true;
+  if(!plan?.length||!planCurrent||used.current||running||!life.current)return;used.current=true;
   const run={cancelled:false,finished:false,controller:new AbortController()};active.current=run;setRunning(true);
-  const current=()=>life.current&&!run.cancelled&&isCurrentSession(scope.sessionGeneration);
+  const current=()=>life.current&&!run.cancelled&&isCurrentSession(scope.sessionGeneration)&&latestRules.current.ready&&latestRules.current.snapshot===planSnapshot;
   const result=await runCategoryBatch(plan,{current,acquire:risk.acquire,clear:risk.clear,
    write:item=>putDecision({baseUrl:apiBaseUrl,generation:scope.sessionGeneration,current,signal:run.controller.signal,operation:item.operation,intent:{requestId:crypto.randomUUID(),expectedRevision:item.decision.decisionRevision,state:'approved',assignment:item.assignment}}),
    accepted:next=>{if(life.current)onDecision(next);},progress:value=>{if(life.current)setProgress(value);}});
   run.finished=true;
   if(life.current){setProgress(result);setRunning(false);}
  };
- const categories=new Map<string,{count:number;layer:string}>();plan?.forEach(item=>{const category=item.operation.facts.category!;categories.set(category,{count:(categories.get(category)?.count??0)+1,layer:item.assignment.layer!});});
+ const groups=new Map<string,{category:string;title:string;count:number;layer:string}>();plan?.forEach(item=>{
+  const category=item.operation.facts.category!,title=item.operation.facts.title??'',layer=item.assignment.layer!;
+  const key=JSON.stringify([category,title,layer]);groups.set(key,{category,title,layer,count:(groups.get(key)?.count??0)+1});
+ });
  const skipped=operations.filter(op=>op.dataset==='expenses').length-(plan?.length??0);
  const summary=progress&&<Stack spacing={0.5} role="status"><Typography>Успешно классифицировано: {progress.success}</Typography><Typography>Не удалось классифицировать: {progress.failed}</Typography><Typography>Результат неизвестен — требуется проверка состояния: {progress.unknown}</Typography><Typography>Не отправлено: {progress.total-progress.started-progress.skipped}</Typography></Stack>;
  return <>
-  <Button variant="outlined" disabled={running||!life.current} onClick={open}>Автоматически классифицировать</Button>
+  <Button variant="outlined" disabled={running||!life.current||!rulesReady} onClick={open}>Автоматически классифицировать</Button>
+  {rules.isError&&<Stack><Alert severity="error">Не удалось загрузить правила расходов. Классификация недоступна.</Alert><Button disabled={running} onClick={()=>void rules.refetch()}>Повторить загрузку правил</Button></Stack>}
+  {(rules.isLoading||rules.isFetching||rules.isUninitialized)&&<Typography role="status">Загрузка правил расходов…</Typography>}
   {!plan&&progress&&summary}
   <Dialog open={plan!==null} fullWidth maxWidth="sm" onClose={close} aria-labelledby="category-batch-title">
    <DialogTitle id="category-batch-title">Предварительная классификация расходов</DialogTitle>
    <DialogContent><Stack spacing={1}>
-    <Alert severity="info">Временные персональные правила владельца проекта. Применяются только к ещё не обработанным расходам с точным совпадением категории.</Alert>
+    <Alert severity="info">Активные правила текущего пользователя. Совпадение категории и наименования имеет приоритет над общим правилом категории. Обрабатываются только ранее не обработанные расходы.</Alert>
+    {!planCurrent&&<Stack><Alert severity="warning">Правила изменены или обновляются. Сформируйте новый предпросмотр перед подтверждением.</Alert><Button disabled={!rulesReady||running} onClick={open}>Сформировать новый предпросмотр</Button></Stack>}
     <Typography>Выбран период: {dateLabel(period.firstDate)} — {dateLabel(period.lastDate)}</Typography>
     <Typography>Найдено подходящих операций: {plan?.length??0}</Typography><Typography>Пропущено расходов: {skipped}</Typography>
     {!plan?.length&&<Typography>Подходящих неклассифицированных расходов за выбранный период нет.</Typography>}
-    <Table size="small" aria-label="Предпросмотр правил по категориям"><TableHead><TableRow><TableCell>Категория</TableCell><TableCell>Операций</TableCell><TableCell>Группа расходов</TableCell></TableRow></TableHead><TableBody>{[...categories].map(([category,value])=><TableRow key={category}><TableCell>{category}</TableCell><TableCell>{value.count}</TableCell><TableCell>{layerLabel(value.layer)}</TableCell></TableRow>)}</TableBody></Table>
+    <Table size="small" aria-label="Предпросмотр правил по категориям"><TableHead><TableRow><TableCell>Категория</TableCell><TableCell>Наименование</TableCell><TableCell>Операций</TableCell><TableCell>Группа расходов</TableCell></TableRow></TableHead><TableBody>{[...groups].map(([key,value])=><TableRow key={key}><TableCell>{value.category}</TableCell><TableCell>{value.title||'Без наименования'}</TableCell><TableCell>{value.count}</TableCell><TableCell>{layerLabel(value.layer)}</TableCell></TableRow>)}</TableBody></Table>
     {running&&<Typography role="status">Обработка: отправлено {progress?.started??0} из {plan?.length??0}. Одновременно не более трёх запросов.</Typography>}
     {cancelled&&<Alert severity="warning">Обработка остановлена. Уже отправленные запросы могли сохраниться; неизвестные результаты нельзя отправлять повторно.</Alert>}
     {summary}
     {!!progress?.unknown&&!running&&<Button onClick={()=>{setPlan(null);onRefresh();}}>Проверить состояние без повторной записи</Button>}
    </Stack></DialogContent>
    <DialogActions>{running?<Button disabled={cancelled} onClick={stop}>Остановить обработку</Button>:<Button onClick={close}>{progress?'Закрыть':'Отмена'}</Button>}
-    {!progress&&!running&&<Button disabled={!plan?.length||used.current} onClick={()=>void start()}>Применить к {plan?.length??0} операциям</Button>}
+    {!progress&&!running&&<Button disabled={!plan?.length||used.current||!planCurrent} onClick={()=>void start()}>Применить к {plan?.length??0} операциям</Button>}
    </DialogActions>
   </Dialog>
  </>;
