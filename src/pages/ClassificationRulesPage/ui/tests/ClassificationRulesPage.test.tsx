@@ -14,7 +14,7 @@ jest.mock('shared/api/baseApi', () => {
   const { createApi, fetchBaseQuery } = jest.requireActual<typeof import('@reduxjs/toolkit/query/react')>('@reduxjs/toolkit/query/react');
   const { withSessionBoundary } = jest.requireActual<typeof import('shared/api/sessionBaseQuery')>('shared/api/sessionBaseQuery');
   const http = fetchBaseQuery({ baseUrl: 'https://rules.invalid', fetchFn: (...args: Parameters<typeof fetch>) => mockFetch(...args) });
-  return { baseApi: createApi({ reducerPath: 'rulesTest', endpoints: () => ({}),
+  return { baseApi: createApi({ reducerPath: 'rulesTest', tagTypes: ['ClassificationRule', 'ExpenseCategory', 'ExpenseTitles', 'Source'], endpoints: () => ({}),
     baseQuery: withSessionBoundary((args, api, options) => http({ ...(typeof args === 'string' ? { url: args } : args), signal: undefined }, api, options)),
   }) };
 });
@@ -76,7 +76,7 @@ it('renders expenses/incomes, optional title, Russian labels and activity using 
   expect(mockFetch).toHaveBeenCalledTimes(1);
   const [input, init] = mockFetch.mock.calls[0], request = new Request(input, init);
   expect(request.url).toBe('https://rules.invalid/classification-rules'); expect(request.method).toBe('GET');
-  expect(request.headers.get('Authorization')).toBe('Bearer synthetic-token-a'); expect(screen.queryByRole('button', { name: /Создать|Изменить|Удалить/ })).not.toBeInTheDocument();
+  expect(request.headers.get('Authorization')).toBe('Bearer synthetic-token-a'); expect(screen.getByRole('button', { name: 'Редактировать правило Зарплата' })).toBeEnabled();
 });
 it('shows loading and empty lists independently for both tabs', async () => {
   let resolve!: (r: Response) => void; mockFetch.mockImplementation(() => new Promise(done => { resolve = done; }));
@@ -123,4 +123,148 @@ it('discards previous-user rows and a late response after a real session transit
 it.each([expense({ owner: b }), expense({ economicRole: 'loan_issuance', layer: null }), expense({ layer: 'unknown' })])('rejects foreign-owner or invalid v2 response without rendering rows', async rule => {
   mockFetch.mockImplementation(async () => response([rule])); show();
   expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить правила классификации.'); expect(screen.queryByRole('table')).not.toBeInTheDocument();
+});
+
+// Synthetic server state; real RTK/session guards, dialogs and form validation remain active.
+const reply = (body: unknown, status = 200) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+const crudServer = (initial: Record<string, unknown>[] = [expense(), income()]) => {
+  const state: { rules: Record<string, unknown>[]; writes: { method: string; body: Record<string, unknown> }[];
+    onWrite?: (request: Request, body: Record<string, unknown>) => Promise<Response> | undefined } = { rules: initial, writes: [] };
+  mockFetch.mockImplementation(async (input, init) => {
+    const request = new Request(input, init), path = new URL(request.url).pathname;
+    if (!path.startsWith('/classification-rules')) return reply([{ id: 'dict', name: 'Справочное значение' }]);
+    const owner = request.headers.get('Authorization') === 'Bearer synthetic-token-b' ? b : a;
+    if (request.method === 'GET') return response(state.rules.filter(rule => rule.owner === owner));
+    const body: Record<string, unknown> = request.method === 'DELETE' ? {} : JSON.parse(await request.text());
+    state.writes.push({ method: request.method, body });
+    const custom = state.onWrite?.(request, body); if (custom) return custom;
+    const normalized = Object.fromEntries(Object.entries(body).map(([key, value]) => [key,
+      ['category', 'title', 'source'].includes(key) && typeof value === 'string' ? value.trim().toLowerCase() : value]));
+    if (request.method === 'POST') {
+      const rule = { ...expense(), ...normalized, _id: String(state.rules.length + 3).repeat(24), owner };
+      if (normalized.dataset === 'incomes') delete (rule as Record<string, unknown>).category;
+      state.rules.push(rule); return reply(rule, 201);
+    }
+    const index = state.rules.findIndex(rule => rule._id === path.split('/').pop() && rule.owner === owner);
+    if (index < 0) return reply({ message: 'Правило не найдено.' }, 404);
+    if (request.method === 'DELETE') { state.rules.splice(index, 1); return reply(null, 204); }
+    const rule = { ...state.rules[index], ...normalized }; if (rule.title === null) delete rule.title;
+    state.rules[index] = rule; return reply(rule);
+  });
+  return state;
+};
+const enterExpense = async (category = 'Новая категория') => {
+  fireEvent.change(screen.getByRole('combobox', { name: /Категория/ }), { target: { value: category } });
+  fireEvent.change(screen.getByRole('combobox', { name: /Группа расходов/ }), { target: { value: 'emergency' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeEnabled());
+};
+const saveRule = () => fireEvent.click(screen.getByRole('button', { name: 'Сохранить правило' }));
+
+it('validates and creates an expense once, reloading the confirmed list without owner metadata', async () => {
+  const state = crudServer(); show(); await screen.findByText('Продукты');
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить правило' }));
+  expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeDisabled();
+  const groups = screen.getByRole('combobox', { name: /Группа расходов/ });
+  expect(within(groups).getAllByRole('option').map(option => option.getAttribute('value'))).toEqual(['', 'everyday', 'irregular', 'emergency', 'major_goals', 'long_term_capital']);
+  fireEvent.change(screen.getByRole('combobox', { name: /Категория/ }), { target: { value: '   ' } });
+  fireEvent.change(groups, { target: { value: 'emergency' } });
+  expect(state.writes).toHaveLength(0); expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeDisabled();
+  await enterExpense(); saveRule(); saveRule();
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(await screen.findByText('новая категория')).toBeInTheDocument();
+  expect(state.writes).toEqual([{ method: 'POST', body: { dataset: 'expenses', category: 'Новая категория', economicRole: 'ordinary_expense', layer: 'emergency', enabled: true } }]);
+});
+it('edits an expense, explicitly clears title and retains the saved enabled state', async () => {
+  const state = crudServer([expense({ title: 'Хлеб', enabled: false })]); show(); await screen.findByText('Хлеб');
+  fireEvent.click(screen.getByRole('button', { name: 'Редактировать правило Продукты · Хлеб' }));
+  expect(screen.getByRole('combobox', { name: /Категория/ })).toHaveValue('Продукты');
+  fireEvent.change(screen.getByRole('combobox', { name: /Наименование/ }), { target: { value: '' } });
+  fireEvent.change(screen.getByRole('combobox', { name: /Группа расходов/ }), { target: { value: 'irregular' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeEnabled()); saveRule();
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(await screen.findByText('Все наименования')).toBeInTheDocument(); expect(screen.getByText('Выключено')).toBeInTheDocument();
+  expect(state.writes[0]).toEqual({ method: 'PATCH', body: { category: 'Продукты', title: null, economicRole: 'ordinary_expense', layer: 'irregular' } });
+});
+it('uses income dictionaries and accepts only the five v2 income roles', async () => {
+  const state = crudServer(); show(); await screen.findByText('Продукты');
+  fireEvent.click(screen.getByRole('tab', { name: 'Доходы' })); fireEvent.click(screen.getByRole('button', { name: 'Добавить правило' }));
+  const roles = screen.getByRole('combobox', { name: /Экономический тип/ });
+  expect(within(roles).getAllByRole('option').map(option => option.getAttribute('value'))).toEqual(['', 'ordinary_income', 'loan_repayment', 'refund', 'internal_transfer', 'capital_movement']);
+  const source = screen.getByRole('combobox', { name: /Источник дохода/ }); fireEvent.mouseDown(source);
+  fireEvent.change(source, { target: { value: 'Справ' } });
+  fireEvent.click(await screen.findByRole('option', { name: 'Справочное значение' }));
+  fireEvent.change(roles, { target: { value: 'refund' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeEnabled()); saveRule();
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(await screen.findByText('справочное значение')).toBeInTheDocument();
+  expect(state.writes[0]).toEqual({ method: 'POST', body: { dataset: 'incomes', source: 'Справочное значение', economicRole: 'refund', layer: null, enabled: true } });
+});
+it('keeps the previous activity until acknowledgement and removes a rule only after confirmation', async () => {
+  const state = crudServer(); show(); await screen.findByText('Продукты');
+  let resolve!: (r: Response) => void;
+  state.onWrite = request => request.method === 'PATCH' ? new Promise(done => { resolve = done; }) : undefined;
+  fireEvent.click(screen.getByRole('button', { name: 'Отключить правило Продукты' }));
+  await waitFor(() => expect(state.writes).toHaveLength(1));
+  expect(screen.getByText('Включено')).toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Отключить правило Продукты' })).toBeDisabled();
+  state.rules[0] = { ...state.rules[0], enabled: false };
+  await act(async () => { resolve(reply(state.rules[0])); });
+  expect(await screen.findByRole('button', { name: 'Включить правило Продукты' })).toBeEnabled();
+  state.onWrite = undefined;
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить правило Продукты' }));
+  expect(state.writes).toHaveLength(1); fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument()); expect(screen.getByText('Продукты')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить правило Продукты' })); fireEvent.click(screen.getByRole('button', { name: 'Удалить правило' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(await screen.findByText('Нет сохранённых правил расходов.')).toBeInTheDocument();
+  expect(state.writes.map(write => write.method)).toEqual(['PATCH', 'DELETE']);
+});
+it.each([400, 409, 503])('retains the form on definite server error %s and retries only after another click', async status => {
+  const state = crudServer(); state.onWrite = () => Promise.resolve(reply({ message: 'Ошибка сервера правил', persistence: 'not_applied' }, status));
+  show(); await screen.findByText('Продукты'); fireEvent.click(screen.getByRole('button', { name: 'Добавить правило' }));
+  await enterExpense('Черновик'); saveRule();
+  expect(await screen.findByRole('alert')).toHaveTextContent(String(status)); expect(screen.getByRole('combobox', { name: /Категория/ })).toHaveValue('Черновик');
+  expect(state.writes).toHaveLength(1); expect(screen.getByRole('dialog')).toBeInTheDocument();
+  state.onWrite = undefined; saveRule();
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument()); expect(await screen.findByText('черновик')).toBeInTheDocument(); expect(state.writes).toHaveLength(2);
+});
+it.each(['unknown', 'unknown_400', 'network', 'invalid_response'])('blocks %s outcomes across remount and refreshes without repeating the write', async outcome => {
+  const state = crudServer(); state.onWrite = () => outcome === 'network' ? Promise.reject(new Error('Synthetic connection loss'))
+    : Promise.resolve(outcome.startsWith('unknown') ? reply({ message: 'Недоступно', persistence: 'unknown' }, outcome === 'unknown_400' ? 400 : 503) : reply(expense({ owner: b }), 201));
+  const view = show(); await screen.findByText('Продукты'); fireEvent.click(screen.getByRole('button', { name: 'Добавить правило' }));
+  await enterExpense(); saveRule();
+  expect(await screen.findByRole('alert')).toHaveTextContent('Результат записи неизвестен');
+  expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeDisabled(); expect(state.writes).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  view.owner({ status: 'verifying' }); view.owner(verified());
+  await screen.findByRole('table', { name: 'Правила расходов' }); expect(screen.getByRole('button', { name: 'Добавить правило' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Обновить список без повторной записи' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Добавить правило' })).toBeEnabled()); expect(state.writes).toHaveLength(1);
+});
+it('ignores a late write from the previous user and preserves the new user draft', async () => {
+  const state = crudServer([expense(), expense({ owner: b, _id: '4'.repeat(24), category: 'Правило B' })]);
+  let resolve!: (r: Response) => void; state.onWrite = () => new Promise(done => { resolve = done; });
+  const view = show(); await screen.findByText('Продукты'); fireEvent.click(screen.getByRole('button', { name: 'Отключить правило Продукты' }));
+  await waitFor(() => expect(state.writes).toHaveLength(1));
+  let transition!: Promise<number | null>; act(() => { transition = transitionSession(() => localStorage.setItem('token', 'synthetic-token-b')); });
+  await act(async () => { completeSessionTransition(getSessionSnapshot().generation); await transition; view.owner(verified(b)); });
+  expect(await screen.findByText('Правило B')).toBeInTheDocument(); expect(screen.queryByText('Продукты')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить правило' })); await enterExpense('Черновик B');
+  await act(async () => { resolve(reply(expense({ enabled: false }))); });
+  expect(screen.getByRole('combobox', { name: /Категория/ })).toHaveValue('Черновик B');
+  expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeEnabled(); expect(screen.queryByRole('alert')).not.toBeInTheDocument(); expect(state.writes).toHaveLength(1);
+});
+
+it('keeps the editor open when cancel races the asynchronous submit validation', async () => {
+  const state = crudServer();
+  state.onWrite = () => Promise.resolve(reply({ message: 'Проверьте поля', persistence: 'not_applied' }, 400));
+  show(); await screen.findByText('Продукты');
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить правило' })); await enterExpense('Черновик');
+  act(() => { saveRule(); fireEvent.click(screen.getByRole('button', { name: 'Отмена' })); });
+  expect(await screen.findByRole('alert')).toHaveTextContent('400');
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: /Категория/ })).toHaveValue('Черновик');
+  expect(state.writes).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });

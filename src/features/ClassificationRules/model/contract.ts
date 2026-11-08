@@ -35,3 +35,26 @@ export const readClassificationRules = (input: unknown, owner: string): Classifi
   }
   return rules;
 };
+
+export const INCOME_RULE_ROLES = ['ordinary_income', 'loan_repayment', 'refund', 'internal_transfer', 'capital_movement'] as const;
+export type IncomeRuleRole = typeof INCOME_RULE_ROLES[number];
+export type RuleInput = { enabled: boolean } & (
+  | { dataset: 'expenses'; category: string; title?: string; economicRole: 'ordinary_expense'; layer: FinancialLayer }
+  | { dataset: 'incomes'; source: string; economicRole: IncomeRuleRole; layer: null }
+);
+export type RuleChange = { dataset?: 'expenses' | 'incomes'; enabled?: boolean; category?: string; title?: string | null;
+  source?: string; economicRole?: RuleInput['economicRole']; layer?: FinancialLayer | null };
+/** Unknown failures must never be interpreted as proof that nothing was stored. */
+export const ruleWriteFailure = (error: unknown): { unknown: boolean; message: string } | null => {
+  if (!error) return null;
+  const status = typeof error === 'object' && 'status' in error ? error.status : undefined;
+  const data = typeof error === 'object' && 'data' in error ? error.data : undefined;
+  const unapplied = !!data && typeof data === 'object' && 'persistence' in data && data.persistence === 'not_applied';
+  const code = typeof status === 'number' ? status : 0;
+  const uncertain = !!data && typeof data === 'object' && 'persistence' in data && data.persistence === 'unknown';
+  const unknown = uncertain || ![400, 401, 403, 404, 409].includes(code) && !unapplied;
+  const messages: Record<number, string> = { 400: 'Проверьте поля правила.', 409: 'Такое правило уже существует.', 503: 'Сервис правил временно недоступен.' };
+  const message = data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+    ? data.message.slice(0, 300) : messages[code] ?? 'Не удалось сохранить изменение.';
+  return { unknown, message: `${message}${typeof status === 'number' ? ` (${status})` : ''}${unknown ? ' Результат записи неизвестен. Обновите список перед следующей записью.' : ''}` };
+};

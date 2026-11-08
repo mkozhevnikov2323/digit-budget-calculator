@@ -13,6 +13,7 @@ export const baseApi = createApi({
   tagTypes: [
     'Income',
     'Classification',
+    'ClassificationRule',
     'User',
     'Source',
     'Expense',
