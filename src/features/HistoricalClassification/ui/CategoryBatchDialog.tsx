@@ -3,16 +3,17 @@ import {Alert,Button,Dialog,DialogActions,DialogContent,DialogTitle,Stack,Table,
 import {useGetClassificationRulesQuery} from 'features/ClassificationRules/api/rulesApi';
 import {apiBaseUrl} from 'shared/api/baseApi';
 import {isCurrentSession} from 'shared/api/sessionBoundary';
-import {dateLabel,layerLabel} from 'shared/lib/analytics/presentation';
+import {dateLabel,layerLabel,roleLabel} from 'shared/lib/analytics/presentation';
 import type {CalendarPeriod} from 'features/FinancialAnalytics/model/period';
 import type {HistoryOperation} from '../model/history';
 import type {ClassificationRead} from '../model/contract';
 import type {DecisionQuery} from '../api/historyApi';
 import {putDecision} from '../api/decisionClient';
-import {categoryCandidates,runCategoryBatch,type CategoryCandidate,type BatchProgress} from '../model/categoryBatch';
+import {categoryCandidates,incomeCandidates,runCategoryBatch,type CategoryCandidate,type BatchProgress} from '../model/categoryBatch';
 import {useClassificationWriteRisk} from '../model/useClassificationWriteRisk';
 
-export const CategoryBatchDialog=({operations,decision,period,scope,onDecision,onRefresh}:{operations:readonly HistoryOperation[];decision:(op:HistoryOperation)=>ClassificationRead;period:CalendarPeriod;scope:Omit<DecisionQuery,'dataset'|'operationId'>;onDecision:(d:ClassificationRead)=>void;onRefresh:()=>void})=>{
+export const CategoryBatchDialog=({dataset,operations,decision,period,scope,onDecision,onRefresh}:{dataset:'expenses'|'incomes';operations:readonly HistoryOperation[];decision:(op:HistoryOperation)=>ClassificationRead;period:CalendarPeriod;scope:Omit<DecisionQuery,'dataset'|'operationId'>;onDecision:(d:ClassificationRead)=>void;onRefresh:()=>void})=>{
+ const kind=dataset==='expenses'?'расходов':'доходов';
  const risk=useClassificationWriteRisk();
  const rules=useGetClassificationRulesQuery({userId:scope.userId,sessionGeneration:scope.sessionGeneration},{refetchOnMountOrArgChange:true});
  const rulesReady=rules.isSuccess&&!rules.isFetching&&!rules.isError&&!!rules.currentData&&typeof rules.requestId==='string';
@@ -32,7 +33,7 @@ export const CategoryBatchDialog=({operations,decision,period,scope,onDecision,o
  useEffect(()=>{if(!planCurrent&&active.current&&!active.current.finished){active.current.cancelled=true;active.current.controller.abort();setCancelled(true);}},[planCurrent]);
  const stop=()=>{if(active.current){active.current.cancelled=true;active.current.controller.abort();setCancelled(true);}};
  const close=()=>{if(active.current&&!active.current.finished)stop();else setPlan(null);};
- const open=()=>{if(running||active.current&&!active.current.finished||!life.current||!rulesReady||!isCurrentSession(scope.sessionGeneration))return;used.current=false;active.current=null;setProgress(null);setCancelled(false);setPlanSnapshot(snapshot);setPlan(categoryCandidates(operations,decision,risk.has,rules.currentData!));};
+ const open=()=>{if(running||active.current&&!active.current.finished||!life.current||!rulesReady||!isCurrentSession(scope.sessionGeneration))return;used.current=false;active.current=null;setProgress(null);setCancelled(false);setPlanSnapshot(snapshot);setPlan((dataset==='expenses'?categoryCandidates:incomeCandidates)(operations,decision,risk.has,rules.currentData!));};
  const start=async()=>{
   if(!plan?.length||!planCurrent||used.current||running||!life.current)return;used.current=true;
   const run={cancelled:false,finished:false,controller:new AbortController()};active.current=run;setRunning(true);
@@ -43,26 +44,29 @@ export const CategoryBatchDialog=({operations,decision,period,scope,onDecision,o
   run.finished=true;
   if(life.current){setProgress(result);setRunning(false);}
  };
- const groups=new Map<string,{category:string;title:string;count:number;layer:string}>();plan?.forEach(item=>{
-  const category=item.operation.facts.category!,title=item.operation.facts.title??'',layer=item.assignment.layer!;
-  const key=JSON.stringify([category,title,layer]);groups.set(key,{category,title,layer,count:(groups.get(key)?.count??0)+1});
+ const groups=new Map<string,{match:string;title:string;count:number;classification:string}>();plan?.forEach(item=>{
+  const match=(dataset==='expenses'?item.operation.facts.category:item.operation.facts.source)??'',title=dataset==='expenses'?item.operation.facts.title??'':'';
+  const key=JSON.stringify([match,title,item.assignment.economicRole,item.assignment.layer]);
+  groups.set(key,{match,title,count:(groups.get(key)?.count??0)+1,classification:dataset==='expenses'?layerLabel(item.assignment.layer!):roleLabel(item.assignment.economicRole)});
  });
- const skipped=operations.filter(op=>op.dataset==='expenses').length-(plan?.length??0);
+ const skipped=operations.filter(op=>op.dataset===dataset).length-(plan?.length??0);
  const summary=progress&&<Stack spacing={0.5} role="status"><Typography>Успешно классифицировано: {progress.success}</Typography><Typography>Не удалось классифицировать: {progress.failed}</Typography><Typography>Результат неизвестен — требуется проверка состояния: {progress.unknown}</Typography><Typography>Не отправлено: {progress.total-progress.started-progress.skipped}</Typography></Stack>;
  return <>
   <Button variant="outlined" disabled={running||!life.current||!rulesReady} onClick={open}>Автоматически классифицировать</Button>
-  {rules.isError&&<Stack><Alert severity="error">Не удалось загрузить правила расходов. Классификация недоступна.</Alert><Button disabled={running} onClick={()=>void rules.refetch()}>Повторить загрузку правил</Button></Stack>}
-  {(rules.isLoading||rules.isFetching||rules.isUninitialized)&&<Typography role="status">Загрузка правил расходов…</Typography>}
+  {rules.isError&&<Stack><Alert severity="error">Не удалось загрузить правила {kind}. Классификация недоступна.</Alert><Button disabled={running} onClick={()=>void rules.refetch()}>Повторить загрузку правил</Button></Stack>}
+  {(rules.isLoading||rules.isFetching||rules.isUninitialized)&&<Typography role="status">Загрузка правил {kind}…</Typography>}
   {!plan&&progress&&summary}
   <Dialog open={plan!==null} fullWidth maxWidth="sm" onClose={close} aria-labelledby="category-batch-title">
-   <DialogTitle id="category-batch-title">Предварительная классификация расходов</DialogTitle>
+   <DialogTitle id="category-batch-title">Предварительная классификация {kind}</DialogTitle>
    <DialogContent><Stack spacing={1}>
-    <Alert severity="info">Активные правила текущего пользователя. Совпадение категории и наименования имеет приоритет над общим правилом категории. Обрабатываются только ранее не обработанные расходы.</Alert>
+    <Alert severity="info">Активные правила текущего пользователя. {dataset==='expenses'?'Совпадение категории и наименования имеет приоритет над общим правилом категории. Обрабатываются только ранее не обработанные расходы.':'Источник дохода сопоставляется без учёта регистра и пробелов по краям. Обрабатываются только ранее не классифицированные доходы.'}</Alert>
     {!planCurrent&&<Stack><Alert severity="warning">Правила изменены или обновляются. Сформируйте новый предпросмотр перед подтверждением.</Alert><Button disabled={!rulesReady||running} onClick={open}>Сформировать новый предпросмотр</Button></Stack>}
     <Typography>Выбран период: {dateLabel(period.firstDate)} — {dateLabel(period.lastDate)}</Typography>
-    <Typography>Найдено подходящих операций: {plan?.length??0}</Typography><Typography>Пропущено расходов: {skipped}</Typography>
-    {!plan?.length&&<Typography>Подходящих неклассифицированных расходов за выбранный период нет.</Typography>}
-    <Table size="small" aria-label="Предпросмотр правил по категориям"><TableHead><TableRow><TableCell>Категория</TableCell><TableCell>Наименование</TableCell><TableCell>Операций</TableCell><TableCell>Группа расходов</TableCell></TableRow></TableHead><TableBody>{[...groups].map(([key,value])=><TableRow key={key}><TableCell>{value.category}</TableCell><TableCell>{value.title||'Без наименования'}</TableCell><TableCell>{value.count}</TableCell><TableCell>{layerLabel(value.layer)}</TableCell></TableRow>)}</TableBody></Table>
+    <Typography>Найдено подходящих операций: {plan?.length??0}</Typography><Typography>Пропущено {kind}: {skipped}</Typography>
+    {!plan?.length&&<Typography>Подходящих неклассифицированных {kind} за выбранный период нет.</Typography>}
+    <Table size="small" aria-label={dataset==='expenses'?'Предпросмотр правил по категориям':'Предпросмотр правил по источникам'}><TableHead><TableRow>
+     <TableCell>{dataset==='expenses'?'Категория':'Источник дохода'}</TableCell>{dataset==='expenses'&&<TableCell>Наименование</TableCell>}<TableCell>Операций</TableCell><TableCell>{dataset==='expenses'?'Группа расходов':'Экономический тип'}</TableCell>
+    </TableRow></TableHead><TableBody>{[...groups].map(([key,value])=><TableRow key={key}><TableCell>{value.match}</TableCell>{dataset==='expenses'&&<TableCell>{value.title||'Без наименования'}</TableCell>}<TableCell>{value.count}</TableCell><TableCell>{value.classification}</TableCell></TableRow>)}</TableBody></Table>
     {running&&<Typography role="status">Обработка: отправлено {progress?.started??0} из {plan?.length??0}. Одновременно не более трёх запросов.</Typography>}
     {cancelled&&<Alert severity="warning">Обработка остановлена. Уже отправленные запросы могли сохраниться; неизвестные результаты нельзя отправлять повторно.</Alert>}
     {summary}

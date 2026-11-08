@@ -85,9 +85,9 @@ it('previews the whole expense period without PUT and applies each eligible oper
  fireEvent.click(screen.getByRole('button',{name:'Закрыть'}));await screen.findByRole('button',{name:'Не классифицировано (0)'});expect(screen.getByRole('button',{name:'Классифицировано (36)'})).toBeVisible();expect(refetch).not.toHaveBeenCalled();expect(JSON.stringify(cohort.history.operations)).toBe(before);
  fireEvent.click(screen.getByRole('button',{name:'Расход 0'}));expect(screen.queryByLabelText('Тип операции')).not.toBeInTheDocument();expect(screen.getByLabelText('Группа расходов')).toHaveValue('everyday');fireEvent.change(screen.getByLabelText('Группа расходов'),{target:{value:'irregular'}});fireEvent.click(screen.getByRole('button',{name:'Сохранить изменения'}));await waitFor(()=>expect(put).toHaveBeenCalledTimes(19));expect(put.mock.calls[18][0].intent.expectedRevision).toBe(1);
 });
-it('cancelled preview and an empty preview never write; incomes have no batch action',async()=>{
+it('cancelled and empty previews never write, including incomes without rules',async()=>{
  const view=show();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));fireEvent.click(screen.getByRole('button',{name:'Отмена'}));expect(put).not.toHaveBeenCalled();view.unmount();
- cohort={...cohort,decisions:cohort.decisions.map(d=>({...d,status:'explicit_unclassified',storedState:'explicit_unclassified',decisionRevision:1,confirmed:null}))};show();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));expect(screen.getByRole('button',{name:'Применить к 0 операциям'})).toBeDisabled();expect(screen.getByText(/Подходящих неклассифицированных расходов/)).toBeVisible();fireEvent.click(screen.getByRole('button',{name:'Отмена'}));await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());fireEvent.click(screen.getByRole('tab',{name:'Доходы'}));expect(screen.queryByRole('button',{name:'Автоматически классифицировать'})).not.toBeInTheDocument();expect(put).not.toHaveBeenCalled();
+ cohort={...cohort,decisions:cohort.decisions.map(d=>({...d,status:'explicit_unclassified',storedState:'explicit_unclassified',decisionRevision:1,confirmed:null}))};show();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));expect(screen.getByRole('button',{name:'Применить к 0 операциям'})).toBeDisabled();expect(screen.getByText(/Подходящих неклассифицированных расходов/)).toBeVisible();fireEvent.click(screen.getByRole('button',{name:'Отмена'}));await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());fireEvent.click(screen.getByRole('tab',{name:'Доходы'}));fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));expect(screen.getByRole('button',{name:'Применить к 0 операциям'})).toBeDisabled();expect(put).not.toHaveBeenCalled();
 });
 it('a manual unknown write is excluded by batch preview using the SAME risk state',async()=>{
  put.mockResolvedValue({ok:false,code:'unknown'});show();fireEvent.click(screen.getByRole('button',{name:'Расход 0'}));fireEvent.change(screen.getByLabelText('Группа расходов'),{target:{value:'everyday'}});fireEvent.click(screen.getByRole('button',{name:'Классифицировать'}));await screen.findByText(/Запись могла сохраниться/);fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));expect(screen.getByText('Найдено подходящих операций: 17')).toBeVisible();expect(put).toHaveBeenCalledTimes(1);
@@ -150,4 +150,44 @@ it('stops admitting writes when the rule snapshot is retired during an active ba
  const view=show();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));fireEvent.click(screen.getByRole('button',{name:'Применить к 18 операциям'}));expect(put).toHaveBeenCalledTimes(3);
  rulesLoading=true;view.rerender(<view.Tree p={selectedPeriod()}/>);expect(put.mock.calls.every(([args])=>args.signal.aborted)).toBe(true);
  resolve.forEach(done=>done({ok:false,code:'unknown'}));await screen.findByText('Результат неизвестен — требуется проверка состояния: 3');expect(put).toHaveBeenCalledTimes(3);
+});
+
+const incomeRule=(extra:Partial<Extract<ClassificationRule,{dataset:'incomes'}>>={}):ClassificationRule=>({_id:'9'.repeat(24),owner:'a'.repeat(24),dataset:'incomes',source:'Доход 0',enabled:true,economicRole:'loan_repayment',layer:null,createdAt:'2026-01-01',updatedAt:'2026-01-01',...extra});
+it('previews income sources/roles/counts and sends one revision-checked PUT only after confirmation',async()=>{
+ rulesData=[rule(),incomeRule({source:'  ДОХОД 0 '})];
+ put.mockImplementation(async options=>({ok:true,decision:{...cohort.decisions.find(d=>d.operationId===options.operation.operationId)!,status:'approved',storedState:'approved',decisionRevision:1,confirmed:options.intent.assignment!}}));
+ const before=JSON.stringify(cohort.history.operations);show('/analytics/classification?dataset=incomes');expect(put).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));
+ expect(screen.getByText('Предварительная классификация доходов')).toBeVisible();expect(screen.getByText('Найдено подходящих операций: 1')).toBeVisible();expect(screen.getByText('Пропущено доходов: 29')).toBeVisible();
+ const preview=screen.getByRole('table',{name:'Предпросмотр правил по источникам'});
+ expect(within(preview).getByText('Доход 0')).toBeVisible();expect(within(preview).getByText('Возврат займа')).toBeVisible();expect(within(preview).getByText('1')).toBeVisible();
+ expect(put).not.toHaveBeenCalled();const apply=screen.getByRole('button',{name:'Применить к 1 операциям'});fireEvent.click(apply);fireEvent.click(apply);
+ await screen.findByText('Успешно классифицировано: 1');expect(put).toHaveBeenCalledTimes(1);
+ expect(put.mock.calls[0][0].operation.dataset).toBe('incomes');expect(put.mock.calls[0][0].intent).toMatchObject({expectedRevision:null,state:'approved',assignment:{economicRole:'loan_repayment',layer:null}});
+ expect(JSON.stringify(cohort.history.operations)).toBe(before);fireEvent.click(screen.getByRole('button',{name:'Закрыть'}));
+ expect(await screen.findByRole('button',{name:'Не классифицировано (29)'})).toBeVisible();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));expect(screen.getByText('Найдено подходящих операций: 0')).toBeVisible();
+});
+it('income preview refuses query errors, retires changed rules and has no previous-owner fallback',()=>{
+ rulesData=[incomeRule()];rulesError=true;const view=show('/analytics/classification?dataset=incomes');
+ expect(screen.getByRole('button',{name:'Автоматически классифицировать'})).toBeDisabled();expect(screen.getByText(/Не удалось загрузить правила доходов/)).toBeVisible();
+ rulesError=false;view.rerender(<view.Tree p={selectedPeriod()}/>);fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));
+ rulesData=[incomeRule({economicRole:'refund'})];rulesRequest='income-rules-2';view.rerender(<view.Tree p={selectedPeriod()}/>);
+ expect(screen.getByRole('button',{name:'Применить к 1 операциям'})).toBeDisabled();fireEvent.click(screen.getByRole('button',{name:'Сформировать новый предпросмотр'}));expect(screen.getByText('Возврат покупки')).toBeVisible();
+ expect(put).not.toHaveBeenCalled();owner.mockReturnValue({status:'verifying'});view.rerender(<view.Tree p={selectedPeriod()}/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+ owner.mockReturnValue({status:'verified',owner:{userId:'b'.repeat(24),sessionGeneration:1}});rulesData=[];rulesRequest='income-rules-b';cohort={...cohort,history:{...cohort.history,owner:'b'.repeat(24)}};view.rerender(<view.Tree p={selectedPeriod()}/>);
+ expect(rulesQuery).toHaveBeenLastCalledWith({userId:'b'.repeat(24),sessionGeneration:1},{refetchOnMountOrArgChange:true});
+ fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));expect(screen.getByRole('button',{name:'Применить к 0 операциям'})).toBeDisabled();expect(put).not.toHaveBeenCalled();
+});
+it.each(['rules','tab','owner'] as const)('income batch stops at three requests on %s retirement and ignores late successes',async change=>{
+ rulesData=Array.from({length:30},(_,i)=>incomeRule({_id:i.toString(16).padStart(24,'0'),source:`Доход ${i}`}));
+ const resolve:Array<(value:Awaited<ReturnType<typeof putDecision>>)=>void>=[];put.mockImplementation(()=>new Promise(done=>resolve.push(done)));
+ const view=show('/analytics/classification?dataset=incomes');fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));fireEvent.click(screen.getByRole('button',{name:'Применить к 30 операциям'}));expect(put).toHaveBeenCalledTimes(3);
+ if(change==='rules')rulesLoading=true;
+ else if(change==='owner')owner.mockReturnValue({status:'verifying'});
+ // Programmatic navigation can change tabs while MUI hides the background from accessibility queries.
+ else fireEvent.click(screen.getByText('Расходы'));
+ if(change!=='tab')view.rerender(<view.Tree p={selectedPeriod()}/>);
+ expect(put.mock.calls.every(([args])=>args.signal.aborted)).toBe(true);
+ resolve.forEach((done,i)=>done({ok:true,decision:{...cohort.decisions.find(d=>d.operationId===put.mock.calls[i][0].operation.operationId)!,status:'approved',storedState:'approved',decisionRevision:1,confirmed:{economicRole:'loan_repayment',layer:null}}}));
+ await waitFor(()=>expect(put).toHaveBeenCalledTimes(3));expect(screen.queryByText('Успешно классифицировано: 3')).not.toBeInTheDocument();
 });

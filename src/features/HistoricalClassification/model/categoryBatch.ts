@@ -22,6 +22,21 @@ export const categoryCandidates=(operations:readonly HistoryOperation[],decision
   seen.add(key);return [{operation,decision:stored,assignment:{...assignment}}];
  });
 };
+/** Income selection shares the same candidates and bounded writer as expenses. */
+export const incomeCandidates=(operations:readonly HistoryOperation[],decision:(op:HistoryOperation)=>ClassificationRead,hasRisk:(op:HistoryOperation)=>boolean,
+ rules:readonly ClassificationRule[]):CategoryCandidate[]=>{
+ const bySource=new Map<string,StableAssignment>();
+ for(const rule of rules){
+  if(rule.enabled&&rule.dataset==='incomes')bySource.set(normalizeMatch(rule.source),{economicRole:rule.economicRole,layer:null});
+ }
+ const seen=new Set<string>();
+ return operations.flatMap(operation=>{
+  if(operation.dataset!=='incomes')return [];
+  const stored=decision(operation),assignment=bySource.get(normalizeMatch(operation.facts.source??''));
+  if(seen.has(operation.operationId)||stored.status!=='unreviewed'||!assignment||hasRisk(operation))return [];
+  seen.add(operation.operationId);return [{operation,decision:stored,assignment:{...assignment}}];
+ });
+};
 export type BatchProgress={success:number;failed:number;unknown:number;started:number;total:number;skipped:number};
 /** Three bounded workers. Cancellation/current-session checks happen before EVERY
  * admission. No retry, mutation effect, preparation or alternative transport. */
