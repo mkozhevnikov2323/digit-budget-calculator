@@ -1,10 +1,12 @@
-import { Box, List, ListItem, ListItemText, Typography } from '@mui/material';
+import { Box, Button, List, ListItem, ListItemText, Typography } from '@mui/material';
 import React from 'react';
+import { Link as RouterLink } from 'react-router';
 
 const ProfilePage = (): React.ReactNode => {
   return (
     <Box p={3}>
       <Typography variant="h5">Профиль пользователя</Typography>
+      <Button component={RouterLink} to="/profile/classification-rules" sx={{ mt: 2 }}>Настройки автоматической классификации</Button>
       <Typography
         variant="subtitle1"
         mt={2}
