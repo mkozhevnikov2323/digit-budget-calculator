@@ -1,6 +1,6 @@
 import {createTheme} from '@mui/material';
 import {roleChip,layerChip} from '../chipColors';
-import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {MemoryRouter,useLocation,useNavigate} from 'react-router';
 import {Provider} from 'react-redux';
 import {configureStore} from '@reduxjs/toolkit';
@@ -10,11 +10,14 @@ import {ClassificationWorkspace} from '../ClassificationWorkspace';
 import {selectedPeriod} from 'features/FinancialAnalytics/model/tests/fixtures';
 import {useVerifiedOwner} from 'entities/User/model/useVerifiedOwner';
 import {useGetCoherentHistoryQuery} from '../../api/historyApi';
+import {useGetClassificationRulesQuery} from 'features/ClassificationRules/api/rulesApi';
+import type {ClassificationRule} from 'features/ClassificationRules/model/contract';
 import {putDecision} from '../../api/decisionClient';
 import type {CoherentHistory} from '../../model/coherentHistory';
 import type {ClassificationRead,ClassificationStatus} from '../../model/contract';
 import type {CalendarPeriod} from 'features/FinancialAnalytics/model/period';
 import {parseNavigation} from '../classificationNavigation';
+jest.mock('features/ClassificationRules/api/rulesApi',()=>({useGetClassificationRulesQuery:jest.fn()}));
 jest.mock('entities/User/model/useVerifiedOwner');jest.mock('../../api/decisionClient',()=>({putDecision:jest.fn()}));
 jest.mock('shared/api/baseApi',()=>({baseApi:{},apiBaseUrl:'https://fictional.invalid'}));
 jest.mock('../../api/historyApi',()=>({useGetCoherentHistoryQuery:jest.fn(),useGetOwnedHistoryQuery:()=>{throw Error('No duplicate membership loader');},useReadOperationClassificationQuery:()=>{throw Error('No per-row GET');}}));
@@ -26,6 +29,9 @@ const makeCohort=(n=105):CoherentHistory=>{
  const decisions=operations.map((op,i):ClassificationRead=>{const status=i<n?statuses[i%6]:'unreviewed';return {version:'classification-read-v1',dataset:op.dataset,operationId:op.operationId,status,storedState:status==='unreviewed'||status==='blocked'?null:status==='stale'?'approved':status,decisionRevision:status==='unreviewed'||status==='blocked'?null:1,confirmed:status==='approved'?{economicRole:'ordinary_expense',layer:'everyday'}:null,consistency:'observed_only_non_atomic'};});
  return {history:{owner:'a'.repeat(24),period:selectedPeriod(),operations},decisions,observationId:'one',observedAt:Date.now(),consistency:'observed_only_non_atomic'};
 };
+const rulesQuery=jest.mocked(useGetClassificationRulesQuery),reloadRules=jest.fn();
+const rule=(extra:Partial<Extract<ClassificationRule,{dataset:'expenses'}>>={}):ClassificationRule=>({_id:'1'.repeat(24),owner:'a'.repeat(24),dataset:'expenses',enabled:true,category:'Продукты',economicRole:'ordinary_expense',layer:'everyday',createdAt:'2026-01-01',updatedAt:'2026-01-01',...extra});
+let rulesData:ClassificationRule[],rulesRequest:string,rulesError:boolean,rulesLoading:boolean;
 let cohort:CoherentHistory;
 const Probe=()=>{const l=useLocation(),n=useNavigate();return <><output aria-label="URL">{l.search}</output><button onClick={()=>n(-1)}>Назад</button><button onClick={()=>n(1)}>Вперёд</button></>};
 const show=(entry='/analytics/classification?dataset=expenses',period:CalendarPeriod=selectedPeriod())=>{
@@ -33,7 +39,7 @@ const show=(entry='/analytics/classification?dataset=expenses',period:CalendarPe
  const Tree=({p}:{p:CalendarPeriod})=><Provider store={store}><AnalyticsPageContext.Provider value="classification"><MemoryRouter initialEntries={[entry]}><Probe/><ClassificationWorkspace period={p}/></MemoryRouter></AnalyticsPageContext.Provider></Provider>;
  return {...render(<Tree p={period}/>),Tree};
 };
-beforeEach(()=>{jest.clearAllMocks();cohort=makeCohort();owner.mockReturnValue({status:'verified',owner:{userId:'a'.repeat(24),sessionGeneration:1}});query.mockImplementation(()=>({currentData:cohort,requestId:'one',refetch} as ReturnType<typeof useGetCoherentHistoryQuery>));let sequence=0;Object.defineProperty(crypto,'randomUUID',{configurable:true,value:()=> `12345678-1234-4234-8234-${(++sequence).toString(16).padStart(12,'0')}`});});
+beforeEach(()=>{jest.clearAllMocks();rulesData=[rule()];rulesRequest='rules-1';rulesError=false;rulesLoading=false;rulesQuery.mockImplementation(()=>({currentData:rulesData,requestId:rulesRequest,isSuccess:!rulesError&&!rulesLoading,isFetching:rulesLoading,isLoading:rulesLoading,isError:rulesError,refetch:reloadRules} as ReturnType<typeof useGetClassificationRulesQuery>));cohort=makeCohort();owner.mockReturnValue({status:'verified',owner:{userId:'a'.repeat(24),sessionGeneration:1}});query.mockImplementation(()=>({currentData:cohort,requestId:'one',refetch} as ReturnType<typeof useGetCoherentHistoryQuery>));let sequence=0;Object.defineProperty(crypto,'randomUUID',{configurable:true,value:()=> `12345678-1234-4234-8234-${(++sequence).toString(16).padStart(12,'0')}`});});
 it('uses the complete batch for counters and exact filters, not only 25 visible rows',()=>{
  show();expect(screen.getByRole('button',{name:'Все (105)'})).toBeVisible();expect(screen.getByRole('button',{name:'Не классифицировано (18)'})).toBeVisible();expect(screen.getByRole('button',{name:'Классифицировано (18)'})).toBeVisible();
  expect(screen.queryByRole('button',{name:'Сначала новые'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Обновить историю'})).not.toBeInTheDocument();expect(screen.getByText('Расход 0 · Продукты')).toBeVisible();expect(screen.queryByText('Расход 25 · Продукты')).not.toBeInTheDocument();
@@ -96,4 +102,52 @@ it.each(['period','owner'] as const)('retires the batch on %s changes and never 
  if(change==='owner')owner.mockReturnValue({status:'verifying'});
  const period=change==='period'?{...selectedPeriod(),startInclusive:Date.parse('2024-01-01T00:00:00Z'),firstDate:'2024-01-01'}:selectedPeriod();view.rerender(<view.Tree p={period}/>);
  expect(put.mock.calls.every(c=>c[0].signal.aborted)).toBe(true);resolve.forEach(done=>done({ok:false,code:'session_changed'}));await Promise.resolve();await Promise.resolve();expect(put).toHaveBeenCalledTimes(3);expect(screen.queryByText('Успешно классифицировано: 3')).not.toBeInTheDocument();
+});
+
+it('previews separate title/group rows and writes each matched assignment only after confirmation',async()=>{
+ rulesData=[rule(),rule({_id:'2'.repeat(24),title:'  РАСХОД 0 ',category:' продукты ',layer:'emergency'})];
+ put.mockImplementation(async options=>({ok:true,decision:{...cohort.decisions.find(d=>d.operationId===options.operation.operationId)!,status:'approved',storedState:'approved',decisionRevision:1,confirmed:options.intent.assignment!}}));
+ show();expect(put).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));
+ const preview=screen.getByRole('table',{name:'Предпросмотр правил по категориям'});
+ expect(within(within(preview).getByText('Расход 0').closest('tr')!).getByText('Непредвиденные расходы')).toBeInTheDocument();
+ expect(within(within(preview).getByText('Расход 6').closest('tr')!).getByText('Повседневные расходы')).toBeInTheDocument();
+ expect(put).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Применить к 18 операциям'}));
+ await screen.findByText('Успешно классифицировано: 18');
+ expect(put.mock.calls.find(([args])=>args.operation.facts.title==='Расход 0')![0].intent.assignment?.layer).toBe('emergency');
+ expect(put.mock.calls.find(([args])=>args.operation.facts.title==='Расход 6')![0].intent.assignment?.layer).toBe('everyday');
+});
+it.each(['loading','error'] as const)('blocks preview when rule query is %s even if old rule data is present',state=>{
+ rulesLoading=state==='loading';rulesError=state==='error';show();
+ expect(screen.getByRole('button',{name:'Автоматически классифицировать'})).toBeDisabled();expect(put).not.toHaveBeenCalled();
+ if(state==='error'){expect(screen.getByText(/Не удалось загрузить правила расходов/)).toBeVisible();fireEvent.click(screen.getByRole('button',{name:'Повторить загрузку правил'}));expect(reloadRules).toHaveBeenCalledTimes(1);}
+});
+it('requires a new preview after rules change or reload and never applies the stale plan',async()=>{
+ const view=show();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));
+ rulesData=[rule({layer:'irregular'})];view.rerender(<view.Tree p={selectedPeriod()}/>);
+ expect(screen.getByRole('button',{name:'Применить к 18 операциям'})).toBeDisabled();expect(put).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Сформировать новый предпросмотр'}));
+ expect(screen.getByRole('button',{name:'Применить к 18 операциям'})).toBeEnabled();
+ expect(within(screen.getByRole('table',{name:'Предпросмотр правил по категориям'})).getAllByText('Нерегулярные расходы')).toHaveLength(18);
+ expect(put).not.toHaveBeenCalled();
+ rulesLoading=true;view.rerender(<view.Tree p={selectedPeriod()}/>);
+ expect(screen.getByRole('button',{name:'Применить к 18 операциям'})).toBeDisabled();
+ rulesLoading=false;rulesRequest='rules-2';view.rerender(<view.Tree p={selectedPeriod()}/>);
+ expect(screen.getByRole('button',{name:'Применить к 18 операциям'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Сформировать новый предпросмотр'}));
+ expect(screen.getByRole('button',{name:'Применить к 18 операциям'})).toBeEnabled();expect(put).not.toHaveBeenCalled();
+});
+it('uses no fallback when the next verified user has no saved rules',()=>{
+ const view=show();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));
+ owner.mockReturnValue({status:'verifying'});view.rerender(<view.Tree p={selectedPeriod()}/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+ owner.mockReturnValue({status:'verified',owner:{userId:'b'.repeat(24),sessionGeneration:1}});rulesData=[];rulesRequest='rules-b';
+ cohort={...cohort,history:{...cohort.history,owner:'b'.repeat(24)}};view.rerender(<view.Tree p={selectedPeriod()}/>);
+ expect(rulesQuery).toHaveBeenLastCalledWith({userId:'b'.repeat(24),sessionGeneration:1},{refetchOnMountOrArgChange:true});
+ fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));expect(screen.getByText('Найдено подходящих операций: 0')).toBeVisible();
+ expect(screen.getByRole('button',{name:'Применить к 0 операциям'})).toBeDisabled();expect(put).not.toHaveBeenCalled();
+});
+it('stops admitting writes when the rule snapshot is retired during an active batch',async()=>{
+ const resolve:Array<(value:Awaited<ReturnType<typeof putDecision>>)=>void>=[];put.mockImplementation(()=>new Promise(done=>resolve.push(done)));
+ const view=show();fireEvent.click(screen.getByRole('button',{name:'Автоматически классифицировать'}));fireEvent.click(screen.getByRole('button',{name:'Применить к 18 операциям'}));expect(put).toHaveBeenCalledTimes(3);
+ rulesLoading=true;view.rerender(<view.Tree p={selectedPeriod()}/>);expect(put.mock.calls.every(([args])=>args.signal.aborted)).toBe(true);
+ resolve.forEach(done=>done({ok:false,code:'unknown'}));await screen.findByText('Результат неизвестен — требуется проверка состояния: 3');expect(put).toHaveBeenCalledTimes(3);
 });

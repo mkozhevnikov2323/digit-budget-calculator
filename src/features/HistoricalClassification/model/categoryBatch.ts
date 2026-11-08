@@ -1,14 +1,23 @@
 import type { ClassificationRead, StableAssignment } from './contract';
 import type { HistoryOperation } from './history';
 import type { DecisionResult } from '../api/decisionClient';
-import { TEMPORARY_CATEGORY_RULES } from './temporaryCategoryRules';
+import type { ClassificationRule } from 'features/ClassificationRules/model/contract';
 export type CategoryCandidate={operation:HistoryOperation;decision:ClassificationRead;assignment:StableAssignment};
+const normalizeMatch=(value:string)=>value.trim().toLowerCase();
 export const categoryCandidates=(operations:readonly HistoryOperation[],decision:(op:HistoryOperation)=>ClassificationRead,hasRisk:(op:HistoryOperation)=>boolean,
- rules:readonly {category:string;assignment:StableAssignment}[]=TEMPORARY_CATEGORY_RULES):CategoryCandidate[]=>{
- const byCategory=new Map(rules.map(r=>[r.category,r.assignment]));const seen=new Set<string>();
+ rules:readonly ClassificationRule[]):CategoryCandidate[]=>{
+ const general=new Map<string,StableAssignment>(),specific=new Map<string,StableAssignment>();
+ for(const rule of rules){
+  if(!rule.enabled||rule.dataset!=='expenses')continue;
+  const category=normalizeMatch(rule.category),assignment:StableAssignment={economicRole:'ordinary_expense',layer:rule.layer};
+  if(rule.title===undefined)general.set(category,assignment);
+  else specific.set(JSON.stringify([category,normalizeMatch(rule.title)]),assignment);
+ }
+ const seen=new Set<string>();
  return operations.flatMap(operation=>{
   if(operation.dataset!=='expenses')return [];
-  const key=operation.operationId,stored=decision(operation),assignment=byCategory.get(operation.facts.category??'');
+  const category=normalizeMatch(operation.facts.category??''),title=normalizeMatch(operation.facts.title??'');
+  const key=operation.operationId,stored=decision(operation),assignment=specific.get(JSON.stringify([category,title]))??general.get(category);
   if(seen.has(key)||stored.status!=='unreviewed'||!assignment||hasRisk(operation))return [];
   seen.add(key);return [{operation,decision:stored,assignment:{...assignment}}];
  });

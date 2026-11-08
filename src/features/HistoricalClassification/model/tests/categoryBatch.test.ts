@@ -1,21 +1,35 @@
 import {categoryCandidates,runCategoryBatch,type CategoryCandidate} from '../categoryBatch';
-import {TEMPORARY_CATEGORY_RULES} from '../temporaryCategoryRules';
+import type {ClassificationRule} from 'features/ClassificationRules/model/contract';
+const rule=(extra:Partial<Extract<ClassificationRule,{dataset:'expenses'}>>={}):ClassificationRule=>({_id:'1'.repeat(24),owner:'a'.repeat(24),dataset:'expenses',enabled:true,category:'Продукты',economicRole:'ordinary_expense',layer:'everyday',createdAt:'2026-01-01',updatedAt:'2026-01-01',...extra});
+const rules=[rule()];
 import type {HistoryOperation} from '../history';
 import type {ClassificationRead} from '../contract';
 import type {DecisionResult} from '../../api/decisionClient';
 const op=(i:number,category='Продукты'):HistoryOperation=>({dataset:'expenses',operationId:i.toString(16).padStart(24,'0'),kopecks:100,timestamp:1736942400000,facts:{amount:1,date:'2025-01-15T12:00:00Z',category,title:'Synthetic',recipient:'Synthetic'}});
 const decision=(operation:HistoryOperation):ClassificationRead=>({version:'classification-read-v1',dataset:operation.dataset,operationId:operation.operationId,status:'unreviewed',storedState:null,decisionRevision:null,confirmed:null,consistency:'observed_only_non_atomic'});
-const candidates=(n=8)=>categoryCandidates(Array.from({length:n},(_,i)=>op(i)),decision,()=>false);
+const candidates=(n=8)=>categoryCandidates(Array.from({length:n},(_,i)=>op(i)),decision,()=>false,rules);
 const approved=(item:CategoryCandidate):DecisionResult=>({ok:true,decision:{...item.decision,status:'approved',storedState:'approved',decisionRevision:1,confirmed:item.assignment}});
-it('matches all eight temporary personal categories exactly and never title/amount/recipient',()=>{
- const expected=[['Продукты','everyday'],['Аптеки','irregular'],['Фастфуд','irregular'],['Чаевые','irregular'],['Подарки','irregular'],['Бар','irregular'],['Подписки','everyday'],['Такси','everyday']];
- expect(TEMPORARY_CATEGORY_RULES).toHaveLength(8);expected.forEach(([category,layer],i)=>expect(categoryCandidates([op(i,category)],decision,()=>false)[0].assignment).toEqual({economicRole:'ordinary_expense',layer}));
- for(const category of ['Транспорт','продукты','Продукты ',' Продукты','Продукты питания',''])expect(categoryCandidates([{...op(0,category),facts:{...op(0,category).facts,title:'Продукты',recipient:'Аптеки'}}],decision,()=>false)).toEqual([]);
+it('prioritizes normalized category/title over a general rule regardless of order',()=>{
+ const titled=rule({title:' Synthetic ',category:' ПРОДУКТЫ ',layer:'emergency'}),general=rule({layer:'irregular'});
+ for(const source of [[titled,general],[general,titled]]){
+  const specific=categoryCandidates([op(0,' продукты ')],decision,()=>false,source);
+  expect(specific[0].assignment).toEqual({economicRole:'ordinary_expense',layer:'emergency'});
+  const other={...op(1,'ПрОдУкТы'),facts:{...op(1).facts,category:'ПрОдУкТы',title:'Другой расход'}};
+  expect(categoryCandidates([other],decision,()=>false,source)[0].assignment.layer).toBe('irregular');
+ }
+});
+it('skips disabled/income rules and unmatched operations without temporary fallback',()=>{
+ const income:ClassificationRule={_id:'2'.repeat(24),owner:'a'.repeat(24),dataset:'incomes',enabled:true,source:'Продукты',economicRole:'ordinary_income',layer:null,createdAt:'2026-01-01',updatedAt:'2026-01-01'};
+ expect(categoryCandidates([op(0)],decision,()=>false,[])).toEqual([]);
+ expect(categoryCandidates([op(0)],decision,()=>false,[rule({enabled:false}),income])).toEqual([]);
+ expect(categoryCandidates([op(0,'Аптеки')],decision,()=>false,rules)).toEqual([]);
+ expect(categoryCandidates([op(0)],decision,()=>false,[rule({title:'Other'})])).toEqual([]);
+ expect(categoryCandidates([op(0)],decision,()=>false,[rule(),rule({title:'Synthetic',layer:'emergency',enabled:false})])[0].assignment.layer).toBe('everyday');
 });
 it('selects the full period, only unreviewed expenses and excludes shared write risk and duplicate identities',()=>{
- const records=Array.from({length:80},(_,i)=>op(i));const selected=categoryCandidates([...records,{...op(90),dataset:'incomes'},op(0)],o=>({...decision(o),status:o.operationId===op(5).operationId?'approved':'unreviewed'}),o=>o.operationId===op(6).operationId);
+ const records=Array.from({length:80},(_,i)=>op(i));const selected=categoryCandidates([...records,{...op(90),dataset:'incomes'},op(0)],o=>({...decision(o),status:o.operationId===op(5).operationId?'approved':'unreviewed'}),o=>o.operationId===op(6).operationId,rules);
  expect(selected).toHaveLength(78);expect(selected.some(c=>c.operation.operationId===op(79).operationId)).toBe(true);
- for(const status of ['approved','explicit_unclassified','cleared','stale','blocked'] as const)expect(categoryCandidates([op(0)],o=>({...decision(o),status}),()=>false)).toEqual([]);
+ for(const status of ['approved','explicit_unclassified','cleared','stale','blocked'] as const)expect(categoryCandidates([op(0)],o=>({...decision(o),status}),()=>false,rules)).toEqual([]);
 });
 it('uses at most three workers and never repeats or retries an item',async()=>{
  const items=candidates(7);const resolve:Array<()=>void>=[];let active=0,max=0;const write=jest.fn((item:CategoryCandidate)=>new Promise<DecisionResult>(done=>{active++;max=Math.max(max,active);resolve.push(()=>{active--;done(approved(item));});}));

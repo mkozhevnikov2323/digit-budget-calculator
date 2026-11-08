@@ -3,6 +3,7 @@ import {HistoricalClassification} from '../HistoricalClassification';
 import {selectedPeriod} from 'features/FinancialAnalytics/model/tests/fixtures';
 import {useVerifiedOwner} from 'entities/User/model/useVerifiedOwner';
 import {useGetOwnedHistoryQuery} from '../../api/historyApi';
+jest.mock('features/ClassificationRules/api/rulesApi',()=>({useGetClassificationRulesQuery:()=>{throw Error('No rule query on read-only history');}}));
 jest.mock('entities/User/model/useVerifiedOwner');
 jest.mock('shared/api/baseApi',()=>({baseApi:{},apiBaseUrl:'https://fictional.invalid'}));
 jest.mock('../../api/historyApi',()=>({useGetOwnedHistoryQuery:jest.fn(),useGetCoherentHistoryQuery:jest.fn(()=>{throw Error('No batches on read-only history');})}));
