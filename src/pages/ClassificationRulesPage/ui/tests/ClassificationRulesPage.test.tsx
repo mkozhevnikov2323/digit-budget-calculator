@@ -254,3 +254,17 @@ it('ignores a late write from the previous user and preserves the new user draft
   expect(screen.getByRole('combobox', { name: /Категория/ })).toHaveValue('Черновик B');
   expect(screen.getByRole('button', { name: 'Сохранить правило' })).toBeEnabled(); expect(screen.queryByRole('alert')).not.toBeInTheDocument(); expect(state.writes).toHaveLength(1);
 });
+
+it('keeps the editor open when cancel races the asynchronous submit validation', async () => {
+  const state = crudServer();
+  state.onWrite = () => Promise.resolve(reply({ message: 'Проверьте поля', persistence: 'not_applied' }, 400));
+  show(); await screen.findByText('Продукты');
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить правило' })); await enterExpense('Черновик');
+  act(() => { saveRule(); fireEvent.click(screen.getByRole('button', { name: 'Отмена' })); });
+  expect(await screen.findByRole('alert')).toHaveTextContent('400');
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: /Категория/ })).toHaveValue('Черновик');
+  expect(state.writes).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+});

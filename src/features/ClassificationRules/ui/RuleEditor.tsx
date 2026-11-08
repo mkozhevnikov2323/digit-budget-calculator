@@ -39,7 +39,8 @@ export const RuleEditor = ({ dataset, rule, busy, blocked, feedback, onClose, on
     else if (dataset === 'incomes' && values.source.trim() && INCOME_RULE_ROLES.some(role => role === values.economicRole) && values.economicRole)
       await onSave({ dataset, source: values.source.trim(), economicRole: values.economicRole, layer: null, enabled: rule?.enabled ?? true });
   });
-  return <Dialog open onClose={() => { if (!busy) onClose(); }} fullWidth maxWidth="sm" aria-labelledby="rule-editor-title">
+  const cancel = () => { if (!busy && !submitting.current) onClose(); };
+  return <Dialog open onClose={cancel} fullWidth maxWidth="sm" aria-labelledby="rule-editor-title">
     <form onSubmit={event => {
       if (submitting.current || busy || blocked) { event.preventDefault(); return; }
       submitting.current = true;
@@ -63,7 +64,7 @@ export const RuleEditor = ({ dataset, rule, busy, blocked, feedback, onClose, on
           </TextField>
         </>}
       </Stack></DialogContent>
-      <DialogActions><Button disabled={busy} onClick={onClose}>Отмена</Button><Button type="submit" disabled={busy || blocked || form.formState.isSubmitting || !form.formState.isValid}>{busy ? 'Сохранение…' : 'Сохранить правило'}</Button></DialogActions>
+      <DialogActions><Button disabled={busy || form.formState.isSubmitting} onClick={cancel}>Отмена</Button><Button type="submit" disabled={busy || blocked || form.formState.isSubmitting || !form.formState.isValid}>{busy ? 'Сохранение…' : 'Сохранить правило'}</Button></DialogActions>
     </form>
   </Dialog>;
 };
