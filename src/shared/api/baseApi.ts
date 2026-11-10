@@ -14,6 +14,8 @@ export const baseApi = createApi({
     'Income',
     'Classification',
     'ClassificationRule',
+    'ClassificationGroup',
+    'ClassificationGroupRule',
     'User',
     'Source',
     'Expense',

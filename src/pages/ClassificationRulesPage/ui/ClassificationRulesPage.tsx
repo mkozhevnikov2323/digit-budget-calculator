@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, Navigate } from 'react-router';
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
@@ -10,6 +10,8 @@ import { isCurrentSession } from 'shared/api/sessionBoundary';
 import { checkCredentialChange } from 'shared/api/credentialObservation';
 import { layerLabel, roleLabel } from 'shared/lib/analytics/presentation';
 
+import {classificationGroupsV3Enabled} from 'shared/config/classificationGroups';
+const GroupRulesPage=lazy(()=>import('features/ClassificationGroups/ui/RulesPage'));
 const Rules = ({ owner }: { owner: VerifiedOwner }) => {
   const [dataset, setDataset] = useState<'expenses' | 'incomes'>('expenses');
   const query = useGetClassificationRulesQuery(owner, { refetchOnMountOrArgChange: true });
@@ -82,7 +84,8 @@ const Rules = ({ owner }: { owner: VerifiedOwner }) => {
     </Dialog>
   </Stack>;
 };
-const ClassificationRulesPage = () => {
+const ClassificationRulesPage = () => classificationGroupsV3Enabled ? <Suspense fallback={<Typography>Загрузка правил…</Typography>}><GroupRulesPage /></Suspense> : <LegacyClassificationRulesPage />;
+const LegacyClassificationRulesPage = () => {
   const owner = useVerifiedOwner();
   return <Box p={3}>
     <Stack spacing={2}>

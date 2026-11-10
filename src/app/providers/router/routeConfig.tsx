@@ -10,6 +10,7 @@ import { ProfilePage } from 'pages/ProfilePage';
 import { NotFoundPage } from 'pages/NotFoundPage';
 import { Protected } from './ProtectedRoute';
 import { LoansPage } from 'pages/LoansPage';
+const ClassificationGroupsPage = lazy(() => import('features/ClassificationGroups/ui/GroupsPage'));
 const ClassificationRulesPage = lazy(() => import('pages/ClassificationRulesPage/ui/ClassificationRulesPage'));
 const AnalyticsDestination = lazy(() => import('pages/AnalyticsPage/ui/AnalyticsDestination').then(m => ({default:m.AnalyticsDestination})));
 import { analyticsPages } from 'features/AnalyticsState/model/slice';
@@ -32,6 +33,7 @@ export const enum AppRoutes {
   ANALYTICS = 'analytics',
   PROFILE = 'profile',
   CLASSIFICATION_RULES = 'classificationRules',
+  CLASSIFICATION_GROUPS = 'classificationGroups',
   NOT_FOUND = 'notFound',
 }
 
@@ -44,6 +46,7 @@ export const RoutePath: Record<AppRoutes, string> = {
   [AppRoutes.ANALYTICS]: '/analytics',
   [AppRoutes.PROFILE]: '/profile',
   [AppRoutes.CLASSIFICATION_RULES]: '/profile/classification-rules',
+  [AppRoutes.CLASSIFICATION_GROUPS]: '/profile/classification-groups',
   [AppRoutes.NOT_FOUND]: '*',
 };
 
@@ -107,6 +110,7 @@ export const routeConfig: Record<AppRoutes, RouteObject> = {
     path: RoutePath.classificationRules,
     element: <Protected><ClassificationRulesPage /></Protected>,
   },
+  [AppRoutes.CLASSIFICATION_GROUPS]: {path: RoutePath.classificationGroups, element: <Protected><ClassificationGroupsPage /></Protected>},
   [AppRoutes.NOT_FOUND]: {
     path: RoutePath.notFound,
     element: <NotFoundPage />,

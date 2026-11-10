@@ -1,5 +1,6 @@
 import { Box, Button, List, ListItem, ListItemText, Typography } from '@mui/material';
 import React from 'react';
+import {classificationGroupsV3Enabled} from 'shared/config/classificationGroups';
 import { Link as RouterLink } from 'react-router';
 
 const ProfilePage = (): React.ReactNode => {
@@ -7,6 +8,7 @@ const ProfilePage = (): React.ReactNode => {
     <Box p={3}>
       <Typography variant="h5">Профиль пользователя</Typography>
       <Button component={RouterLink} to="/profile/classification-rules" sx={{ mt: 2 }}>Настройки автоматической классификации</Button>
+      {classificationGroupsV3Enabled && <Button component={RouterLink} to="/profile/classification-groups" sx={{ mt: 2 }}>Управление группами доходов и расходов</Button>}
       <Typography
         variant="subtitle1"
         mt={2}

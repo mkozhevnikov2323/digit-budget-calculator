@@ -1,6 +1,6 @@
 import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
 import { layerLabel } from 'shared/lib/analytics/presentation';
-import { useId, useMemo, useState } from 'react';
+import {lazy,Suspense, useId, useMemo, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Alert, Button, CircularProgress, Paper, Stack, Table, TableContainer, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
@@ -45,7 +45,10 @@ export const RecordedStatisticsReport = ({ cohort, onRetry }: { cohort: Coherent
   </Stack>;
 };
 
-export const RealClassificationStatistics = ({ period, mode = 'statistics' }: { period: CalendarPeriod | null; mode?:'statistics'|'planning' }) => {
+import {classificationGroupsV3Enabled} from 'shared/config/classificationGroups';
+const GroupStatistics=lazy(()=>import('features/ClassificationGroups/ui/Statistics'));
+export const RealClassificationStatistics = ({period,mode='statistics'}:{period:CalendarPeriod|null;mode?:'statistics'|'planning'})=>classificationGroupsV3Enabled?<Suspense fallback={<Typography>Загрузка статистики…</Typography>}><GroupStatistics period={period} mode={mode}/></Suspense>:<LegacyRealClassificationStatistics period={period} mode={mode}/>;
+const LegacyRealClassificationStatistics = ({ period, mode = 'statistics' }: { period: CalendarPeriod | null; mode?:'statistics'|'planning' }) => {
   const owner = useVerifiedOwner(), instance = useId(), [open, setOpen] = useAnalyticsState('historyOpen',false);
   const [suggestion, setSuggestion] = useState<RecordedForecastSuggestion | null>(null);
   const userId = owner.status === 'verified' ? owner.owner.userId : undefined;
