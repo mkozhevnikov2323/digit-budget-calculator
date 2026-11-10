@@ -13,14 +13,14 @@ const bounded = async (promise, ms, label) => {
     timer = setTimeout(() => reject(new Error(`E2E lifecycle timeout: ${label}`)), ms);
   })]); } finally { clearTimeout(timer); }
 };
-async function startBackend(defaultOff) {
+async function startBackend(defaultOff, groupsV3) {
   const manifest = JSON.parse(fs.readFileSync(new URL('./backend-revision.json', import.meta.url), 'utf8'));
   const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: backendRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   expect(head === manifest.commit, 'Backend must be at the reviewed immutable revision').toBe(true);
   const child = fork(path.join(backendRoot, 'tests/browser/server.cjs'), [], {
     cwd: backendRoot, stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     execArgv: ['--require', path.join(root, 'e2e/c-preload.cjs')],
-    env: { ...process.env, BUDGET_BROWSER_TEST: '1', BUDGET_BROWSER_DEFAULT_OFF: defaultOff ? '1' : '0' },
+    env: { ...process.env, BUDGET_BROWSER_TEST: '1', BUDGET_BROWSER_DEFAULT_OFF: defaultOff ? '1' : '0', BUDGET_BROWSER_GROUPS_TEST: groupsV3 ? '1' : '0' },
   });
   const exited = once(child, 'exit'); let sequence = 0; const pending = new Map();
   let readyResolve, readyReject;
@@ -54,6 +54,7 @@ async function startBackend(defaultOff) {
   }
 }
 export const test = base.extend({
+  groupsV3: [false, { option: true }],
   context: async ({ context, stack }, use) => {
     // Fail closed if frontend configuration ever points outside this test stack.
     const allowed = new Set(['http://localhost:5173', stack.baseUrl]);
@@ -63,12 +64,12 @@ export const test = base.extend({
     });
     await use(context);
   },
-  stack: async ({}, use, testInfo) => {
+  stack: async ({groupsV3}, use, testInfo) => {
     let backend, vite;
     try {
-      backend = await startBackend(testInfo.title.startsWith('E2E-14'));
+      backend = await startBackend(testInfo.title.startsWith('E2E-14'), groupsV3);
       vite = await createServer({ root, envDir: false, logLevel: 'silent',
-        define: { 'import.meta.env.VITE_API_URL': JSON.stringify(backend.baseUrl) },
+        define: { 'import.meta.env.VITE_API_URL': JSON.stringify(backend.baseUrl), '__CLASSIFICATION_GROUPS_V3__': JSON.stringify(groupsV3) },
         server: { host: '127.0.0.1', port: 5173, strictPort: true, open: false },
       });
       await bounded(vite.listen(), 15000, 'Vite startup');

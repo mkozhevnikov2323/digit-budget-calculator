@@ -1,6 +1,6 @@
 import { useAnalyticsState } from 'features/AnalyticsState/model/useAnalyticsState';
 import { dateLabel } from 'shared/lib/analytics/presentation';
-import { useId, useMemo, useState } from 'react';
+import { lazy, Suspense, useId, useMemo, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Alert, Button, Stack, Tabs, Tab, Typography, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { useVerifiedOwner } from 'entities/User/model/useVerifiedOwner';
@@ -9,7 +9,9 @@ import type { HistoryOperation } from '../model/history';
 import { useGetOwnedHistoryQuery, type DecisionQuery } from '../api/historyApi';
 import { OperationRow } from './OperationRow';
 import { ClassificationWorkspace } from './ClassificationWorkspace';
-export const HistoricalClassification = ({period,readOnly=false}:{period:CalendarPeriod;readOnly?:boolean}) => readOnly ? <ReadOnlyHistory period={period} readOnly /> : <ClassificationWorkspace period={period}/>;
+import {classificationGroupsV3Enabled} from 'shared/config/classificationGroups';
+const GroupWorkspace=lazy(()=>import('features/ClassificationGroups/ui/Workspace'));
+export const HistoricalClassification = ({period,readOnly=false}:{period:CalendarPeriod;readOnly?:boolean}) => classificationGroupsV3Enabled ? <Suspense fallback={<Typography>Загрузка классификации v3…</Typography>}><GroupWorkspace period={period} readOnly={readOnly}/></Suspense> : readOnly ? <ReadOnlyHistory period={period} readOnly /> : <ClassificationWorkspace period={period}/>;
 
 
 const ReadOnlyHistory = ({ period, readOnly = false }: { period: CalendarPeriod; readOnly?: boolean }) => {

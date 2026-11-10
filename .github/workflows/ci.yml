@@ -34,6 +34,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build explicitly enabled v3 artifact without activating services
+        env:
+          VITE_CLASSIFICATION_GROUPS_V3_ENABLED: 'true'
+        run: npm run build
+
       # P12 measures the full suite locally and runs every existing regression.
       # No retries, exclusions or increased Jest per-test deadlines.
       - name: Full financial modal session and integrity regressions
@@ -128,6 +133,24 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, fs.readFileSync("e2e-results/summary.md", "utf8"));
           '
 
+      - name: Custom groups v3 real browser and disposable persistence
+        env:
+          BUDGET_E2E_BACKEND: ${{ github.workspace }}/backend
+          BUDGET_BROWSER_LOCAL_PROVIDER: '1'
+          MONGODB_INTEGRATION_TEST: '1'
+          MONGODB_TEST_BASE_URI: mongodb://127.0.0.1:27017
+          TZ: UTC
+        run: npm run test:e2e:groups
+
+      - name: Enforce complete custom groups browser results
+        if: ${{ !cancelled() }}
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const s = JSON.parse(fs.readFileSync("groups-e2e-results/summary.json", "utf8"));
+            if (!s.complete || s.expected !== 2 || s.executed !== 2 || s.passed !== 2 || s.tests.some(t => !t.pass || !t.cleanupVerified || t.status !== "passed")) throw Error("Incomplete groups browser run");
+          '
+
       - name: Real browser mutation and late-response integrity scenarios
         env:
           BUDGET_E2E_BACKEND: ${{ github.workspace }}/backend
@@ -160,6 +183,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: browser-e2e-results
-          path: frontend/e2e-results/
+          path: |
+            frontend/e2e-results/
+            frontend/groups-e2e-results/
           if-no-files-found: error
           retention-days: 5

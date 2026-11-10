@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
-  testDir: './e2e', testMatch: '**/*.spec.mjs', fullyParallel: false, workers: 1,
+  testDir: './e2e', testMatch: 'financial-cycle.spec.mjs', fullyParallel: false, workers: 1,
   forbidOnly: Boolean(process.env.CI), retries: 0, timeout: 90000,
   expect: { timeout: 10000 }, globalTimeout: 12 * 60 * 1000,
   reporter: [['./e2e/safe-reporter.mjs']], outputDir: 'test-results',

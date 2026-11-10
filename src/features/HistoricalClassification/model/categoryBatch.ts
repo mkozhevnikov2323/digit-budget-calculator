@@ -1,6 +1,6 @@
 import type { ClassificationRead, StableAssignment } from './contract';
 import type { HistoryOperation } from './history';
-import type { DecisionResult } from '../api/decisionClient';
+
 import type { ClassificationRule } from 'features/ClassificationRules/model/contract';
 export type CategoryCandidate={operation:HistoryOperation;decision:ClassificationRead;assignment:StableAssignment};
 const normalizeMatch=(value:string)=>value.trim().toLowerCase();
@@ -40,9 +40,9 @@ export const incomeCandidates=(operations:readonly HistoryOperation[],decision:(
 export type BatchProgress={success:number;failed:number;unknown:number;started:number;total:number;skipped:number};
 /** Three bounded workers. Cancellation/current-session checks happen before EVERY
  * admission. No retry, mutation effect, preparation or alternative transport. */
-export const runCategoryBatch=async(candidates:readonly CategoryCandidate[],options:{
+export const runCategoryBatch=async<C extends {operation:HistoryOperation}, D extends {status:string}>(candidates:readonly C[],options:{
  current:()=>boolean;acquire:(op:HistoryOperation)=>boolean;clear:(op:HistoryOperation)=>void;
- write:(candidate:CategoryCandidate)=>Promise<DecisionResult>;accepted:(decision:ClassificationRead)=>void;progress:(value:BatchProgress)=>void;
+ write:(candidate:C)=>Promise<{ok:true;decision:D}|{ok:false;code:'conflict'|'unknown'|'unavailable'|'session_changed'}>;accepted:(decision:D)=>void;progress:(value:BatchProgress)=>void;
 }):Promise<BatchProgress>=>{
  const result:BatchProgress={success:0,failed:0,unknown:0,started:0,total:candidates.length,skipped:0};let next=0,sessionChanged=false;const seen=new Set<string>();
  const publish=()=>options.progress({...result});
@@ -51,7 +51,7 @@ export const runCategoryBatch=async(candidates:readonly CategoryCandidate[],opti
    const item=candidates[next++],key=`${item.operation.dataset}/${item.operation.operationId}`;
    if(seen.has(key)||!options.acquire(item.operation)){result.failed++;result.skipped++;publish();continue;}
    seen.add(key);result.started++;publish();
-   let response:DecisionResult;
+   let response:{ok:true;decision:D}|{ok:false;code:'conflict'|'unknown'|'unavailable'|'session_changed'};
    try{response=await options.write(item);}catch{response={ok:false,code:'unknown'};}
    if(!options.current()){result.unknown++;publish();continue;}
    if(response.ok){options.clear(item.operation);options.accepted(response.decision);if(response.decision.status==='approved')result.success++;else result.failed++;}
